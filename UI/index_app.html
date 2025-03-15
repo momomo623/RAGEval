@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG评测系统 - 原型展示</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        .prototype-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            gap: 20px;
+        }
+        .prototype-item {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .prototype-title {
+            padding: 10px;
+            background-color: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+            font-weight: 600;
+        }
+        iframe {
+            width: 100%;
+            height: 600px;
+            border: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <header class="bg-blue-600 text-white p-4">
+        <div class="container mx-auto">
+            <h1 class="text-2xl font-bold">RAG评测系统 - 界面原型</h1>
+            <p class="text-sm mt-1">基于功能设计文档的高保真界面原型</p>
+        </div>
+    </header>
+
+    <main class="container mx-auto py-8 px-4">
+        <div class="prototype-container">
+            <div class="prototype-item">
+                <div class="prototype-title">登录/注册界面</div>
+                <iframe src="login.html"></iframe>
+            </div>
+            <div class="prototype-item">
+                <div class="prototype-title">项目仪表盘</div>
+                <iframe src="dashboard.html"></iframe>
+            </div>
+            <div class="prototype-item">
+                <div class="prototype-title">创建项目</div>
+                <iframe src="create-project.html"></iframe>
+            </div>
+            <div class="prototype-item">
+                <div class="prototype-title">问答数据管理</div>
+                <iframe src="qa-management.html"></iframe>
+            </div>
+            <div class="prototype-item">
+                <div class="prototype-title">问答生成</div>
+                <iframe src="qa-generation.html"></iframe>
+            </div>
+            <div class="prototype-item">
+                <div class="prototype-title">RAG回答收集</div>
+                <iframe src="rag-collection.html"></iframe>
+            </div>
+            <div class="prototype-item">
+                <div class="prototype-title">自动评测配置</div>
+                <iframe src="auto-evaluation.html"></iframe>
+            </div>
+            <div class="prototype-item">
+                <div class="prototype-title">人工评测界面</div>
+                <iframe src="manual-evaluation.html"></iframe>
+            </div>
+            <div class="prototype-item">
+                <div class="prototype-title">评测报告</div>
+                <iframe src="evaluation-report.html"></iframe>
+            </div>
+            <div class="prototype-item">
+                <div class="prototype-title">用户设置</div>
+                <iframe src="user-settings.html"></iframe>
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-gray-800 text-white p-4 mt-8">
+        <div class="container mx-auto text-center">
+            <p>RAG评测系统原型 &copy; 2023</p>
+        </div>
+    </footer>
+</body>
+</html> 

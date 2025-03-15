@@ -1,0 +1,7 @@
+{
+    "python.pythonPath": "/Users/chongwen/miniforge3/envs/rag-e/bin/python",
+    "python.languageServer": "Pylance",
+    "python.analysis.typeCheckingMode": "basic",
+    "editor.suggestSelection": "first",
+    "editor.tabCompletion": "on"
+  }
