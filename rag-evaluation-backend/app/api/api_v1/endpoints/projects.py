@@ -77,11 +77,18 @@ def update_project_api(
     """
     更新项目
     """
+    print(f"DEBUG - 更新项目: 项目ID={project_id}, 用户ID={current_user.id}")
+    
     project = get_project(db, project_id=project_id)
     if not project:
-        raise HTTPException(status_code=404, detail="项目未找到")
-    if project.user_id != current_user.id and not current_user.is_admin:
+        print(f"DEBUG - 项目不存在: {project_id}")
+        raise HTTPException(status_code=404, detail="项目不存在")
+    
+    # 检查权限（只有项目创建者可以修改）
+    if str(project.user_id) != str(current_user.id):
+        print(f"DEBUG - 无权限: 项目创建者ID={project.user_id}, 当前用户ID={current_user.id}")
         raise HTTPException(status_code=403, detail="无权限操作此项目")
+    
     project = update_project(db, db_obj=project, obj_in=project_in)
     return project
 
@@ -98,7 +105,7 @@ def delete_project_api(
     project = get_project(db, project_id=project_id)
     if not project:
         raise HTTPException(status_code=404, detail="项目未找到")
-    if project.user_id != current_user.id and not current_user.is_admin:
+    if str(project.user_id) != str(current_user.id) and not current_user.is_admin:
         raise HTTPException(status_code=403, detail="无权限删除此项目")
     project = delete_project(db, project_id=project_id)
     return {"detail": "项目已删除"} 

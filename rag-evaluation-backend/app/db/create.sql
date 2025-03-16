@@ -1,309 +1,488 @@
--- 表设计思路说明
--- 1. users表
--- 用于存储用户信息，包括认证信息和个人资料。遵循了最小化原则，只存储了必要的用户信息。使用UUID作为主键，提高安全性和分布式环境的兼容性。
--- 2. api_keys表
--- 存储用户的API密钥，方便用户管理不同服务提供商的密钥。这允许用户为不同的评测项目使用不同的API密钥，也便于管理密钥的有效性。
--- 3. projects表
--- 核心表，代表用户创建的评测项目。每个项目有自己的名称、描述和评分方法，并通过status字段跟踪项目的进度状态。
--- 4. evaluation_dimensions表
--- 存储项目的评测维度，如准确性、相关性等。设计为与项目关联，并且可配置权重，这样不同项目可以有不同的评测维度和权重配置。
--- 5. questions表
--- 存储项目中的问题和标准答案。通过project_id与项目关联，支持对问题进行分类和难度标记，便于分析不同类型问题的评测结果。
--- 6. api_configs表
--- 存储RAG系统的API配置信息，包括终端点、认证方式、请求格式等。使用JSONB类型存储请求格式模板，提供灵活性。
--- 7. rag_answers表
--- 存储RAG系统的回答，与问题一一对应。同时存储原始响应，便于后续分析和调试。支持通过API收集或手动导入的方式。
--- 8. evaluations表
--- 存储每个维度的评测结果。设计为每个(问题,回答,维度)组合一条记录，便于细粒度分析。同时记录评测方式(自动或人工)和评测理由。
--- 9. performance_metrics表
--- 存储性能测试指标，特别关注响应时间和生成速度等。支持记录并发测试场景下的性能表现，为RAG系统的性能优化提供依据。
--- 10. system_settings表
--- 存储用户级别的系统配置，如默认评测模型、界面偏好等。采用键值对设计，提供扩展性。
--- 11. shared_projects表
--- 支持项目共享功能，允许多用户协作评测。通过权限控制，可灵活设置其他用户对项目的访问权限。
--- 设计要点
--- 使用UUID作为主键：提高安全性，避免ID暴露业务信息，便于分布式部署
--- 添加时间戳：所有表都包含created_at字段，便于数据审计和历史追踪
--- 使用JSONB类型：存储复杂结构的数据，如API响应和配置，兼顾性能和灵活性
--- 外键关系：确保数据完整性，使用CASCADE删除规则简化级联操作
--- 完整注释：为表和字段添加详细注释，提高代码可维护性
--- 枚举字段：对状态和类型等字段使用字符串枚举，增强可读性和兼容性
--- 7. 分表设计：将不同功能的数据分表存储，如将评测维度和评测结果分开，提高查询效率
--- 这个数据库结构设计充分考虑了RAG评测系统的功能需求，支持多维度评测、性能测试、多用户协作等核心特性，同时具有良好的扩展性和可维护性。
-
--- 创建数据库
-CREATE DATABASE rag_evaluation;
-
--- 连接到数据库
-\c rag_evaluation
-
--- 创建UUID扩展
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
--- 创建用户表
-CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    email VARCHAR(255) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
-    name VARCHAR(100),
-    company VARCHAR(100),
-    bio TEXT,
-    avatar_url VARCHAR(255),
-    is_active BOOLEAN DEFAULT TRUE,
-    is_admin BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+create table if not exists public.users
+(
+    id            uuid                     default uuid_generate_v4() not null
+        primary key,
+    email         varchar(255)                                        not null
+        unique,
+    password_hash varchar(255)                                        not null,
+    name          varchar(100),
+    company       varchar(100),
+    bio           text,
+    avatar_url    varchar(255),
+    is_active     boolean                  default true,
+    is_admin      boolean                  default false,
+    created_at    timestamp with time zone default now(),
+    updated_at    timestamp with time zone default now()
 );
-COMMENT ON TABLE users IS '用户信息表';
-COMMENT ON COLUMN users.id IS '用户唯一标识';
-COMMENT ON COLUMN users.email IS '用户邮箱，作为登录名';
-COMMENT ON COLUMN users.password_hash IS '加密后的密码';
-COMMENT ON COLUMN users.name IS '用户姓名';
-COMMENT ON COLUMN users.company IS '公司/组织名称';
-COMMENT ON COLUMN users.bio IS '个人简介';
-COMMENT ON COLUMN users.avatar_url IS '头像URL';
-COMMENT ON COLUMN users.is_active IS '账户是否激活';
-COMMENT ON COLUMN users.is_admin IS '是否为管理员';
-COMMENT ON COLUMN users.created_at IS '创建时间';
-COMMENT ON COLUMN users.updated_at IS '最后更新时间';
 
--- 创建API密钥表
-CREATE TABLE api_keys (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    name VARCHAR(100) NOT NULL,
-    key VARCHAR(100) NOT NULL UNIQUE,
-    provider VARCHAR(50) NOT NULL, -- OpenAI, Anthropic等
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+comment on table public.users is '用户信息表';
+
+comment on column public.users.id is '用户唯一标识';
+
+comment on column public.users.email is '用户邮箱，作为登录名';
+
+comment on column public.users.password_hash is '加密后的密码';
+
+comment on column public.users.name is '用户姓名';
+
+comment on column public.users.company is '公司/组织名称';
+
+comment on column public.users.bio is '个人简介';
+
+comment on column public.users.avatar_url is '头像URL';
+
+comment on column public.users.is_active is '账户是否激活';
+
+comment on column public.users.is_admin is '是否为管理员';
+
+comment on column public.users.created_at is '创建时间';
+
+comment on column public.users.updated_at is '最后更新时间';
+
+alter table public.users
+    owner to postgres;
+
+create table if not exists public.api_keys
+(
+    id         uuid                     default uuid_generate_v4() not null
+        primary key,
+    user_id    uuid                                                not null
+        references public.users
+            on delete cascade,
+    name       varchar(100)                                        not null,
+    key        varchar(100)                                        not null
+        unique,
+    provider   varchar(50)                                         not null,
+    is_active  boolean                  default true,
+    created_at timestamp with time zone default now(),
+    updated_at timestamp with time zone default now()
 );
-COMMENT ON TABLE api_keys IS '用户API密钥表';
-COMMENT ON COLUMN api_keys.id IS '密钥唯一标识';
-COMMENT ON COLUMN api_keys.user_id IS '关联的用户ID';
-COMMENT ON COLUMN api_keys.name IS '密钥名称';
-COMMENT ON COLUMN api_keys.key IS '加密存储的API密钥';
-COMMENT ON COLUMN api_keys.provider IS 'API提供商';
-COMMENT ON COLUMN api_keys.is_active IS '密钥是否可用';
-COMMENT ON COLUMN api_keys.created_at IS '创建时间';
-COMMENT ON COLUMN api_keys.updated_at IS '最后更新时间';
 
--- 创建项目表
-CREATE TABLE projects (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    name VARCHAR(100) NOT NULL,
-    description TEXT,
-    status VARCHAR(20) NOT NULL DEFAULT 'created', -- created, in_progress, completed
-    scoring_method VARCHAR(20) NOT NULL DEFAULT 'three_scale', -- binary, three_scale, five_scale
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+comment on table public.api_keys is '用户API密钥表';
+
+comment on column public.api_keys.id is '密钥唯一标识';
+
+comment on column public.api_keys.user_id is '关联的用户ID';
+
+comment on column public.api_keys.name is '密钥名称';
+
+comment on column public.api_keys.key is '加密存储的API密钥';
+
+comment on column public.api_keys.provider is 'API提供商';
+
+comment on column public.api_keys.is_active is '密钥是否可用';
+
+comment on column public.api_keys.created_at is '创建时间';
+
+comment on column public.api_keys.updated_at is '最后更新时间';
+
+alter table public.api_keys
+    owner to postgres;
+
+create table if not exists public.projects
+(
+    id                uuid                     default uuid_generate_v4()           not null
+        primary key,
+    user_id           uuid                                                          not null
+        references public.users
+            on delete cascade,
+    name              varchar(100)                                                  not null,
+    description       text,
+    status            varchar(20)              default 'created'::character varying not null,
+    scoring_scale     varchar(20)              default '1-5'::character varying     not null,
+    created_at        timestamp with time zone default now(),
+    updated_at        timestamp with time zone default now(),
+    evaluation_method varchar(20)              default 'auto'::character varying    not null,
+    settings          jsonb                    default '{}'::jsonb,
+    public            boolean                  default false
 );
-COMMENT ON TABLE projects IS '评测项目表';
-COMMENT ON COLUMN projects.id IS '项目唯一标识';
-COMMENT ON COLUMN projects.user_id IS '项目创建者ID';
-COMMENT ON COLUMN projects.name IS '项目名称';
-COMMENT ON COLUMN projects.description IS '项目描述';
-COMMENT ON COLUMN projects.status IS '项目状态: created(已创建), in_progress(进行中), completed(已完成)';
-COMMENT ON COLUMN projects.scoring_method IS '评分方法: binary(二元评分), three_scale(三分量表), five_scale(五分量表)';
-COMMENT ON COLUMN projects.created_at IS '创建时间';
-COMMENT ON COLUMN projects.updated_at IS '最后更新时间';
 
--- 创建评测维度表
-CREATE TABLE evaluation_dimensions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    name VARCHAR(50) NOT NULL, -- accuracy, relevance, completeness, conciseness
-    display_name VARCHAR(50) NOT NULL, -- 准确性, 相关性, 完整性, 简洁性
-    description TEXT,
-    weight DECIMAL(3,2) NOT NULL DEFAULT 1.0, -- 权重, 默认为1
-    is_enabled BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+comment on table public.projects is '评测项目表';
+
+comment on column public.projects.id is '项目唯一标识';
+
+comment on column public.projects.user_id is '项目创建者ID';
+
+comment on column public.projects.name is '项目名称';
+
+comment on column public.projects.description is '项目描述';
+
+comment on column public.projects.status is '项目状态: created(已创建), in_progress(进行中), completed(已完成)';
+
+comment on column public.projects.scoring_scale is '评分方法: binary(二元评分), three_scale(三分量表), five_scale(五分量表)';
+
+comment on column public.projects.created_at is '创建时间';
+
+comment on column public.projects.updated_at is '最后更新时间';
+
+alter table public.projects
+    owner to postgres;
+
+create table if not exists public.evaluation_dimensions
+(
+    id           uuid                     default uuid_generate_v4() not null
+        primary key,
+    project_id   uuid                                                not null
+        references public.projects
+            on delete cascade,
+    name         varchar(50)                                         not null,
+    display_name varchar(50)                                         not null,
+    description  text,
+    weight       numeric(3, 2)            default 1.0                not null,
+    is_enabled   boolean                  default true,
+    created_at   timestamp with time zone default now()
 );
-COMMENT ON TABLE evaluation_dimensions IS '评测维度表';
-COMMENT ON COLUMN evaluation_dimensions.id IS '维度唯一标识';
-COMMENT ON COLUMN evaluation_dimensions.project_id IS '关联的项目ID';
-COMMENT ON COLUMN evaluation_dimensions.name IS '维度名称(英文)';
-COMMENT ON COLUMN evaluation_dimensions.display_name IS '显示名称(中文)';
-COMMENT ON COLUMN evaluation_dimensions.description IS '维度描述';
-COMMENT ON COLUMN evaluation_dimensions.weight IS '维度权重';
-COMMENT ON COLUMN evaluation_dimensions.is_enabled IS '是否启用该维度';
-COMMENT ON COLUMN evaluation_dimensions.created_at IS '创建时间';
 
--- 创建问题表
-CREATE TABLE questions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    question TEXT NOT NULL,
-    standard_answer TEXT NOT NULL,
-    category VARCHAR(50), -- 可选的问题分类
-    difficulty VARCHAR(20), -- easy, medium, hard
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+comment on table public.evaluation_dimensions is '评测维度表';
+
+comment on column public.evaluation_dimensions.id is '维度唯一标识';
+
+comment on column public.evaluation_dimensions.project_id is '关联的项目ID';
+
+comment on column public.evaluation_dimensions.name is '维度名称(英文)';
+
+comment on column public.evaluation_dimensions.display_name is '显示名称(中文)';
+
+comment on column public.evaluation_dimensions.description is '维度描述';
+
+comment on column public.evaluation_dimensions.weight is '维度权重';
+
+comment on column public.evaluation_dimensions.is_enabled is '是否启用该维度';
+
+comment on column public.evaluation_dimensions.created_at is '创建时间';
+
+alter table public.evaluation_dimensions
+    owner to postgres;
+
+create table if not exists public.questions
+(
+    id                uuid                     default uuid_generate_v4() not null
+        primary key,
+    project_id        uuid                                                not null
+        references public.projects
+            on delete cascade,
+    question_text     text                                                not null,
+    standard_answer   text                                                not null,
+    category          varchar(50),
+    difficulty        varchar(20),
+    created_at        timestamp with time zone default now(),
+    updated_at        timestamp with time zone default now(),
+    type              varchar(50),
+    tags              jsonb                    default '[]'::jsonb,
+    question_metadata jsonb                    default '{}'::jsonb
 );
-COMMENT ON TABLE questions IS '问题和标准答案表';
-COMMENT ON COLUMN questions.id IS '问题唯一标识';
-COMMENT ON COLUMN questions.project_id IS '关联的项目ID';
-COMMENT ON COLUMN questions.question IS '问题内容';
-COMMENT ON COLUMN questions.standard_answer IS '标准答案';
-COMMENT ON COLUMN questions.category IS '问题分类';
-COMMENT ON COLUMN questions.difficulty IS '问题难度';
-COMMENT ON COLUMN questions.created_at IS '创建时间';
-COMMENT ON COLUMN questions.updated_at IS '最后更新时间';
 
--- 创建API配置表
-CREATE TABLE api_configs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    endpoint_url VARCHAR(255) NOT NULL,
-    auth_type VARCHAR(20) NOT NULL DEFAULT 'none', -- none, api_key, basic_auth
-    api_key VARCHAR(255),
-    username VARCHAR(100),
-    password VARCHAR(255),
-    request_format JSONB,
-    response_path VARCHAR(255),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+comment on table public.questions is '问题和标准答案表';
+
+comment on column public.questions.id is '问题唯一标识';
+
+comment on column public.questions.project_id is '关联的项目ID';
+
+comment on column public.questions.question_text is '问题内容';
+
+comment on column public.questions.standard_answer is '标准答案';
+
+comment on column public.questions.category is '问题分类';
+
+comment on column public.questions.difficulty is '问题难度';
+
+comment on column public.questions.created_at is '创建时间';
+
+comment on column public.questions.updated_at is '最后更新时间';
+
+alter table public.questions
+    owner to postgres;
+
+create table if not exists public.api_configs
+(
+    id             uuid                     default uuid_generate_v4()        not null
+        primary key,
+    project_id     uuid                                                       not null
+        references public.projects
+            on delete cascade,
+    endpoint_url   varchar(255)                                               not null,
+    auth_type      varchar(20)              default 'none'::character varying not null,
+    api_key        varchar(255),
+    username       varchar(100),
+    password       varchar(255),
+    request_format jsonb,
+    response_path  varchar(255),
+    created_at     timestamp with time zone default now(),
+    updated_at     timestamp with time zone default now()
 );
-COMMENT ON TABLE api_configs IS 'RAG系统API配置表';
-COMMENT ON COLUMN api_configs.id IS '配置唯一标识';
-COMMENT ON COLUMN api_configs.project_id IS '关联的项目ID';
-COMMENT ON COLUMN api_configs.endpoint_url IS 'API端点URL';
-COMMENT ON COLUMN api_configs.auth_type IS '认证类型: none(无), api_key(API密钥), basic_auth(基本认证)';
-COMMENT ON COLUMN api_configs.api_key IS 'API密钥(如果使用)';
-COMMENT ON COLUMN api_configs.username IS '用户名(如果使用基本认证)';
-COMMENT ON COLUMN api_configs.password IS '密码(如果使用基本认证)';
-COMMENT ON COLUMN api_configs.request_format IS '请求格式模板(JSON)';
-COMMENT ON COLUMN api_configs.response_path IS '从响应中提取答案的路径';
-COMMENT ON COLUMN api_configs.created_at IS '创建时间';
-COMMENT ON COLUMN api_configs.updated_at IS '最后更新时间';
 
--- 修改RAG回答表，增加基本性能指标字段
-CREATE TABLE rag_answers (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    question_id UUID NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
-    answer TEXT NOT NULL,
-    raw_response JSONB, -- 原始响应JSON
-    collection_method VARCHAR(20) NOT NULL DEFAULT 'api', -- api, manual_import
-    
-    -- 添加基本性能指标字段
-    first_response_time DECIMAL(10,3), -- 首次响应时间(秒)
-    total_response_time DECIMAL(10,3), -- 总响应时间(秒)
-    character_count INTEGER, -- 字符数
-    characters_per_second DECIMAL(10,2), -- 每秒字符数
-    
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+comment on table public.api_configs is 'RAG系统API配置表';
+
+comment on column public.api_configs.id is '配置唯一标识';
+
+comment on column public.api_configs.project_id is '关联的项目ID';
+
+comment on column public.api_configs.endpoint_url is 'API端点URL';
+
+comment on column public.api_configs.auth_type is '认证类型: none(无), api_key(API密钥), basic_auth(基本认证)';
+
+comment on column public.api_configs.api_key is 'API密钥(如果使用)';
+
+comment on column public.api_configs.username is '用户名(如果使用基本认证)';
+
+comment on column public.api_configs.password is '密码(如果使用基本认证)';
+
+comment on column public.api_configs.request_format is '请求格式模板(JSON)';
+
+comment on column public.api_configs.response_path is '从响应中提取答案的路径';
+
+comment on column public.api_configs.created_at is '创建时间';
+
+comment on column public.api_configs.updated_at is '最后更新时间';
+
+alter table public.api_configs
+    owner to postgres;
+
+create table if not exists public.rag_answers
+(
+    id                    uuid                     default uuid_generate_v4()       not null
+        primary key,
+    question_id           uuid                                                      not null
+        references public.questions
+            on delete cascade,
+    answer                text                                                      not null,
+    raw_response          jsonb,
+    collection_method     varchar(20)              default 'api'::character varying not null,
+    first_response_time   numeric(10, 3),
+    total_response_time   numeric(10, 3),
+    character_count       integer,
+    characters_per_second numeric(10, 2),
+    created_at            timestamp with time zone default now()
 );
-COMMENT ON TABLE rag_answers IS 'RAG系统回答表';
-COMMENT ON COLUMN rag_answers.id IS '回答唯一标识';
-COMMENT ON COLUMN rag_answers.question_id IS '关联的问题ID';
-COMMENT ON COLUMN rag_answers.answer IS 'RAG系统的回答';
-COMMENT ON COLUMN rag_answers.raw_response IS '原始响应数据(JSON)';
-COMMENT ON COLUMN rag_answers.collection_method IS '收集方式: api(API调用), manual_import(手动导入)';
-COMMENT ON COLUMN rag_answers.first_response_time IS '首次响应时间(秒)';
-COMMENT ON COLUMN rag_answers.total_response_time IS '总响应时间(秒)';
-COMMENT ON COLUMN rag_answers.character_count IS '回答字符数';
-COMMENT ON COLUMN rag_answers.characters_per_second IS '每秒生成字符数';
-COMMENT ON COLUMN rag_answers.created_at IS '创建时间';
 
--- 修改性能指标表，保留高级性能数据
-CREATE TABLE performance_metrics (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    rag_answer_id UUID NOT NULL REFERENCES rag_answers(id) ON DELETE CASCADE,
-    
-    -- 移除已合并到rag_answers的基本指标
-    -- first_response_time DECIMAL(10,3), 
-    -- total_response_time DECIMAL(10,3) NOT NULL,
-    -- character_count INTEGER NOT NULL,
-    -- characters_per_second DECIMAL(10,2),
-    
-    -- 保留高级性能指标
-    concurrency_level INTEGER DEFAULT 1, -- 并发级别
-    test_session_id UUID, -- 测试会话ID，用于关联同一测试批次
-    test_type VARCHAR(30) DEFAULT 'standard', -- 测试类型: standard, stress, stability
-    response_chunks INTEGER, -- 流式响应的数据块数量
-    status VARCHAR(20) NOT NULL DEFAULT 'success', -- success, error, timeout
-    error_message TEXT, -- 错误信息
-    
-    -- 扩展字段，用于存储自定义性能指标
-    custom_metrics JSONB,
-    
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+comment on table public.rag_answers is 'RAG系统回答表';
+
+comment on column public.rag_answers.id is '回答唯一标识';
+
+comment on column public.rag_answers.question_id is '关联的问题ID';
+
+comment on column public.rag_answers.answer is 'RAG系统的回答';
+
+comment on column public.rag_answers.raw_response is '原始响应数据(JSON)';
+
+comment on column public.rag_answers.collection_method is '收集方式: api(API调用), manual_import(手动导入)';
+
+comment on column public.rag_answers.first_response_time is '首次响应时间(秒)';
+
+comment on column public.rag_answers.total_response_time is '总响应时间(秒)';
+
+comment on column public.rag_answers.character_count is '回答字符数';
+
+comment on column public.rag_answers.characters_per_second is '每秒生成字符数';
+
+comment on column public.rag_answers.created_at is '创建时间';
+
+alter table public.rag_answers
+    owner to postgres;
+
+create index if not exists idx_rag_answers_question_id
+    on public.rag_answers (question_id);
+
+create index if not exists idx_rag_answers_performance
+    on public.rag_answers (total_response_time, first_response_time);
+
+create index if not exists idx_rag_answers_character_count
+    on public.rag_answers (character_count);
+
+create table if not exists public.performance_metrics
+(
+    id                uuid                     default uuid_generate_v4()           not null
+        primary key,
+    rag_answer_id     uuid                                                          not null
+        references public.rag_answers
+            on delete cascade,
+    concurrency_level integer                  default 1,
+    test_session_id   uuid,
+    test_type         varchar(30)              default 'standard'::character varying,
+    response_chunks   integer,
+    status            varchar(20)              default 'success'::character varying not null,
+    error_message     text,
+    custom_metrics    jsonb,
+    created_at        timestamp with time zone default now()
 );
-COMMENT ON TABLE performance_metrics IS 'RAG系统高级性能指标表';
-COMMENT ON COLUMN performance_metrics.id IS '性能记录唯一标识';
-COMMENT ON COLUMN performance_metrics.rag_answer_id IS '关联的RAG回答ID';
-COMMENT ON COLUMN performance_metrics.concurrency_level IS '测试时的并发级别';
-COMMENT ON COLUMN performance_metrics.test_session_id IS '测试会话标识，用于关联同一批次测试';
-COMMENT ON COLUMN performance_metrics.test_type IS '测试类型';
-COMMENT ON COLUMN performance_metrics.response_chunks IS '流式响应的数据块数量';
-COMMENT ON COLUMN performance_metrics.status IS '响应状态: success(成功), error(错误), timeout(超时)';
-COMMENT ON COLUMN performance_metrics.error_message IS '错误信息(如有)';
-COMMENT ON COLUMN performance_metrics.custom_metrics IS '自定义性能指标，使用JSONB存储灵活的指标数据';
-COMMENT ON COLUMN performance_metrics.created_at IS '创建时间';
 
--- 创建索引以提高查询性能
-CREATE INDEX idx_rag_answers_question_id ON rag_answers(question_id);
-CREATE INDEX idx_rag_answers_performance ON rag_answers(total_response_time, first_response_time);
-CREATE INDEX idx_rag_answers_character_count ON rag_answers(character_count);
+comment on table public.performance_metrics is 'RAG系统高级性能指标表';
 
--- 创建评测结果表
-CREATE TABLE evaluations (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    question_id UUID NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
-    rag_answer_id UUID NOT NULL REFERENCES rag_answers(id) ON DELETE CASCADE,
-    dimension_id UUID NOT NULL REFERENCES evaluation_dimensions(id) ON DELETE CASCADE,
-    score DECIMAL(3,1) NOT NULL, -- 评分
-    evaluation_method VARCHAR(20) NOT NULL, -- auto, manual
-    evaluator_id UUID REFERENCES users(id), -- 人工评测时的评测人
-    model_name VARCHAR(50), -- 自动评测时使用的模型名称
-    explanation TEXT, -- 评测解释或评论
-    raw_model_response JSONB, -- 用于自动评测时模型的原始响应
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+comment on column public.performance_metrics.id is '性能记录唯一标识';
+
+comment on column public.performance_metrics.rag_answer_id is '关联的RAG回答ID';
+
+comment on column public.performance_metrics.concurrency_level is '测试时的并发级别';
+
+comment on column public.performance_metrics.test_session_id is '测试会话标识，用于关联同一批次测试';
+
+comment on column public.performance_metrics.test_type is '测试类型';
+
+comment on column public.performance_metrics.response_chunks is '流式响应的数据块数量';
+
+comment on column public.performance_metrics.status is '响应状态: success(成功), error(错误), timeout(超时)';
+
+comment on column public.performance_metrics.error_message is '错误信息(如有)';
+
+comment on column public.performance_metrics.custom_metrics is '自定义性能指标，使用JSONB存储灵活的指标数据';
+
+comment on column public.performance_metrics.created_at is '创建时间';
+
+alter table public.performance_metrics
+    owner to postgres;
+
+create table if not exists public.evaluations
+(
+    id                 uuid                     default uuid_generate_v4() not null
+        primary key,
+    question_id        uuid                                                not null
+        references public.questions
+            on delete cascade,
+    rag_answer_id      uuid                                                not null
+        references public.rag_answers
+            on delete cascade,
+    dimension_id       uuid                                                not null
+        references public.evaluation_dimensions
+            on delete cascade,
+    score              numeric(3, 1)                                       not null,
+    evaluation_method  varchar(20)                                         not null,
+    evaluator_id       uuid
+        references public.users,
+    model_name         varchar(50),
+    explanation        text,
+    raw_model_response jsonb,
+    created_at         timestamp with time zone default now()
 );
-COMMENT ON TABLE evaluations IS '评测结果表';
-COMMENT ON COLUMN evaluations.id IS '评测结果唯一标识';
-COMMENT ON COLUMN evaluations.question_id IS '关联的问题ID';
-COMMENT ON COLUMN evaluations.rag_answer_id IS '关联的RAG回答ID';
-COMMENT ON COLUMN evaluations.dimension_id IS '关联的评测维度ID';
-COMMENT ON COLUMN evaluations.score IS '评分';
-COMMENT ON COLUMN evaluations.evaluation_method IS '评测方式: auto(自动), manual(人工)';
-COMMENT ON COLUMN evaluations.evaluator_id IS '人工评测者ID';
-COMMENT ON COLUMN evaluations.model_name IS '自动评测使用的模型';
-COMMENT ON COLUMN evaluations.explanation IS '评测解释';
-COMMENT ON COLUMN evaluations.raw_model_response IS '评测模型的原始响应(JSON)';
-COMMENT ON COLUMN evaluations.created_at IS '创建时间';
 
--- 创建系统配置表
-CREATE TABLE system_settings (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    key VARCHAR(50) NOT NULL,
-    value TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE (user_id, key)
-);
-COMMENT ON TABLE system_settings IS '用户系统配置表';
-COMMENT ON COLUMN system_settings.id IS '配置唯一标识';
-COMMENT ON COLUMN system_settings.user_id IS '用户ID';
-COMMENT ON COLUMN system_settings.key IS '配置键';
-COMMENT ON COLUMN system_settings.value IS '配置值';
-COMMENT ON COLUMN system_settings.created_at IS '创建时间';
-COMMENT ON COLUMN system_settings.updated_at IS '最后更新时间';
+comment on table public.evaluations is '评测结果表';
 
--- 创建共享项目表
-CREATE TABLE shared_projects (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    permission VARCHAR(20) NOT NULL DEFAULT 'read', -- read, write, admin
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE (project_id, user_id)
+comment on column public.evaluations.id is '评测结果唯一标识';
+
+comment on column public.evaluations.question_id is '关联的问题ID';
+
+comment on column public.evaluations.rag_answer_id is '关联的RAG回答ID';
+
+comment on column public.evaluations.dimension_id is '关联的评测维度ID';
+
+comment on column public.evaluations.score is '评分';
+
+comment on column public.evaluations.evaluation_method is '评测方式: auto(自动), manual(人工)';
+
+comment on column public.evaluations.evaluator_id is '人工评测者ID';
+
+comment on column public.evaluations.model_name is '自动评测使用的模型';
+
+comment on column public.evaluations.explanation is '评测解释';
+
+comment on column public.evaluations.raw_model_response is '评测模型的原始响应(JSON)';
+
+comment on column public.evaluations.created_at is '创建时间';
+
+alter table public.evaluations
+    owner to postgres;
+
+create table if not exists public.system_settings
+(
+    id         uuid                     default uuid_generate_v4() not null
+        primary key,
+    user_id    uuid                                                not null
+        references public.users
+            on delete cascade,
+    key        varchar(50)                                         not null,
+    value      text,
+    created_at timestamp with time zone default now(),
+    updated_at timestamp with time zone default now(),
+    unique (user_id, key)
 );
-COMMENT ON TABLE shared_projects IS '项目共享表';
-COMMENT ON COLUMN shared_projects.id IS '共享记录唯一标识';
-COMMENT ON COLUMN shared_projects.project_id IS '共享的项目ID';
-COMMENT ON COLUMN shared_projects.user_id IS '被共享的用户ID';
-COMMENT ON COLUMN shared_projects.permission IS '权限类型: read(只读), write(可编辑), admin(管理员)';
-COMMENT ON COLUMN shared_projects.created_at IS '创建时间';
+
+comment on table public.system_settings is '用户系统配置表';
+
+comment on column public.system_settings.id is '配置唯一标识';
+
+comment on column public.system_settings.user_id is '用户ID';
+
+comment on column public.system_settings.key is '配置键';
+
+comment on column public.system_settings.value is '配置值';
+
+comment on column public.system_settings.created_at is '创建时间';
+
+comment on column public.system_settings.updated_at is '最后更新时间';
+
+alter table public.system_settings
+    owner to postgres;
+
+create table if not exists public.shared_projects
+(
+    id         uuid                     default uuid_generate_v4()        not null
+        primary key,
+    project_id uuid                                                       not null
+        references public.projects
+            on delete cascade,
+    user_id    uuid                                                       not null
+        references public.users
+            on delete cascade,
+    permission varchar(20)              default 'read'::character varying not null,
+    created_at timestamp with time zone default now(),
+    unique (project_id, user_id)
+);
+
+comment on table public.shared_projects is '项目共享表';
+
+comment on column public.shared_projects.id is '共享记录唯一标识';
+
+comment on column public.shared_projects.project_id is '共享的项目ID';
+
+comment on column public.shared_projects.user_id is '被共享的用户ID';
+
+comment on column public.shared_projects.permission is '权限类型: read(只读), write(可编辑), admin(管理员)';
+
+comment on column public.shared_projects.created_at is '创建时间';
+
+alter table public.shared_projects
+    owner to postgres;
+
+create table if not exists public.reports
+(
+    id          uuid                     default gen_random_uuid() not null
+        primary key,
+    project_id  uuid                                               not null
+        references public.projects
+            on delete cascade,
+    user_id     uuid                                               not null
+        references public.users
+            on delete cascade,
+    title       varchar(255)                                       not null,
+    description text,
+    report_type varchar(50)                                        not null,
+    public      boolean                  default false,
+    content     jsonb,
+    config      jsonb,
+    created_at  timestamp with time zone default CURRENT_TIMESTAMP,
+    updated_at  timestamp with time zone default CURRENT_TIMESTAMP
+);
+
+alter table public.reports
+    owner to postgres;
+
+create index if not exists idx_reports_project_id
+    on public.reports (project_id);
+
+create index if not exists idx_reports_user_id
+    on public.reports (user_id);
+
+create index if not exists idx_reports_report_type
+    on public.reports (report_type);
+
+create index if not exists idx_reports_public
+    on public.reports (public);
+
+create index if not exists idx_reports_created_at
+    on public.reports (created_at);
+
+create trigger update_reports_updated_at
+    before update
+    on public.reports
+    for each row
+execute procedure public.update_updated_at_column();
+

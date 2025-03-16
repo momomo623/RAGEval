@@ -1,4 +1,6 @@
-from typing import Optional
+from typing import Optional, List, Dict, Any
+from datetime import datetime
+import uuid
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -13,20 +15,54 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     email: EmailStr
-    password: str = Field(..., min_length=8)
-    name: Optional[str] = None
+    password: str
+    name: str
 
 class UserUpdate(UserBase):
     password: Optional[str] = None
 
-class UserInDBBase(UserBase):
+class UserOut(UserBase):
     id: str
-
+    email: EmailStr
+    name: str
+    created_at: datetime
+    updated_at: datetime
+    
     class Config:
         orm_mode = True
 
-class UserInDB(UserInDBBase):
-    password_hash: str
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
 
-class UserOut(UserInDBBase):
-    pass 
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenPayload(BaseModel):
+    sub: Optional[str] = None
+    exp: Optional[int] = None
+
+class ApiKeyBase(BaseModel):
+    name: str
+    provider: str
+    is_active: Optional[bool] = True
+
+class ApiKeyCreate(ApiKeyBase):
+    key: str
+
+class ApiKeyUpdate(BaseModel):
+    name: Optional[str] = None
+    key: Optional[str] = None
+    provider: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class ApiKeyOut(ApiKeyBase):
+    id: str
+    user_id: str
+    key: str
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        orm_mode = True 
