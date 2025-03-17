@@ -1,0 +1,73 @@
+.layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  z-index: 1000;
+  padding: 0;
+  background-color: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  height: 64px;
+}
+
+.headerContent {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 100%;
+}
+
+.logoAndNav {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.logo {
+  color: #1890ff;
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-right: 24px;
+}
+
+.mainMenu {
+  height: 64px;
+  line-height: 64px;
+  border-bottom: none;
+}
+
+.rightContent {
+  display: flex;
+  align-items: center;
+}
+
+.notificationBtn {
+  margin-right: 16px;
+}
+
+.userInfo {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.userName {
+  margin: 0 8px;
+  color: rgba(0, 0, 0, 0.65);
+}
+
+.content {
+  margin-top: 64px; /* 与header高度相同 */
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+} 

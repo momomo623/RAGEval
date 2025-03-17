@@ -1,0 +1,127 @@
+/* 桌面端样式 */
+.desktop-login-container {
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  background-color: #f0f2f5;
+}
+
+.login-page-wrapper {
+  display: flex;
+  height: 100%;
+  width: 100%;
+}
+
+.login-banner {
+  flex: 1;
+  background: linear-gradient(135deg, #1890ff 0%, #0050b3 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 24px;
+}
+
+.banner-content {
+  max-width: 500px;
+}
+
+.login-form-container {
+  width: 450px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 380px;
+  box-shadow: none;
+  padding: 16px 0;
+}
+
+/* 移动端响应式 */
+@media (max-width: 992px) {
+  .login-page-wrapper {
+    flex-direction: column;
+  }
+  
+  .login-banner {
+    display: none;
+  }
+  
+  .login-form-container {
+    width: 100%;
+    height: 100%;
+    padding: 24px 16px;
+  }
+  
+  .login-container {
+    min-height: 100vh;
+    background-color: #f0f2f5;
+  }
+  
+  .login-card {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+  }
+}
+
+/* 保留原有的通用样式 */
+.text-center {
+  text-align: center;
+}
+
+.mb-6 {
+  margin-bottom: 20px;
+}
+
+.text-primary {
+  color: #1890ff;
+}
+
+.tabs {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.tab-header {
+  display: flex;
+}
+
+.tab-item {
+  padding: 8px 16px;
+  cursor: pointer;
+  font-weight: 500;
+  color: #595959;
+  transition: all 0.3s;
+}
+
+.tab-item.active {
+  color: #1890ff;
+  border-bottom: 2px solid #1890ff;
+}
+
+.flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.login-form-forgot {
+  float: right;
+}
+
+.mt-4 {
+  margin-top: 16px;
+}
+
+.toggle-form-text {
+  color: #1890ff;
+  cursor: pointer;
+}
+
+.toggle-form-text:hover {
+  text-decoration: underline;
+} 

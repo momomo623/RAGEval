@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user, get_db
 from app.models.user import User
 from app.models.project import Project
-from app.schemas.project import ProjectCreate, ProjectUpdate, ProjectOut, ProjectWithDimensions
+from app.schemas.project import ProjectCreate, ProjectUpdate, ProjectOut, ProjectWithDimensions, ProjectDetail
 from app.services.project_service import (
     create_project, 
     get_project, 
@@ -15,6 +15,7 @@ from app.services.project_service import (
     get_projects_by_user,
     get_project_with_dimensions
 )
+from app.schemas.dataset import DatasetOut
 
 router = APIRouter()
 
@@ -47,21 +48,21 @@ def read_projects(
     获取用户的所有项目
     """
     projects = get_projects_by_user(
-        db, user_id=current_user.id, skip=skip, limit=limit, status=status
+        db, user_id=str(current_user.id), skip=skip, limit=limit, status=status
     )
     return projects
 
-@router.get("/{project_id}", response_model=ProjectWithDimensions)
-def read_project(
+@router.get("/{project_id}", response_model=ProjectDetail)
+def read_project_detail(
     *,
     db: Session = Depends(get_db),
     project_id: str,
     current_user: User = Depends(get_current_user),
 ) -> Any:
     """
-    获取项目详情和评测维度
+    获取项目详情（包含基本信息和评测维度）
     """
-    project = get_project_with_dimensions(db, project_id=project_id, user_id=current_user.id)
+    project = get_project_with_dimensions(db, project_id=project_id, user_id=str(current_user.id))
     if not project:
         raise HTTPException(status_code=404, detail="项目未找到")
     return project
@@ -108,4 +109,46 @@ def delete_project_api(
     if str(project.user_id) != str(current_user.id) and not current_user.is_admin:
         raise HTTPException(status_code=403, detail="无权限删除此项目")
     project = delete_project(db, project_id=project_id)
-    return {"detail": "项目已删除"} 
+    return {"detail": "项目已删除"}
+
+@router.get("/{project_id}/datasets", response_model=List[DatasetOut])
+def read_project_datasets(
+    *,
+    db: Session = Depends(get_db),
+    project_id: str,
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """
+    获取项目关联的数据集
+    """
+    # 检查项目是否存在
+    project = get_project(db, project_id=project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="项目未找到")
+    
+    # 检查权限
+    if str(project.user_id) != str(current_user.id) and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="无权访问此项目")
+    
+    # 获取关联的数据集
+    from app.services.dataset_service import get_datasets_by_project
+    datasets = get_datasets_by_project(db, project_id=project_id)
+    
+    # 转换UUID为字符串
+    result = []
+    for dataset in datasets:
+        dataset_dict = {
+            "id": str(dataset.id),
+            "user_id": str(dataset.user_id),
+            "name": dataset.name,
+            "description": dataset.description,
+            "is_public": dataset.is_public,
+            "tags": dataset.tags or [],
+            "dataset_metadata": dataset.dataset_metadata or {},
+            "question_count": 0,  # 这里可以进一步完善，添加问题数量统计
+            "created_at": dataset.created_at,
+            "updated_at": dataset.updated_at
+        }
+        result.append(dataset_dict)
+    
+    return result 

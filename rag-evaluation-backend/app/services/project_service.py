@@ -3,7 +3,14 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
 from app.models.project import Project, EvaluationDimension
-from app.schemas.project import ProjectCreate, ProjectUpdate, DimensionCreate, ProjectWithDimensions, DimensionOut
+from app.schemas.project import (
+    ProjectCreate, 
+    ProjectUpdate, 
+    DimensionCreate, 
+    ProjectWithDimensions, 
+    ProjectDetail
+)
+from app.schemas.dimension import DimensionOut
 
 def create_project(db: Session, obj_in: ProjectCreate, user_id: str) -> Project:
     """创建新项目"""
@@ -50,25 +57,60 @@ def get_project(db: Session, project_id: str) -> Optional[Project]:
         project.user_id = str(project.user_id)
     return project
 
-def get_project_with_dimensions(db: Session, project_id: str, user_id: Optional[str] = None) -> Optional[ProjectWithDimensions]:
-    """获取项目及其评测维度"""
-    # 获取项目
-    query = db.query(Project).filter(Project.id == project_id)
-    if user_id:
-        query = query.filter(Project.user_id == user_id)
-    
-    project = query.first()
+def get_project_with_dimensions(db: Session, project_id: str, user_id: str) -> Optional[ProjectDetail]:
+    """获取项目详情，包括评测维度"""
+    project = get_project(db, project_id)
     if not project:
         return None
+        
+    # 检查权限
+    if str(project.user_id) != user_id:
+        # 检查管理员权限
+        from app.models.user import User
+        user = db.query(User).filter(User.id == user_id).first()
+        if not (user and user.is_admin):
+            return None
     
-    # 获取维度
-    dimensions = db.query(EvaluationDimension).filter(
-        EvaluationDimension.project_id == project_id
-    ).all()
+    # 获取项目关联的维度
+    from app.models.project import EvaluationDimension
+    dimensions = db.query(EvaluationDimension).filter(EvaluationDimension.project_id == project_id).all()
     
-    # 构建响应
-    result = ProjectWithDimensions.from_orm(project)
-    result.dimensions = [DimensionOut.from_orm(dim) for dim in dimensions]
+    # 添加调试打印
+    print(f"获取到维度数量: {len(dimensions)}")
+    if dimensions:
+        print(f"维度对象属性: {dir(dimensions[0])}")
+    
+    # 转换为响应模型
+    from app.schemas.project import ProjectDetail
+    
+    # 创建一个基础的项目详情对象
+    result = ProjectDetail(
+        id=str(project.id),
+        user_id=str(project.user_id),
+        name=project.name,
+        description=project.description,
+        evaluation_method=project.evaluation_method,
+        scoring_scale=project.scoring_scale,
+        status=project.status,
+        settings=project.settings,
+        created_at=project.created_at,
+        updated_at=project.updated_at,
+        dimensions=[]
+    )
+    
+    # 添加维度信息，手动转换UUID为字符串
+    for dimension in dimensions:
+        dim_dict = {
+            "id": str(dimension.id),
+            "project_id": str(dimension.project_id),
+            "name": dimension.name,
+            "description": dimension.description,
+            "weight": dimension.weight,
+            "created_at": dimension.created_at,
+            # EvaluationDimension 没有 updated_at 属性，使用 created_at 代替
+            "updated_at": dimension.created_at  # 或者完全移除这一行
+        }
+        result.dimensions.append(dim_dict)
     
     return result
 
@@ -78,14 +120,33 @@ def get_projects_by_user(
     skip: int = 0, 
     limit: int = 100,
     status: Optional[str] = None
-) -> List[Project]:
+) -> List[Dict[str, Any]]:
     """获取用户的所有项目"""
     query = db.query(Project).filter(Project.user_id == user_id)
     
     if status:
         query = query.filter(Project.status == status)
     
-    return query.order_by(desc(Project.created_at)).offset(skip).limit(limit).all()
+    projects = query.order_by(desc(Project.created_at)).offset(skip).limit(limit).all()
+    
+    # 手动转换UUID为字符串
+    result = []
+    for project in projects:
+        project_dict = {
+            "id": str(project.id),
+            "user_id": str(project.user_id),
+            "name": project.name,
+            "description": project.description,
+            "evaluation_method": project.evaluation_method,
+            "scoring_scale": project.scoring_scale,
+            "status": project.status,
+            "settings": project.settings,
+            "created_at": project.created_at,
+            "updated_at": project.updated_at
+        }
+        result.append(project_dict)
+    
+    return result
 
 def update_project(
     db: Session, 

@@ -1,6 +1,7 @@
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, func
+from fastapi.encoders import jsonable_encoder
 
 from app.models.question import Question
 from app.schemas.question import QuestionCreate, QuestionUpdate, QuestionBase
@@ -44,17 +45,13 @@ def search_questions(
         )
     ).offset(skip).limit(limit).all()
 
-def create_question(db: Session, obj_in: QuestionCreate) -> Question:
+def create_question(
+    db: Session, 
+    obj_in: QuestionCreate
+) -> Question:
     """创建问题"""
-    db_obj = Question(
-        project_id=obj_in.project_id,
-        question_text=obj_in.question_text,
-        standard_answer=obj_in.standard_answer,
-        category=obj_in.category,
-        difficulty=obj_in.difficulty,
-        tags=obj_in.tags,
-        question_metadata=obj_in.question_metadata
-    )
+    obj_in_data = jsonable_encoder(obj_in)
+    db_obj = Question(**obj_in_data)
     db.add(db_obj)
     db.commit()
     db.refresh(db_obj)
@@ -62,48 +59,103 @@ def create_question(db: Session, obj_in: QuestionCreate) -> Question:
 
 def create_questions_batch(
     db: Session, 
-    project_id: str,
+    dataset_id: str, 
     questions: List[QuestionBase]
 ) -> List[Question]:
     """批量创建问题"""
     db_objs = []
+    
     for q in questions:
-        db_obj = Question(
-            project_id=project_id,
-            question_text=q.question_text,
-            standard_answer=q.standard_answer,
-            category=q.category,
-            difficulty=q.difficulty,
-            tags=q.tags,
-            question_metadata=q.question_metadata
-        )
+        obj_in_data = jsonable_encoder(q)
+        db_obj = Question(**obj_in_data, dataset_id=dataset_id)
         db.add(db_obj)
         db_objs.append(db_obj)
     
     db.commit()
+    
     for obj in db_objs:
         db.refresh(obj)
-    
+        
     return db_objs
 
 def update_question(
     db: Session, 
-    db_obj: Question,
+    db_obj: Question, 
     obj_in: QuestionUpdate
 ) -> Question:
     """更新问题"""
+    obj_data = jsonable_encoder(db_obj)
     update_data = obj_in.dict(exclude_unset=True)
     
-    for field, value in update_data.items():
-        setattr(db_obj, field, value)
+    for field in obj_data:
+        if field in update_data:
+            setattr(db_obj, field, update_data[field])
     
     db.add(db_obj)
     db.commit()
     db.refresh(db_obj)
     return db_obj
 
-def delete_question(db: Session, question_id: str) -> None:
+def delete_question(
+    db: Session, 
+    question_id: str
+) -> bool:
     """删除问题"""
-    db_obj = db.query(Question).filter(Question.id == question_id).first()
+    db_obj = get_question(db, question_id)
+    if not db_obj:
+        return False
+        
     db.delete(db_obj)
-    db.commit() 
+    db.commit()
+    return True
+
+def get_questions_by_dataset(
+    db: Session, 
+    dataset_id: str, 
+    skip: int = 0, 
+    limit: int = 100,
+    category: Optional[str] = None,
+    difficulty: Optional[str] = None
+) -> List[Question]:
+    """获取数据集中的所有问题"""
+    query = db.query(Question).filter(Question.dataset_id == dataset_id)
+    
+    if category:
+        query = query.filter(Question.category == category)
+    
+    if difficulty:
+        query = query.filter(Question.difficulty == difficulty)
+        
+    return query.offset(skip).limit(limit).all()
+
+def get_questions_by_project(
+    db: Session, 
+    project_id: str, 
+    skip: int = 0, 
+    limit: int = 100,
+    category: Optional[str] = None,
+    difficulty: Optional[str] = None
+) -> List[Question]:
+    """获取项目中的所有问题（通过关联数据集）"""
+    from app.models.dataset import ProjectDataset
+    
+    # 获取项目关联的所有数据集ID
+    dataset_ids = db.query(ProjectDataset.dataset_id).filter(
+        ProjectDataset.project_id == project_id
+    ).all()
+    
+    if not dataset_ids:
+        return []
+        
+    dataset_ids = [d[0] for d in dataset_ids]
+    
+    # 查询这些数据集中的问题
+    query = db.query(Question).filter(Question.dataset_id.in_(dataset_ids))
+    
+    if category:
+        query = query.filter(Question.category == category)
+    
+    if difficulty:
+        query = query.filter(Question.difficulty == difficulty)
+        
+    return query.offset(skip).limit(limit).all() 

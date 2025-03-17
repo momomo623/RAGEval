@@ -56,11 +56,27 @@ class ProjectInDBBase(ProjectBase):
     class Config:
         from_attributes = True
 
-class ProjectOut(ProjectInDBBase):
+class ProjectOut(ProjectBase):
+    id: str
+    user_id: str
+    created_at: datetime
+    updated_at: datetime
+
     class Config:
-        json_encoders = {
-            uuid.UUID: lambda v: str(v)
-        }
+        from_attributes = True
+
+        @classmethod
+        def get_validators(cls):
+            yield cls.validate_to_json
+
+        @classmethod
+        def validate_to_json(cls, value):
+            if isinstance(value, uuid.UUID):
+                return str(value)
+            return value
+
+class ProjectDetail(ProjectOut):
+    dimensions: List[Dict[str, Any]] = []
 
 class ProjectWithDimensions(ProjectOut):
     dimensions: List[DimensionOut] = [] 

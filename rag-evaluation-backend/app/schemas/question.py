@@ -3,54 +3,57 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 import uuid
 
+# 基础问题模型
 class QuestionBase(BaseModel):
     question_text: str
     standard_answer: str
     category: Optional[str] = None
     difficulty: Optional[str] = None
     type: Optional[str] = None
-    tags: Optional[Union[List[str], Dict[str, Any]]] = None
+    tags: Optional[Dict[str, Any]] = None
     question_metadata: Optional[Dict[str, Any]] = None
 
+# 创建问题时的请求模型
 class QuestionCreate(QuestionBase):
-    project_id: str
+    dataset_id: str
 
+# 更新问题时的请求模型
 class QuestionUpdate(BaseModel):
     question_text: Optional[str] = None
     standard_answer: Optional[str] = None
     category: Optional[str] = None
     difficulty: Optional[str] = None
     type: Optional[str] = None
-    tags: Optional[Union[List[str], Dict[str, Any]]] = None
+    tags: Optional[Dict[str, Any]] = None
     question_metadata: Optional[Dict[str, Any]] = None
 
-class QuestionInDBBase(QuestionBase):
+# 问题响应模型
+class QuestionOut(QuestionBase):
     id: str
-    project_id: str
+    dataset_id: str
     created_at: datetime
     updated_at: datetime
 
     class Config:
         from_attributes = True
 
-class QuestionOut(QuestionInDBBase):
-    pass
-
+# 批量创建问题请求
 class QuestionBatchCreate(BaseModel):
-    project_id: str
+    dataset_id: str
     questions: List[QuestionBase]
 
-# 问答生成相关模型
+# 问题生成请求
 class QuestionGenerateRequest(BaseModel):
-    project_id: str
-    content: str = Field(..., min_length=10)
-    count: int = Field(10, ge=1, le=50)
-    difficulty: str = "中等"
-    question_types: List[str] = ["事实型", "推理型", "应用型"]
+    content: str
+    count: int = 5
+    difficulty: Optional[str] = "medium"
+    question_types: Optional[List[str]] = ["factual", "conceptual", "applied"]
     model: str = "gpt-4"
     model_provider: str = "openai"
-    save_to_project: bool = False
+    save_to_dataset: bool = False
+    dataset_id: Optional[str] = None
 
+# 问题生成响应
 class QuestionGenerateResponse(BaseModel):
     generated_questions: List[Dict[str, Any]]
     saved_questions: List[QuestionOut] = []

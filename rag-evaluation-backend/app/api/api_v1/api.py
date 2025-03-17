@@ -1,10 +1,15 @@
 from fastapi import APIRouter
 
-from app.api.api_v1.endpoints import auth, users, projects, questions, rag_answers, evaluations, auto_evaluation, manual_evaluation, reports, performance
+from app.api.api_v1.endpoints import (
+    auth, users, datasets, projects, questions, 
+    rag_answers, evaluations, auto_evaluation, 
+    manual_evaluation, reports, performance
+)
 
 api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["认证"])
 api_router.include_router(users.router, prefix="/users", tags=["用户管理"])
+api_router.include_router(datasets.router, prefix="/datasets", tags=["数据集管理"])
 api_router.include_router(projects.router, prefix="/projects", tags=["项目管理"])
 api_router.include_router(questions.router, prefix="/questions", tags=["问题管理"])
 api_router.include_router(rag_answers.router, prefix="/rag-answers", tags=["RAG回答"])

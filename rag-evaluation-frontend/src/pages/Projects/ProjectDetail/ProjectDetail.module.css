@@ -1,0 +1,112 @@
+.pageContainer {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.pageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+}
+
+.headerLeft h3 {
+  margin: 0;
+  margin-left: 12px;
+}
+
+.headerRight {
+  display: flex;
+  gap: 12px;
+}
+
+.overviewSection,
+.datasetsSection,
+.evaluationsSection,
+.reportsSection {
+  margin-top: 16px;
+}
+
+.infoCard {
+  margin-top: 24px;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.sectionHeader h5 {
+  margin: 0;
+}
+
+.datasetsList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.datasetCard {
+  height: 100%;
+}
+
+.datasetCardContent {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.datasetCardContent h5 {
+  margin-bottom: 8px;
+}
+
+.datasetMeta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.datasetDescription {
+  margin-bottom: 12px;
+  flex-grow: 1;
+}
+
+.datasetTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.loadingContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 500px;
+}
+
+@media (max-width: 768px) {
+  .pageHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .headerRight {
+    margin-top: 16px;
+  }
+  
+  .sectionHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+} 

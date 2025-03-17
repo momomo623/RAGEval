@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>导入数据 - RAG评测系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body class="bg-gray-50">
+    <nav class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <h1 class="text-xl font-bold text-blue-600">RAG评测系统</h1>
+                    </div>
+                    <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                        <a href="#" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            项目
+                        </a>
+                        <a href="#" class="border-blue-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            数据集
+                        </a>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <img class="h-8 w-8 rounded-full" src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80" alt="">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-3xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
+        <div class="md:flex md:items-center md:justify-between mb-8">
+            <div class="flex-1 min-w-0">
+                <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+                    导入数据到"产品常见问题"
+                </h2>
+                <p class="mt-1 text-sm text-gray-500">
+                    批量导入问答对数据到数据集
+                </p>
+            </div>
+        </div>
+
+        <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <div class="space-y-8">
+                    <div>
+                        <h3 class="text-lg font-medium leading-6 text-gray-900">选择导入方式</h3>
+                        <div class="mt-4 space-y-4">
+                            <div class="relative flex items-start">
+                                <div class="flex items-center h-5">
+                                    <input id="import_file" name="import_method" type="radio" checked class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300">
+                                </div>
+                                <div class="ml-3 text-sm">
+                                    <label for="import_file" class="font-medium text-gray-700">从文件导入</label>
+                                    <p class="text-gray-500">上传Excel或CSV文件批量导入问答对</p>
+                                </div>
+                            </div>
+                            <div class="relative flex items-start">
+                                <div class="flex items-center h-5">
+                                    <input id="import_text" name="import_method" type="radio" class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300">
+                                </div>
+                                <div class="ml-3 text-sm">
+                                    <label for="import_text" class="font-medium text-gray-700">从文本导入</label>
+                                    <p class="text-gray-500">直接输入或粘贴问答对文本</p>
+                                </div>
+                            </div>
+                            <div class="relative flex items-start">
+                                <div class="flex items-center h-5">
+                                    <input id="import_generate" name="import_method" type="radio" class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300">
+                                </div>
+                                <div class="ml-3 text-sm">
+                                    <label for="import_generate" class="font-medium text-gray-700">使用AI生成</label>
+                                    <p class="text-gray-500">基于提供的文档内容自动生成问答对</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 文件导入面板 -->
+                    <div id="file_import_panel">
+                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                            <div class="mx-auto h-12 w-12 text-gray-400">
+                                <i class="fas fa-file-upload text-3xl"></i>
+                            </div>
+                            <div class="mt-2">
+                                <p class="text-sm text-gray-500">点击或拖拽文件到这里上传</p>
+                                <p class="mt-1 text-xs text-gray-500">支持Excel(.xlsx)和CSV文件，大小不超过10MB</p>
+                            </div>
+                            <div class="mt-4">
+                                <label for="file-upload" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer">
+                                    <i class="fas fa-upload mr-2"></i> 选择文件
+                                    <input id="file-upload" name="file-upload" type="file" class="sr-only" accept=".csv,.xlsx">
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="mt-6">
+                            <h4 class="text-sm font-medium text-gray-900">文件格式要求</h4>
+                            <div class="mt-2 text-sm text-gray-500">
+                                <p>导入文件必须包含以下列：</p>
+                                <ul class="mt-2 list-disc pl-5 space-y-1">
+                                    <li>question - 问题文本</li>
+                                    <li>standard_answer - 标准答案</li>
+                                    <li>category (可选) - 问题类别</li>
+                                    <li>difficulty (可选) - 问题难度</li>
+                                    <li>tags (可选) - 用逗号分隔的标签</li>
+                                </ul>
+                                <div class="mt-2">
+                                    <a href="#" class="text-blue-600 hover:text-blue-900 font-medium">
+                                        <i class="fas fa-download mr-1"></i> 下载模板
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-6">
+                            <h4 class="text-sm font-medium text-gray-900">导入选项</h4>
+                            <div class="mt-2 space-y-4">
+                                <div class="relative flex items-start">
+                                    <div class="flex items-center h-5">
+                                        <input id="header_row" name="header_row" type="checkbox" checked class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded">
+                                    </div>
+                                    <div class="ml-3 text-sm">
+                                        <label for="header_row" class="font-medium text-gray-700">第一行是表头</label>
+                                    </div>
+                                </div>
+                                <div class="relative flex items-start">
+                                    <div class="flex items-center h-5">
+                                        <input id="skip_duplicate" name="skip_duplicate" type="checkbox" checked class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded">
+                                    </div>
+                                    <div class="ml-3 text-sm">
+                                        <label for="skip_duplicate" class="font-medium text-gray-700">跳过重复问题</label>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label for="encoding" class="block text-sm font-medium text-gray-700">文件编码</label>
+                                    <select id="encoding" name="encoding" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                                        <option>UTF-8</option>
+                                        <option>GB2312</option>
+                                        <option>GBK</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pt-5">
+                        <div class="flex justify-end">
+                            <button type="button" class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                取消
+                            </button>
+                            <button type="submit" class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                开始导入
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 

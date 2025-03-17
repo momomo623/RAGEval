@@ -1,0 +1,111 @@
+.pageContainer {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.pageHeader {
+  margin-bottom: 24px;
+}
+
+.formCard {
+  margin-bottom: 24px;
+}
+
+.section {
+  margin-bottom: 24px;
+}
+
+.radioSpace {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.radioOption {
+  display: flex;
+  flex-direction: column;
+}
+
+.optionDescription {
+  color: rgba(0, 0, 0, 0.45);
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.previewSection {
+  margin-top: 16px;
+  margin-bottom: 16px;
+}
+
+.previewContainer {
+  background-color: #f5f5f5;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  padding: 12px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.previewLine {
+  font-family: monospace;
+  white-space: pre-wrap;
+  margin-bottom: 4px;
+}
+
+.previewMore {
+  text-align: center;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.fileOptions {
+  margin-bottom: 24px;
+}
+
+.fileFormat {
+  background-color: #f5f5f5;
+  border-radius: 4px;
+  padding: 12px;
+}
+
+.formatList {
+  margin-top: 8px;
+  padding-left: 20px;
+}
+
+.formatList li {
+  margin-bottom: 4px;
+}
+
+.downloadLink {
+  margin-top: 8px;
+  padding-left: 0;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.loadingContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.emptyContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 75vh;
+}
+
+.emptyContent {
+  text-align: center;
+}
+
+.backButton {
+  margin-top: 16px;
+} 

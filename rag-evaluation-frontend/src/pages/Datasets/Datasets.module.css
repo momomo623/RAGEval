@@ -1,0 +1,139 @@
+.pageContainer {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.pageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+.filterBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.leftFilters {
+  display: flex;
+  gap: 12px;
+}
+
+.datasetsContainer {
+  min-height: 400px;
+}
+
+.datasetCard {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.cardHeader {
+  display: flex;
+  margin-bottom: 12px;
+}
+
+.cardIcon {
+  width: 40px;
+  height: 40px;
+  background-color: #e6f7ff;
+  color: #1890ff;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px;
+  font-size: 20px;
+}
+
+.cardTitle {
+  flex: 1;
+  overflow: hidden;
+}
+
+.cardMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.cardDescription {
+  color: rgba(0, 0, 0, 0.65);
+  margin-bottom: 12px;
+}
+
+.cardTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.cardFooter {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.newDatasetCard {
+  height: 100%;
+  border: 2px dashed #d9d9d9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.newDatasetCard:hover {
+  border-color: #40a9ff;
+}
+
+.newDatasetContent {
+  text-align: center;
+  padding: 24px;
+}
+
+.plusIcon {
+  font-size: 24px;
+  color: #1890ff;
+  margin-bottom: 16px;
+}
+
+.newDatasetText {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.loadingContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 400px;
+}
+
+.pagination {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+@media (max-width: 768px) {
+  .pageHeader {
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .filterBar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+} 

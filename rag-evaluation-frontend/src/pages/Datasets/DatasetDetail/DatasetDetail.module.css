@@ -1,0 +1,141 @@
+.pageContainer {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.breadcrumb {
+  margin-bottom: 16px;
+}
+
+.pageHeader {
+  margin-bottom: 24px;
+}
+
+.titleSection {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.titleInfo {
+  flex: 1;
+}
+
+.titleMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.description {
+  margin-bottom: 16px;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.contentCard {
+  margin-bottom: 24px;
+}
+
+.tableHeader {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.tableActions {
+  display: flex;
+  gap: 8px;
+}
+
+.tableFilters {
+  display: flex;
+  gap: 8px;
+}
+
+.table {
+  margin-top: 16px;
+}
+
+.loadingContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.emptyContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 75vh;
+}
+
+.emptyContent {
+  text-align: center;
+}
+
+.backButton {
+  margin-top: 16px;
+}
+
+.projectsContainer {
+  min-height: 200px;
+}
+
+.projectList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.projectCard {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.projectInfo {
+  flex: 1;
+}
+
+.projectActions {
+  margin-top: 16px;
+  text-align: right;
+}
+
+.emptyProjects {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+}
+
+@media (max-width: 768px) {
+  .titleSection {
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .actionButtons {
+    display: flex;
+    justify-content: flex-start;
+  }
+  
+  .tableHeader {
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .tableFilters {
+    flex-wrap: wrap;
+  }
+} 

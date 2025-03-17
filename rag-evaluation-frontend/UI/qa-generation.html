@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>问答生成 - RAG评测系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body class="bg-gray-50">
+    <nav class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <h1 class="text-xl font-bold text-blue-600">RAG评测系统</h1>
+                    </div>
+                    <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                        <a href="#" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            项目
+                        </a>
+                        <a href="#" class="border-blue-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            产品助手评测
+                        </a>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <img class="h-8 w-8 rounded-full" src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80" alt="">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div class="px-4 sm:px-0">
+            <div class="sm:flex sm:items-center sm:justify-between">
+                <div>
+                    <h3 class="text-lg leading-6 font-medium text-gray-900">基于大模型生成问答对</h3>
+                    <p class="mt-1 text-sm text-gray-500">
+                        上传文本或直接输入内容，自动生成问题和标准答案
+                    </p>
+                </div>
+            </div>
+
+            <div class="mt-6 bg-white shadow overflow-hidden sm:rounded-lg">
+                <div class="px-4 py-5 sm:p-6">
+                    <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+                        <div class="sm:col-span-6">
+                            <label for="content_source" class="block text-sm font-medium text-gray-700">内容来源</label>
+                            <div class="mt-1">
+                                <div class="flex space-x-4">
+                                    <span class="inline-flex items-center">
+                                        <input id="text_input" name="content_source" type="radio" checked class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300">
+                                        <label for="text_input" class="ml-2 block text-sm text-gray-700">
+                                            直接输入文本
+                                        </label>
+                                    </span>
+                                    <span class="inline-flex items-center">
+                                        <input id="file_upload" name="content_source" type="radio" class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300">
+                                        <label for="file_upload" class="ml-2 block text-sm text-gray-700">
+                                            上传文本文件
+                                        </label>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="sm:col-span-6">
+                            <label for="content" class="block text-sm font-medium text-gray-700">文本内容</label>
+                            <div class="mt-1">
+                                <textarea id="content" name="content" rows="10" 
+                                    class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md" 
+                                    placeholder="请输入或粘贴文本内容，系统将基于此内容生成问答对..."></textarea>
+                            </div>
+                            <p class="mt-2 text-sm text-gray-500">
+                                文本内容越详细，生成的问答质量越高
+                            </p>
+                        </div>
+
+                        <div class="sm:col-span-6">
+                            <div class="border-t border-gray-200 pt-5">
+                                <h3 class="text-lg font-medium leading-6 text-gray-900">生成参数设置</h3>
+                            </div>
+                        </div>
+
+                        <div class="sm:col-span-2">
+                            <label for="question_count" class="block text-sm font-medium text-gray-700">生成数量</label>
+                            <div class="mt-1">
+                                <select id="question_count" name="question_count" 
+                                    class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md">
+                                    <option>5个问题</option>
+                                    <option selected>10个问题</option>
+                                    <option>20个问题</option>
+                                    <option>50个问题</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="sm:col-span-2">
+                            <label for="difficulty" class="block text-sm font-medium text-gray-700">问题难度</label>
+                            <div class="mt-1">
+                                <select id="difficulty" name="difficulty" 
+                                    class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md">
+                                    <option>简单</option>
+                                    <option selected>中等</option>
+                                    <option>困难</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="sm:col-span-2">
+                            <label for="question_type" class="block text-sm font-medium text-gray-700">问题类型</label>
+                            <div class="mt-1">
+                                <select id="question_type" name="question_type" 
+                                    class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md">
+                                    <option selected>事实型</option>
+                                    <option>推理型</option>
+                                    <option>应用型</option>
+                                    <option>混合型</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="sm:col-span-6">
+                            <button type="button" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                <i class="fas fa-magic mr-2"></i> 生成问答对
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-8 bg-white shadow overflow-hidden sm:rounded-lg">
+                <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
+                    <div>
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">生成结果预览</h3>
+                        <p class="mt-1 max-w-2xl text-sm text-gray-500">可以编辑后再保存到项目中</p>
+                    </div>
+                    <div>
+                        <button type="button" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                            <i class="fas fa-save mr-2"></i> 保存全部到项目
+                        </button>
+                    </div>
+                </div>
+                <div class="border-t border-gray-200">
+                    <dl>
+                        <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                            <dt class="text-sm font-medium text-gray-500">问题 1</dt>
+                            <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                                <input type="text" value="如何使用产品的导出功能？" class="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                            </dd>
+                        </div>
+                        <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                            <dt class="text-sm font-medium text-gray-500">标准答案 1</dt>
+                            <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                                <textarea rows="3" class="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">点击右上角的"导出"按钮，选择导出格式（CSV或Excel），然后点击确认即可导出数据。</textarea>
+                            </dd>
+                        </div>
+                        <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                            <dt class="text-sm font-medium text-gray-500">问题 2</dt>
+                            <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                                <input type="text" value="产品支持哪些文件格式的导入？" class="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                            </dd>
+                        </div>
+                        <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                            <dt class="text-sm font-medium text-gray-500">标准答案 2</dt>
+                            <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                                <textarea rows="3" class="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">目前支持CSV、Excel(xlsx)、JSON和XML格式的文件导入，最大支持50MB的文件大小。</textarea>
+                            </dd>
+                        </div>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 

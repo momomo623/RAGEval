@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>自动评测配置 - RAG评测系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body class="bg-gray-50">
+    <nav class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <h1 class="text-xl font-bold text-blue-600">RAG评测系统</h1>
+                    </div>
+                    <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                        <a href="#" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            项目
+                        </a>
+                        <a href="#" class="border-blue-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            产品助手评测
+                        </a>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <img class="h-8 w-8 rounded-full" src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80" alt="">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div class="px-4 sm:px-0">
+            <div class="sm:flex sm:items-center sm:justify-between">
+                <div>
+                    <h3 class="text-lg leading-6 font-medium text-gray-900">自动评测配置</h3>
+                    <p class="mt-1 text-sm text-gray-500">
+                        配置自动评测参数和启动评测
+                    </p>
+                </div>
+            </div>
+
+            <div class="mt-6 bg-white shadow overflow-hidden sm:rounded-lg">
+                <div class="px-4 py-5 sm:p-6">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900">评测模型配置</h3>
+                    <div class="mt-5 border-t border-gray-200 pt-5">
+                        <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+                            <div class="sm:col-span-3">
+                                <label for="model_provider" class="block text-sm font-medium text-gray-700">模型提供商</label>
+                                <div class="mt-1">
+                                    <select id="model_provider" name="model_provider" 
+                                        class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md">
+                                        <option selected>OpenAI</option>
+                                        <option>Anthropic</option>
+                                        <option>自定义API</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="sm:col-span-3">
+                                <label for="model_name" class="block text-sm font-medium text-gray-700">模型名称</label>
+                                <div class="mt-1">
+                                    <select id="model_name" name="model_name" 
+                                        class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md">
+                                        <option selected>gpt-4</option>
+                                        <option>gpt-3.5-turbo</option>
+                                        <option>gpt-4-turbo</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="sm:col-span-6">
+                                <label for="api_key" class="block text-sm font-medium text-gray-700">API密钥</label>
+                                <div class="mt-1">
+                                    <input type="password" name="api_key" id="api_key" 
+                                        class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md" 
+                                        placeholder="sk-xxxxxxxxxxxxxxxxxxxx">
+                                </div>
+                                <p class="mt-2 text-sm text-gray-500">
+                                    用于访问评测模型的API密钥
+                                </p>
+                            </div>
+
+                            <div class="sm:col-span-6">
+                                <label for="prompt_template" class="block text-sm font-medium text-gray-700">评测提示模板</label>
+                                <div class="mt-1">
+                                    <textarea id="prompt_template" name="prompt_template" rows="8" 
+                                        class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md font-mono">你是一个专业的RAG系统评测专家。请评估以下RAG系统的回答质量。
+
+问题：{{question}}
+
+标准答案：{{standard_answer}}
+
+RAG系统回答：{{rag_answer}}
+
+请从以下维度评估RAG系统回答的质量：
+1. 准确性（回答中的事实是否与标准答案一致）
+2. 相关性（回答是否与问题相关）
+3. 完整性（回答是否涵盖了标准答案中的所有关键信息）
+
+对每个维度评分（1-5分），并给出总体评分。请以JSON格式输出：
+{
+  "accuracy_score": 分数,
+  "relevance_score": 分数,
+  "completeness_score": 分数,
+  "total_score": 分数,
+  "explanation": "评分解释"
+}</textarea>
+                                </div>
+                                <p class="mt-2 text-sm text-gray-500">
+                                    使用 {{question}}、{{standard_answer}} 和 {{rag_answer}} 作为占位符
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-8 bg-white shadow overflow-hidden sm:rounded-lg">
+                <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
+                    <div>
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">评测范围</h3>
+                        <p class="mt-1 max-w-2xl text-sm text-gray-500">选择要评测的问题范围</p>
+                    </div>
+                </div>
+                <div class="border-t border-gray-200 px-4 py-5 sm:p-6">
+                    <div class="space-y-6">
+                        <div>
+                            <fieldset class="space-y-5">
+                                <legend class="sr-only">评测范围</legend>
+                                <div class="relative flex items-start">
+                                    <div class="flex items-center h-5">
+                                        <input id="all_questions" name="evaluation_scope" type="radio" checked class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300">
+                                    </div>
+                                    <div class="ml-3 text-sm">
+                                        <label for="all_questions" class="font-medium text-gray-700">所有问题</label>
+                                        <p class="text-gray-500">评测所有已收集RAG回答的问题（共12个问题）</p>
+                                    </div>
+                                </div>
+                                <div class="relative flex items-start">
+                                    <div class="flex items-center h-5">
+                                        <input id="unevaluated_questions" name="evaluation_scope" type="radio" class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300">
+                                    </div>
+                                    <div class="ml-3 text-sm">
+                                        <label for="unevaluated_questions" class="font-medium text-gray-700">未评测问题</label>
+                                        <p class="text-gray-500">仅评测尚未评测的问题（共8个问题）</p>
+                                    </div>
+                                </div>
+                                <div class="relative flex items-start">
+                                    <div class="flex items-center h-5">
+                                        <input id="selected_questions" name="evaluation_scope" type="radio" class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300">
+                                    </div>
+                                    <div class="ml-3 text-sm">
+                                        <label for="selected_questions" class="font-medium text-gray-700">选定问题</label>
+                                        <p class="text-gray-500">手动选择要评测的问题</p>
+                                    </div>
+                                </div>
+                            </fieldset>
+                        </div>
+
+                        <div>
+                            <button type="button" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                <i class="fas fa-play mr-2"></i> 开始自动评测
+                            </button>
+                            <p class="mt-2 text-sm text-gray-500">
+                                评测将在后台进行，您可以在评测报告页面查看结果
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 

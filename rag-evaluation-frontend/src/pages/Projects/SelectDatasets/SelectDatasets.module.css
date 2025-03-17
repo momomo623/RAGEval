@@ -1,0 +1,131 @@
+.pageContainer {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.pageHeader {
+  display: flex;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.pageHeader h4 {
+  margin-bottom: 0;
+  margin-left: 8px;
+}
+
+.selectionCard {
+  margin-bottom: 24px;
+}
+
+.selectedInfo {
+  margin-bottom: 16px;
+  font-size: 16px;
+}
+
+.searchContainer {
+  margin-bottom: 24px;
+}
+
+.datasetsContainer {
+  min-height: 300px;
+}
+
+.datasetCard {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  transition: all 0.3s;
+  border: 1px solid #f0f0f0;
+}
+
+.selectedCard {
+  border-color: #1890ff;
+  background-color: #e6f7ff;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.cardTitle {
+  margin-left: 8px;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cardDescription {
+  margin-bottom: 12px;
+}
+
+.cardTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.cardFooter {
+  margin-top: auto;
+}
+
+.tabLoading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+}
+
+.pagination {
+  margin-top: 16px;
+  display: flex;
+  justify-content: center;
+}
+
+.createDatasetLink {
+  margin-top: 16px;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.loadingContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 500px;
+}
+
+@media (max-width: 768px) {
+  .pageHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .pageHeader h4 {
+    margin-left: 0;
+    margin-top: 8px;
+  }
+  
+  .searchContainer {
+    width: 100%;
+  }
+  
+  .formActions {
+    flex-direction: column;
+  }
+  
+  .formActions button {
+    width: 100%;
+  }
+} 

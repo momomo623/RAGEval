@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG回答收集 - RAG评测系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body class="bg-gray-50">
+    <nav class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <h1 class="text-xl font-bold text-blue-600">RAG评测系统</h1>
+                    </div>
+                    <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                        <a href="#" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            项目
+                        </a>
+                        <a href="#" class="border-blue-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            产品助手评测
+                        </a>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <img class="h-8 w-8 rounded-full" src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80" alt="">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div class="px-4 sm:px-0">
+            <div class="sm:flex sm:items-center sm:justify-between">
+                <div>
+                    <h3 class="text-lg leading-6 font-medium text-gray-900">RAG回答收集</h3>
+                    <p class="mt-1 text-sm text-gray-500">
+                        从您的RAG系统收集问题的回答结果并评测性能
+                    </p>
+                </div>
+            </div>
+
+            <div class="mt-6 bg-white shadow overflow-hidden sm:rounded-lg">
+                <div class="px-4 py-5 sm:p-6">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900">API配置</h3>
+                    <div class="mt-5 border-t border-gray-200 pt-5">
+                        <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+                            <div class="sm:col-span-4">
+                                <label for="api_endpoint" class="block text-sm font-medium text-gray-700">API端点</label>
+                                <div class="mt-1">
+                                    <input type="text" name="api_endpoint" id="api_endpoint" 
+                                        class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md" 
+                                        placeholder="https://api.example.com/rag/query">
+                                </div>
+                                <p class="mt-2 text-sm text-gray-500">
+                                    您的RAG系统的API接口地址
+                                </p>
+                            </div>
+
+                            <div class="sm:col-span-4">
+                                <label for="api_key" class="block text-sm font-medium text-gray-700">API密钥</label>
+                                <div class="mt-1">
+                                    <input type="password" name="api_key" id="api_key" 
+                                        class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md" 
+                                        placeholder="sk-xxxxxxxxxxxxxxxxxxxx">
+                                </div>
+                                <p class="mt-2 text-sm text-gray-500">
+                                    用于访问API的密钥（如果需要）
+                                </p>
+                            </div>
+
+                            <div class="sm:col-span-6">
+                                <label for="request_format" class="block text-sm font-medium text-gray-700">请求格式</label>
+                                <div class="mt-1">
+                                    <textarea id="request_format" name="request_format" rows="5" 
+                                        class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md font-mono" 
+                                        placeholder='{"query": "{{question}}", "options": {"temperature": 0.7}}'></textarea>
+                                </div>
+                                <p class="mt-2 text-sm text-gray-500">
+                                    使用 {{question}} 作为问题占位符
+                                </p>
+                            </div>
+
+                            <div class="sm:col-span-6">
+                                <label for="response_path" class="block text-sm font-medium text-gray-700">响应路径</label>
+                                <div class="mt-1">
+                                    <input type="text" name="response_path" id="response_path" 
+                                        class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md" 
+                                        placeholder="data.answer">
+                                </div>
+                                <p class="mt-2 text-sm text-gray-500">
+                                    从响应JSON中提取回答的路径（例如：data.answer）
+                                </p>
+                            </div>
+
+                            <div class="sm:col-span-6">
+                                <button type="button" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                    <i class="fas fa-check-circle mr-2"></i> 测试连接
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-8 bg-white shadow overflow-hidden sm:rounded-lg">
+                <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
+                    <div>
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">批量收集</h3>
+                        <p class="mt-1 max-w-2xl text-sm text-gray-500">收集所有问题的RAG回答并评测性能</p>
+                    </div>
+                    <div>
+                        <button type="button" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                            <i class="fas fa-play mr-2"></i> 开始收集
+                        </button>
+                    </div>
+                </div>
+                <div class="border-t border-gray-200 px-4 py-5 sm:p-6">
+                    <div class="space-y-6">
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-900">收集设置</h4>
+                            <div class="mt-4 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+                                <div class="sm:col-span-2">
+                                    <label for="batch_size" class="block text-sm font-medium text-gray-700">批次大小</label>
+                                    <select id="batch_size" name="batch_size" 
+                                        class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                                        <option>5</option>
+                                        <option selected>10</option>
+                                        <option>20</option>
+                                        <option>50</option>
+                                    </select>
+                                </div>
+                                <div class="sm:col-span-2">
+                                    <label for="interval" class="block text-sm font-medium text-gray-700">请求间隔(秒)</label>
+                                    <select id="interval" name="interval" 
+                                        class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                                        <option>0</option>
+                                        <option selected>1</option>
+                                        <option>2</option>
+                                        <option>5</option>
+                                    </select>
+                                </div>
+                                <div class="sm:col-span-2">
+                                    <label for="retry_count" class="block text-sm font-medium text-gray-700">失败重试次数</label>
+                                    <select id="retry_count" name="retry_count" 
+                                        class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                                        <option>0</option>
+                                        <option selected>3</option>
+                                        <option>5</option>
+                                        <option>10</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-900">性能评测设置</h4>
+                            <div class="mt-4 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+                                <div class="sm:col-span-2">
+                                    <label for="concurrency" class="block text-sm font-medium text-gray-700">并发数量</label>
+                                    <select id="concurrency" name="concurrency" 
+                                        class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                                        <option>1</option>
+                                        <option selected>3</option>
+                                        <option>5</option>
+                                        <option>10</option>
+                                        <option>20</option>
+                                    </select>
+                                </div>
+                                <div class="sm:col-span-2">
+                                    <label for="timeout" class="block text-sm font-medium text-gray-700">请求超时(秒)</label>
+                                    <select id="timeout" name="timeout" 
+                                        class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                                        <option>30</option>
+                                        <option selected>60</option>
+                                        <option>120</option>
+                                        <option>300</option>
+                                    </select>
+                                </div>
+                                <div class="sm:col-span-2">
+                                    <label for="performance_test" class="block text-sm font-medium text-gray-700">性能测试模式</label>
+                                    <select id="performance_test" name="performance_test" 
+                                        class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                                        <option selected>标准模式</option>
+                                        <option>压力测试</option>
+                                        <option>稳定性测试</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <div class="relative flex items-start">
+                                    <div class="flex items-center h-5">
+                                        <input id="collect_metrics" name="collect_metrics" type="checkbox" checked class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded">
+                                    </div>
+                                    <div class="ml-3 text-sm">
+                                        <label for="collect_metrics" class="font-medium text-gray-700">收集性能指标</label>
+                                        <p class="text-gray-500">记录响应时间、字符数量等性能数据</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-900">收集进度</h4>
+                            <div class="mt-4">
+                                <div class="relative pt-1">
+                                    <div class="flex mb-2 items-center justify-between">
+                                        <div>
+                                            <span class="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-blue-600 bg-blue-200">
+                                                进行中
+                                            </span>
+                                        </div>
+                                        <div class="text-right">
+                                            <span class="text-xs font-semibold inline-block text-blue-600">
+                                                30%
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="overflow-hidden h-2 mb-4 text-xs flex rounded bg-blue-200">
+                                        <div style="width:30%" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500"></div>
+                                    </div>
+                                    <div class="text-sm text-gray-500">
+                                        已完成 3/10 问题，预计剩余时间：2分钟
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-900">性能指标</h4>
+                            <div class="mt-4 bg-gray-50 p-4 rounded-md">
+                                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                                    <div>
+                                        <p class="text-xs font-medium text-gray-500">平均首次响应时间</p>
+                                        <p class="text-lg font-semibold text-gray-900">1.2秒</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs font-medium text-gray-500">平均总响应时间</p>
+                                        <p class="text-lg font-semibold text-gray-900">8.2秒</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs font-medium text-gray-500">平均字符数</p>
+                                        <p class="text-lg font-semibold text-gray-900">520字符</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs font-medium text-gray-500">请求成功率</p>
+                                        <p class="text-lg font-semibold text-gray-900">100%</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-900">最近收集的回答</h4>
+                            <div class="mt-4 bg-gray-50 p-4 rounded-md">
+                                <div class="text-sm font-medium text-gray-900 mb-2">问题：如何使用产品的导出功能？</div>
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="text-xs text-gray-500">首次响应: 0.8秒 | 总响应时间: 4.2秒 | 字符数: 520 | 每秒字符: 123.8</span>
+                                    <button class="text-xs text-blue-600 hover:text-blue-800">查看详细性能</button>
+                                </div>
+                                <div class="text-sm text-gray-700 border-l-4 border-gray-300 pl-3 py-2">
+                                    要使用产品的导出功能，请按照以下步骤操作：
+                                    <br><br>
+                                    1. 在产品界面右上角，找到并点击"导出"按钮（通常显示为向下箭头图标）
+                                    <br>
+                                    2. 在弹出的菜单中，选择您想要的导出格式，可选择CSV或Excel格式
+                                    <br>
+                                    3. 根据需要，您可以选择导出全部数据或仅导出选中的数据
+                                    <br>
+                                    4. 点击"确认"按钮开始导出
+                                    <br>
+                                    5. 导出完成后，文件将自动下载到您的设备上
+                                    <br><br>
+                                    如果您在导出过程中遇到任何问题，请查看帮助文档或联系客服支持。
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 

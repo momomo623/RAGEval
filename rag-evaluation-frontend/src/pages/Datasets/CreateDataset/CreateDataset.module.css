@@ -1,0 +1,68 @@
+.pageContainer {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.pageHeader {
+  margin-bottom: 24px;
+}
+
+.formCard {
+  margin-bottom: 24px;
+}
+
+.section {
+  margin-bottom: 24px;
+}
+
+.formItem {
+  margin-top: 16px;
+}
+
+.tagContainer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.tag {
+  user-select: none;
+}
+
+.tagAddBtn {
+  cursor: pointer;
+  user-select: none;
+}
+
+.tagInput {
+  width: 80px;
+}
+
+.switchContainer {
+  display: flex;
+  flex-direction: column;
+}
+
+.radioSpace {
+  margin-top: 16px;
+  width: 100%;
+}
+
+.optionDescription {
+  color: rgba(0, 0, 0, 0.45);
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.importOptions {
+  margin-top: 16px;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+} 
