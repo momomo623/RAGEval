@@ -138,7 +138,7 @@ const Login: React.FC = () => {
                 name="password"
                 rules={[
                   { required: true, message: '请输入密码' },
-                  ...(isLogin ? [] : [{ min: 8, message: '密码至少8个字符' }])
+                  ...(isLogin ? [] : [{ min: 1, message: '密码至少8个字符' }])
                 ]}
               >
                 <Input.Password 

@@ -1,4 +1,4 @@
-create table if not exists public.users
+create table public.users
 (
     id            uuid                     default uuid_generate_v4() not null
         primary key,
@@ -42,7 +42,7 @@ comment on column public.users.updated_at is '最后更新时间';
 alter table public.users
     owner to postgres;
 
-create table if not exists public.api_keys
+create table public.api_keys
 (
     id         uuid                     default uuid_generate_v4() not null
         primary key,
@@ -79,22 +79,23 @@ comment on column public.api_keys.updated_at is '最后更新时间';
 alter table public.api_keys
     owner to postgres;
 
-create table if not exists public.projects
+create table public.projects
 (
-    id                uuid                     default uuid_generate_v4()           not null
+    id                    uuid                     default uuid_generate_v4()           not null
         primary key,
-    user_id           uuid                                                          not null
+    user_id               uuid                                                          not null
         references public.users
             on delete cascade,
-    name              varchar(100)                                                  not null,
-    description       text,
-    status            varchar(20)              default 'created'::character varying not null,
-    scoring_scale     varchar(20)              default '1-5'::character varying     not null,
-    created_at        timestamp with time zone default now(),
-    updated_at        timestamp with time zone default now(),
-    evaluation_method varchar(20)              default 'auto'::character varying    not null,
-    settings          jsonb                    default '{}'::jsonb,
-    public            boolean                  default false
+    name                  varchar(100)                                                  not null,
+    description           text,
+    status                varchar(20)              default 'created'::character varying not null,
+    scoring_scale         varchar(20)              default '1-5'::character varying     not null,
+    created_at            timestamp with time zone default now(),
+    updated_at            timestamp with time zone default now(),
+    evaluation_method     varchar(20)              default 'auto'::character varying    not null,
+    settings              jsonb                    default '{}'::jsonb,
+    public                boolean                  default false,
+    evaluation_dimensions jsonb                    default '[{"name": "accuracy", "weight": 1.0, "enabled": true, "description": "评估回答的事实准确性"}, {"name": "relevance", "weight": 1.0, "enabled": true, "description": "评估回答与问题的相关程度"}, {"name": "completeness", "weight": 1.0, "enabled": true, "description": "评估回答信息的完整性"}, {"name": "conciseness", "weight": 1.0, "enabled": false, "description": "评估回答是否简洁无冗余"}]'::jsonb
 );
 
 comment on table public.projects is '评测项目表';
@@ -118,7 +119,7 @@ comment on column public.projects.updated_at is '最后更新时间';
 alter table public.projects
     owner to postgres;
 
-create table if not exists public.evaluation_dimensions
+create table public.evaluation_dimensions
 (
     id           uuid                     default uuid_generate_v4() not null
         primary key,
@@ -154,46 +155,7 @@ comment on column public.evaluation_dimensions.created_at is '创建时间';
 alter table public.evaluation_dimensions
     owner to postgres;
 
-create table if not exists public.questions
-(
-    id                uuid                     default uuid_generate_v4() not null
-        primary key,
-    project_id        uuid                                                not null
-        references public.projects
-            on delete cascade,
-    question_text     text                                                not null,
-    standard_answer   text                                                not null,
-    category          varchar(50),
-    difficulty        varchar(20),
-    created_at        timestamp with time zone default now(),
-    updated_at        timestamp with time zone default now(),
-    type              varchar(50),
-    tags              jsonb                    default '[]'::jsonb,
-    question_metadata jsonb                    default '{}'::jsonb
-);
-
-comment on table public.questions is '问题和标准答案表';
-
-comment on column public.questions.id is '问题唯一标识';
-
-comment on column public.questions.project_id is '关联的项目ID';
-
-comment on column public.questions.question_text is '问题内容';
-
-comment on column public.questions.standard_answer is '标准答案';
-
-comment on column public.questions.category is '问题分类';
-
-comment on column public.questions.difficulty is '问题难度';
-
-comment on column public.questions.created_at is '创建时间';
-
-comment on column public.questions.updated_at is '最后更新时间';
-
-alter table public.questions
-    owner to postgres;
-
-create table if not exists public.api_configs
+create table public.api_configs
 (
     id             uuid                     default uuid_generate_v4()        not null
         primary key,
@@ -238,13 +200,11 @@ comment on column public.api_configs.updated_at is '最后更新时间';
 alter table public.api_configs
     owner to postgres;
 
-create table if not exists public.rag_answers
+create table public.rag_answers
 (
     id                    uuid                     default uuid_generate_v4()       not null
         primary key,
-    question_id           uuid                                                      not null
-        references public.questions
-            on delete cascade,
+    question_id           uuid                                                      not null,
     answer                text                                                      not null,
     raw_response          jsonb,
     collection_method     varchar(20)              default 'api'::character varying not null,
@@ -280,16 +240,16 @@ comment on column public.rag_answers.created_at is '创建时间';
 alter table public.rag_answers
     owner to postgres;
 
-create index if not exists idx_rag_answers_question_id
+create index idx_rag_answers_question_id
     on public.rag_answers (question_id);
 
-create index if not exists idx_rag_answers_performance
+create index idx_rag_answers_performance
     on public.rag_answers (total_response_time, first_response_time);
 
-create index if not exists idx_rag_answers_character_count
+create index idx_rag_answers_character_count
     on public.rag_answers (character_count);
 
-create table if not exists public.performance_metrics
+create table public.performance_metrics
 (
     id                uuid                     default uuid_generate_v4()           not null
         primary key,
@@ -331,13 +291,11 @@ comment on column public.performance_metrics.created_at is '创建时间';
 alter table public.performance_metrics
     owner to postgres;
 
-create table if not exists public.evaluations
+create table public.evaluations
 (
     id                 uuid                     default uuid_generate_v4() not null
         primary key,
-    question_id        uuid                                                not null
-        references public.questions
-            on delete cascade,
+    question_id        uuid                                                not null,
     rag_answer_id      uuid                                                not null
         references public.rag_answers
             on delete cascade,
@@ -381,7 +339,7 @@ comment on column public.evaluations.created_at is '创建时间';
 alter table public.evaluations
     owner to postgres;
 
-create table if not exists public.system_settings
+create table public.system_settings
 (
     id         uuid                     default uuid_generate_v4() not null
         primary key,
@@ -412,7 +370,7 @@ comment on column public.system_settings.updated_at is '最后更新时间';
 alter table public.system_settings
     owner to postgres;
 
-create table if not exists public.shared_projects
+create table public.shared_projects
 (
     id         uuid                     default uuid_generate_v4()        not null
         primary key,
@@ -442,7 +400,7 @@ comment on column public.shared_projects.created_at is '创建时间';
 alter table public.shared_projects
     owner to postgres;
 
-create table if not exists public.reports
+create table public.reports
 (
     id          uuid                     default gen_random_uuid() not null
         primary key,
@@ -465,24 +423,185 @@ create table if not exists public.reports
 alter table public.reports
     owner to postgres;
 
-create index if not exists idx_reports_project_id
+create index idx_reports_project_id
     on public.reports (project_id);
 
-create index if not exists idx_reports_user_id
+create index idx_reports_user_id
     on public.reports (user_id);
 
-create index if not exists idx_reports_report_type
+create index idx_reports_report_type
     on public.reports (report_type);
 
-create index if not exists idx_reports_public
+create index idx_reports_public
     on public.reports (public);
 
-create index if not exists idx_reports_created_at
+create index idx_reports_created_at
     on public.reports (created_at);
 
 create trigger update_reports_updated_at
     before update
     on public.reports
     for each row
-execute procedure public.update_updated_at_column();
+    execute procedure public.update_updated_at_column();
+
+create table public.datasets
+(
+    id               uuid                     default uuid_generate_v4() not null
+        primary key,
+    user_id          uuid                                                not null
+        references public.users
+            on delete cascade,
+    name             varchar(100)                                        not null,
+    description      text,
+    is_public        boolean                  default false,
+    tags             jsonb                    default '[]'::jsonb,
+    dataset_metadata jsonb                    default '{}'::jsonb,
+    created_at       timestamp with time zone default now(),
+    updated_at       timestamp with time zone default now()
+);
+
+comment on table public.datasets is '问答数据集表';
+
+comment on column public.datasets.id is '数据集唯一标识';
+
+comment on column public.datasets.user_id is '创建者ID';
+
+comment on column public.datasets.name is '数据集名称';
+
+comment on column public.datasets.description is '数据集描述';
+
+comment on column public.datasets.is_public is '是否公开';
+
+comment on column public.datasets.tags is '标签（JSON数组）';
+
+comment on column public.datasets.dataset_metadata is '元数据（JSON对象）';
+
+comment on column public.datasets.created_at is '创建时间';
+
+comment on column public.datasets.updated_at is '最后更新时间';
+
+alter table public.datasets
+    owner to postgres;
+
+create trigger trigger_update_datasets_timestamp
+    before update
+    on public.datasets
+    for each row
+    execute procedure public.update_datasets_updated_at();
+
+create table public.project_datasets
+(
+    id         uuid                     default uuid_generate_v4() not null
+        primary key,
+    project_id uuid                                                not null
+        references public.projects
+            on delete cascade,
+    dataset_id uuid                                                not null
+        references public.datasets
+            on delete restrict,
+    created_at timestamp with time zone default now(),
+    unique (project_id, dataset_id)
+);
+
+comment on table public.project_datasets is '项目-数据集关联表';
+
+comment on column public.project_datasets.id is '关联记录唯一标识';
+
+comment on column public.project_datasets.project_id is '项目ID';
+
+comment on column public.project_datasets.dataset_id is '数据集ID';
+
+comment on column public.project_datasets.created_at is '关联创建时间';
+
+alter table public.project_datasets
+    owner to postgres;
+
+create table public.questions
+(
+    id                uuid                     default uuid_generate_v4() not null
+        primary key,
+    dataset_id        uuid                                                not null
+        references public.datasets
+            on delete cascade,
+    question_text     text                                                not null,
+    standard_answer   text                                                not null,
+    category          varchar(50),
+    difficulty        varchar(20),
+    type              varchar(50),
+    tags              jsonb                    default '[]'::jsonb,
+    question_metadata jsonb                    default '{}'::jsonb,
+    created_at        timestamp with time zone default now(),
+    updated_at        timestamp with time zone default now()
+);
+
+comment on table public.questions is '问题和标准答案表';
+
+comment on column public.questions.id is '问题唯一标识';
+
+comment on column public.questions.dataset_id is '所属数据集ID';
+
+comment on column public.questions.question_text is '问题内容';
+
+comment on column public.questions.standard_answer is '标准答案';
+
+comment on column public.questions.category is '问题分类';
+
+comment on column public.questions.difficulty is '问题难度';
+
+comment on column public.questions.type is '问题类型';
+
+comment on column public.questions.tags is '问题标签';
+
+comment on column public.questions.question_metadata is '问题元数据';
+
+comment on column public.questions.created_at is '创建时间';
+
+comment on column public.questions.updated_at is '最后更新时间';
+
+alter table public.questions
+    owner to postgres;
+
+create index idx_questions_dataset_id
+    on public.questions (dataset_id);
+
+create index idx_questions_category
+    on public.questions (category);
+
+create index idx_questions_difficulty
+    on public.questions (difficulty);
+
+create index idx_questions_created_at
+    on public.questions (created_at);
+
+create table public.dataset_activities
+(
+    id            uuid                     default uuid_generate_v4() not null
+        primary key,
+    dataset_id    uuid                                                not null
+        references public.datasets
+            on delete cascade,
+    user_id       uuid                                                not null
+        references public.users
+            on delete cascade,
+    activity_type varchar(50)                                         not null,
+    details       jsonb                    default '{}'::jsonb,
+    created_at    timestamp with time zone default now()
+);
+
+comment on table public.dataset_activities is '数据集活动日志表';
+
+comment on column public.dataset_activities.id is '活动记录唯一标识';
+
+comment on column public.dataset_activities.dataset_id is '相关数据集ID';
+
+comment on column public.dataset_activities.user_id is '操作用户ID';
+
+comment on column public.dataset_activities.activity_type is '活动类型';
+
+comment on column public.dataset_activities.details is '活动详情';
+
+comment on column public.dataset_activities.created_at is '活动时间';
+
+alter table public.dataset_activities
+    owner to postgres;
 

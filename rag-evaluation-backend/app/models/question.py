@@ -4,12 +4,13 @@ from sqlalchemy.sql import func
 import uuid
 
 from app.db.base import Base
+from app.models.types import StringUUID
 
 class Question(Base):
     __tablename__ = "questions"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    dataset_id = Column(UUID(as_uuid=True), ForeignKey("datasets.id", ondelete="CASCADE"), nullable=False)
+    id = Column(StringUUID, primary_key=True, default=uuid.uuid4)
+    dataset_id = Column(StringUUID, ForeignKey("datasets.id", ondelete="CASCADE"), nullable=False)
     question_text = Column(Text, nullable=False)
     standard_answer = Column(Text, nullable=False)
     category = Column(String(50))  # 分类，如"事实型"，"推理型"等

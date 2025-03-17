@@ -330,7 +330,7 @@ const Dashboard: React.FC = () => {
         </div>
       ) : (
         <Row gutter={[16, 16]}>
-          {projects.map(project => (
+          {projects.items.map(project => (
             <Col xs={24} sm={12} md={8} key={project.id}>
               {renderProjectCard(project)}
             </Col>

@@ -6,16 +6,20 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user, get_db
 from app.models.user import User
 from app.models.project import Project
-from app.schemas.project import ProjectCreate, ProjectUpdate, ProjectOut, ProjectWithDimensions, ProjectDetail
+from app.schemas.project import ProjectCreate, ProjectUpdate, ProjectOut, ProjectWithDimensions, ProjectDetail, EvaluationDimension
+from app.schemas.common import PaginatedResponse
+from app.schemas.dataset import DatasetOut
+
 from app.services.project_service import (
     create_project, 
     get_project, 
     update_project, 
     delete_project, 
     get_projects_by_user,
-    get_project_with_dimensions
+    get_project_with_dimensions,
+    update_project_status,
+    update_project_dimensions
 )
-from app.schemas.dataset import DatasetOut
 
 router = APIRouter()
 
@@ -36,35 +40,58 @@ def create_project_api(
     project = create_project(db, obj_in=project_in, user_id=current_user.id)
     return project
 
-@router.get("", response_model=List[ProjectOut])
+@router.get("", response_model=PaginatedResponse[ProjectOut])
 def read_projects(
+    *,
     db: Session = Depends(get_db),
-    skip: int = 0,
-    limit: int = 100,
-    status: Optional[str] = Query(None, description="项目状态过滤"),
+    page: int = Query(1, gt=0),
+    size: int = Query(10, gt=0, le=100),
+    status: Optional[str] = None,
     current_user: User = Depends(get_current_user),
 ) -> Any:
     """
     获取用户的所有项目
     """
+    skip = (page - 1) * size
     projects = get_projects_by_user(
-        db, user_id=str(current_user.id), skip=skip, limit=limit, status=status
+        db, user_id=str(current_user.id), skip=skip, limit=size, status=status
     )
-    return projects
+    
+    # 计算总数
+    total = db.query(Project).filter(Project.user_id == current_user.id)
+    if status:
+        total = total.filter(Project.status == status)
+    total = total.count()
+    
+    # 计算总页数
+    pages = (total + size - 1) // size if total > 0 else 1
+    
+    return {
+        "items": projects,
+        "total": total,
+        "page": page,
+        "size": size,
+        "pages": pages
+    }
 
-@router.get("/{project_id}", response_model=ProjectDetail)
-def read_project_detail(
+@router.get("/{project_id}", response_model=ProjectOut)
+def read_project(
     *,
     db: Session = Depends(get_db),
     project_id: str,
     current_user: User = Depends(get_current_user),
 ) -> Any:
     """
-    获取项目详情（包含基本信息和评测维度）
+    获取项目详情
     """
-    project = get_project_with_dimensions(db, project_id=project_id, user_id=str(current_user.id))
+    project = get_project(db, project_id=project_id)
     if not project:
         raise HTTPException(status_code=404, detail="项目未找到")
+    
+    # 检查访问权限
+    if str(project.user_id) != str(current_user.id) and not current_user.is_admin and not project.public:
+        raise HTTPException(status_code=403, detail="无权访问此项目")
+    
     return project
 
 @router.put("/{project_id}", response_model=ProjectOut)
@@ -151,4 +178,62 @@ def read_project_datasets(
         }
         result.append(dataset_dict)
     
-    return result 
+    return result
+
+@router.put("/{project_id}/status", response_model=ProjectOut)
+def update_project_status_api(
+    *,
+    db: Session = Depends(get_db),
+    project_id: str,
+    status: str,
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """
+    更新项目状态
+    """
+    project = get_project(db, project_id=project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="项目未找到")
+    
+    # 检查修改权限
+    if str(project.user_id) != str(current_user.id) and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="无权修改此项目")
+    
+    # 验证状态值
+    valid_statuses = ["created", "in_progress", "completed"]
+    if status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"无效的状态值，有效值为: {', '.join(valid_statuses)}")
+    
+    project = update_project_status(db, project_id=project_id, status=status)
+    return project
+
+@router.put("/{project_id}/dimensions", response_model=ProjectOut)
+def update_project_dimensions_api(
+    *,
+    db: Session = Depends(get_db),
+    project_id: str,
+    dimensions: List[EvaluationDimension],
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """
+    更新项目评测维度
+    """
+    project = get_project(db, project_id=project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="项目未找到")
+    
+    # 检查修改权限
+    if str(project.user_id) != str(current_user.id) and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="无权修改此项目")
+    
+    # 验证维度数据
+    if not dimensions:
+        raise HTTPException(status_code=400, detail="至少需要一个评测维度")
+    
+    # 确保至少有一个维度是启用的
+    if not any(d.enabled for d in dimensions):
+        raise HTTPException(status_code=400, detail="至少需要一个启用的评测维度")
+    
+    dimensions_data = [d.dict() for d in dimensions]
+    project = update_project_dimensions(db, project_id=project_id, dimensions=dimensions_data)
+    return project 

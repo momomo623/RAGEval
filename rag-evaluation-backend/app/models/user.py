@@ -4,11 +4,13 @@ from sqlalchemy.sql import func
 import uuid
 
 from app.db.base import Base
+from app.models.types import StringUUID
+
 
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(StringUUID, primary_key=True, default=uuid.uuid4)
     email = Column(String(255), unique=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     name = Column(String(100))
@@ -23,8 +25,8 @@ class User(Base):
 class ApiKey(Base):
     __tablename__ = "api_keys"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    id = Column(StringUUID, primary_key=True, default=uuid.uuid4)
+    user_id = Column(StringUUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     name = Column(String(100), nullable=False)
     key = Column(String(255), nullable=False)
     provider = Column(String(50), nullable=False)  # openai, anthropic, etc.

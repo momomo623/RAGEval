@@ -412,7 +412,7 @@ const DatasetDetailPage: React.FC = () => {
             <div className={styles.projectsContainer}>
               {dataset.projects && dataset.projects.length > 0 ? (
                 <div className={styles.projectList}>
-                  {dataset.projects.map(project => (
+                  {dataset.projects.items.map(project => (
                     <Card key={project.id} className={styles.projectCard}>
                       <div className={styles.projectInfo}>
                         <Title level={5}>{project.name}</Title>

@@ -4,16 +4,17 @@ from sqlalchemy.sql import func
 import uuid
 
 from app.db.base import Base
+from app.models.types import StringUUID
 
 class RagAnswer(Base):
     __tablename__ = "rag_answers"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    question_id = Column(UUID(as_uuid=True), ForeignKey("questions.id", ondelete="CASCADE"), nullable=False)
+    id = Column(StringUUID, primary_key=True, default=uuid.uuid4)
+    question_id = Column(StringUUID, ForeignKey("questions.id", ondelete="CASCADE"), nullable=False)
     answer_text = Column(Text, nullable=False)
     collection_method = Column(String(20), nullable=False)  # api, manual
     source_system = Column(String(100))  # RAG系统标识
-    api_config_id = Column(UUID(as_uuid=True), ForeignKey("api_configs.id", ondelete="SET NULL"))
+    api_config_id = Column(StringUUID, ForeignKey("api_configs.id", ondelete="SET NULL"))
     
     # 性能相关字段
     first_response_time = Column(Integer)  # 首次响应时间(毫秒)
@@ -29,8 +30,8 @@ class RagAnswer(Base):
 class ApiConfig(Base):
     __tablename__ = "api_configs"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    id = Column(StringUUID, primary_key=True, default=uuid.uuid4)
+    project_id = Column(StringUUID, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     name = Column(String(100), nullable=False)
     endpoint_url = Column(String(255), nullable=False)
     auth_type = Column(String(20), default="none")  # none, api_key, basic, oauth

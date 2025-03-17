@@ -4,13 +4,15 @@ from sqlalchemy.sql import func
 import uuid
 
 from app.db.base import Base
+from app.models.types import StringUUID
+
 
 class Report(Base):
     __tablename__ = "reports"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    id = Column(StringUUID, primary_key=True, default=uuid.uuid4)
+    user_id = Column(StringUUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    project_id = Column(StringUUID, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     title = Column(String(200), nullable=False)
     description = Column(Text)
     report_type = Column(String(50), nullable=False)  # evaluation, performance, comparison

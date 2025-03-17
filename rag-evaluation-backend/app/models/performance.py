@@ -2,6 +2,7 @@ from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Integer, Floa
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 import uuid
+from app.models.types import StringUUID
 
 from app.db.base import Base
 
@@ -9,9 +10,9 @@ class PerformanceTest(Base):
     """性能测试记录"""
     __tablename__ = "performance_tests"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    id = Column(StringUUID, primary_key=True, default=uuid.uuid4)
+    user_id = Column(StringUUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    project_id = Column(StringUUID, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     name = Column(String(200), nullable=False)
     description = Column(Text)
     test_type = Column(String(50), nullable=False)  # latency, throughput, concurrency
@@ -25,9 +26,9 @@ class PerformanceMetric(Base):
     """性能测试指标"""
     __tablename__ = "performance_metrics"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    test_id = Column(UUID(as_uuid=True), ForeignKey("performance_tests.id", ondelete="CASCADE"), nullable=False)
-    rag_answer_id = Column(UUID(as_uuid=True), ForeignKey("rag_answers.id", ondelete="SET NULL"))
+    id = Column(StringUUID, primary_key=True, default=uuid.uuid4)
+    test_id = Column(StringUUID, ForeignKey("performance_tests.id", ondelete="CASCADE"), nullable=False)
+    rag_answer_id = Column(StringUUID, ForeignKey("rag_answers.id", ondelete="SET NULL"))
     
     # 测试参数
     concurrency_level = Column(Integer, default=1)

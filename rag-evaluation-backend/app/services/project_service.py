@@ -1,61 +1,38 @@
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
+from fastapi.encoders import jsonable_encoder
 
-from app.models.project import Project, EvaluationDimension
+from app.models.project import Project
 from app.schemas.project import (
     ProjectCreate, 
     ProjectUpdate, 
-    DimensionCreate, 
     ProjectWithDimensions, 
     ProjectDetail
 )
-from app.schemas.dimension import DimensionOut
 
 def create_project(db: Session, obj_in: ProjectCreate, user_id: str) -> Project:
-    """创建新项目"""
-    db_obj = Project(
-        user_id=user_id,
-        name=obj_in.name,
-        description=obj_in.description,
-        evaluation_method=obj_in.evaluation_method,
-        scoring_scale=obj_in.scoring_scale,
-        status=obj_in.status,
-        settings=obj_in.settings
-    )
+    """创建项目"""
+    obj_in_data = jsonable_encoder(obj_in)
+    
+    # 如果没有提供评测维度，使用默认值
+    if not obj_in_data.get("evaluation_dimensions"):
+        obj_in_data["evaluation_dimensions"] = [
+            {"name": "accuracy", "weight": 1.0, "description": "评估回答的事实准确性", "enabled": True},
+            {"name": "relevance", "weight": 1.0, "description": "评估回答与问题的相关程度", "enabled": True},
+            {"name": "completeness", "weight": 1.0, "description": "评估回答信息的完整性", "enabled": True},
+            {"name": "conciseness", "weight": 1.0, "description": "评估回答是否简洁无冗余", "enabled": False}
+        ]
+    
+    db_obj = Project(**obj_in_data, user_id=user_id)
     db.add(db_obj)
     db.commit()
     db.refresh(db_obj)
-    
-    # 创建默认评测维度
-    default_dimensions = [
-        {"name": "accuracy", "display_name": "准确性", "description": "评估回答与标准答案的事实一致性", "weight": 1.0},
-        {"name": "relevance", "display_name": "相关性", "description": "评估回答与问题的匹配度", "weight": 1.0},
-        {"name": "completeness", "display_name": "完整性", "description": "评估回答的信息覆盖度", "weight": 1.0},
-        {"name": "conciseness", "display_name": "简洁性", "description": "评估回答是否无冗余信息", "weight": 0.8}
-    ]
-    
-    for dim in default_dimensions:
-        dimension = EvaluationDimension(
-            project_id=db_obj.id,
-            name=dim["name"],
-            display_name=dim["display_name"],
-            description=dim["description"],
-            weight=str(dim["weight"])
-        )
-        db.add(dimension)
-    
-    db.commit()
     return db_obj
 
 def get_project(db: Session, project_id: str) -> Optional[Project]:
-    """获取单个项目"""
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if project:
-        # 手动转换 UUID 为字符串
-        project.id = str(project.id)
-        project.user_id = str(project.user_id)
-    return project
+    """通过ID获取项目"""
+    return db.query(Project).filter(Project.id == project_id).first()
 
 def get_project_with_dimensions(db: Session, project_id: str, user_id: str) -> Optional[ProjectDetail]:
     """获取项目详情，包括评测维度"""
@@ -120,84 +97,71 @@ def get_projects_by_user(
     skip: int = 0, 
     limit: int = 100,
     status: Optional[str] = None
-) -> List[Dict[str, Any]]:
+) -> List[Project]:
     """获取用户的所有项目"""
     query = db.query(Project).filter(Project.user_id == user_id)
     
     if status:
         query = query.filter(Project.status == status)
-    
-    projects = query.order_by(desc(Project.created_at)).offset(skip).limit(limit).all()
-    
-    # 手动转换UUID为字符串
-    result = []
-    for project in projects:
-        project_dict = {
-            "id": str(project.id),
-            "user_id": str(project.user_id),
-            "name": project.name,
-            "description": project.description,
-            "evaluation_method": project.evaluation_method,
-            "scoring_scale": project.scoring_scale,
-            "status": project.status,
-            "settings": project.settings,
-            "created_at": project.created_at,
-            "updated_at": project.updated_at
-        }
-        result.append(project_dict)
-    
-    return result
+            
+    return query.offset(skip).limit(limit).all()
 
 def update_project(
     db: Session, 
-    db_obj: Project,
+    project_id: str, 
     obj_in: ProjectUpdate
-) -> Project:
+) -> Optional[Project]:
     """更新项目"""
+    db_obj = get_project(db, project_id)
+    if not db_obj:
+        return None
+        
+    obj_data = jsonable_encoder(db_obj)
     update_data = obj_in.dict(exclude_unset=True)
     
-    for field, value in update_data.items():
-        setattr(db_obj, field, value)
-    
+    for field in obj_data:
+        if field in update_data:
+            setattr(db_obj, field, update_data[field])
+            
     db.add(db_obj)
     db.commit()
     db.refresh(db_obj)
     return db_obj
 
-def delete_project(db: Session, project_id: str) -> Optional[Project]:
+def delete_project(db: Session, project_id: str) -> bool:
     """删除项目"""
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if not project:
-        return None
-    
-    # 删除项目关联的评测维度
-    db.query(EvaluationDimension).filter(EvaluationDimension.project_id == project_id).delete()
-    
-    # 删除项目
-    db.delete(project)
+    db_obj = get_project(db, project_id)
+    if not db_obj:
+        return False
+        
+    db.delete(db_obj)
     db.commit()
-    return project
+    return True
 
-def create_dimension(
-    db: Session, 
-    project_id: str,
-    obj_in: DimensionCreate
-) -> EvaluationDimension:
-    """为项目创建评测维度"""
-    db_obj = EvaluationDimension(
-        project_id=project_id,
-        name=obj_in.name,
-        display_name=obj_in.display_name,
-        description=obj_in.description,
-        weight=str(obj_in.weight)
-    )
+def update_project_status(db: Session, project_id: str, status: str) -> Optional[Project]:
+    """更新项目状态"""
+    db_obj = get_project(db, project_id)
+    if not db_obj:
+        return None
+        
+    db_obj.status = status
     db.add(db_obj)
     db.commit()
     db.refresh(db_obj)
     return db_obj
 
-def get_dimensions(db: Session, project_id: str) -> List[EvaluationDimension]:
-    """获取项目的所有评测维度"""
-    return db.query(EvaluationDimension).filter(
-        EvaluationDimension.project_id == project_id
-    ).all() 
+def update_project_dimensions(
+    db: Session, 
+    project_id: str, 
+    dimensions: List[Dict[str, Any]]
+) -> Optional[Project]:
+    """更新项目评测维度"""
+    db_obj = get_project(db, project_id)
+    if not db_obj:
+        return None
+        
+    db_obj.evaluation_dimensions = dimensions
+    db.add(db_obj)
+    db.commit()
+    db.refresh(db_obj)
+    return db_obj 
