@@ -7,7 +7,7 @@ import {
 import { 
   ArrowLeftOutlined, EditOutlined, DeleteOutlined, DownloadOutlined,
   PlusOutlined, ExclamationCircleOutlined, LinkOutlined, UploadOutlined,
-  SearchOutlined, FilterOutlined, EyeOutlined, LockOutlined
+  SearchOutlined, FilterOutlined, EyeOutlined, LockOutlined, CopyOutlined
 } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DatasetDetail, Question } from '../../../types/dataset';
@@ -34,6 +34,8 @@ const DatasetDetailPage: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState<string | undefined>(undefined);
   const [difficultyFilter, setDifficultyFilter] = useState<string | undefined>(undefined);
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+  const [isOwner, setIsOwner] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   
   useEffect(() => {
     if (id) {
@@ -46,6 +48,16 @@ const DatasetDetailPage: React.FC = () => {
       fetchQuestions(id);
     }
   }, [id, currentPage, pageSize, searchText, categoryFilter, difficultyFilter]);
+  
+  useEffect(() => {
+    // 获取当前用户信息
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    setCurrentUserId(user.id || null);
+    
+    if (dataset && user.id) {
+      setIsOwner(dataset.user_id === user.id);
+    }
+  }, [dataset]);
   
   const fetchDatasetDetail = async (datasetId: string) => {
     setLoading(true);
@@ -162,6 +174,34 @@ const DatasetDetailPage: React.FC = () => {
         // TODO: 实现批量删除问题的API
         // 然后重新获取问题列表
         // fetchQuestions(id!);
+      }
+    });
+  };
+  
+  const handleCopyDataset = () => {
+    Modal.confirm({
+      title: '复制到我的数据集',
+      content: (
+        <div>
+          <p>您将创建此数据集的个人副本，包括其中所有问题。</p>
+          <Input 
+            placeholder="新数据集名称（可选）" 
+            id="new-dataset-name"
+          />
+        </div>
+      ),
+      onOk: async () => {
+        try {
+          const nameInput = document.getElementById('new-dataset-name') as HTMLInputElement;
+          const newName = nameInput?.value || `${dataset.name} (复制)`;
+          
+          const newDataset = await datasetService.copyDataset(dataset.id, newName);
+          message.success('数据集已复制到您的账户');
+          navigate(`/datasets/${newDataset.id}`);
+        } catch (error) {
+          console.error('复制数据集失败:', error);
+          message.error('复制数据集失败，请重试');
+        }
       }
     });
   };
@@ -292,35 +332,59 @@ const DatasetDetailPage: React.FC = () => {
           </div>
           <div className={styles.actionButtons}>
             <Space>
-              <Button 
-                icon={<EditOutlined />} 
-                onClick={handleEditDataset}
-              >
-                编辑
-              </Button>
-              <Button 
-                icon={<DeleteOutlined />} 
-                danger
-                onClick={handleDeleteDataset}
-              >
-                删除
-              </Button>
-              <Dropdown 
-                overlay={
-                  <Menu>
-                    <Menu.Item key="import" icon={<UploadOutlined />} onClick={handleImportData}>
-                      导入数据
-                    </Menu.Item>
-                    <Menu.Item key="export" icon={<DownloadOutlined />} onClick={handleExportData}>
-                      导出数据
-                    </Menu.Item>
-                  </Menu>
-                }
-              >
-                <Button>
-                  更多 <DownloadOutlined />
-                </Button>
-              </Dropdown>
+              {isOwner ? (
+                /* 所有者可以编辑和删除 */
+                <>
+                  <Button 
+                    icon={<EditOutlined />} 
+                    onClick={handleEditDataset}
+                  >
+                    编辑
+                  </Button>
+                  <Button 
+                    icon={<DeleteOutlined />} 
+                    danger
+                    onClick={handleDeleteDataset}
+                  >
+                    删除
+                  </Button>
+                  <Dropdown 
+                    overlay={
+                      <Menu>
+                        <Menu.Item key="import" icon={<UploadOutlined />} onClick={handleImportData}>
+                          导入数据
+                        </Menu.Item>
+                        <Menu.Item key="export" icon={<DownloadOutlined />} onClick={handleExportData}>
+                          导出数据
+                        </Menu.Item>
+                      </Menu>
+                    }
+                  >
+                    <Button>
+                      更多 <DownloadOutlined />
+                    </Button>
+                  </Dropdown>
+                </>
+              ) : (
+                /* 非所有者只能查看和复制 */
+                <>
+                  {dataset.is_public && (
+                    <Button 
+                      type="primary"
+                      icon={<CopyOutlined />} 
+                      onClick={handleCopyDataset}
+                    >
+                      复制到我的数据集
+                    </Button>
+                  )}
+                  <Button 
+                    icon={<DownloadOutlined />} 
+                    onClick={handleExportData}
+                  >
+                    导出数据
+                  </Button>
+                </>
+              )}
             </Space>
           </div>
         </div>
@@ -412,7 +476,8 @@ const DatasetDetailPage: React.FC = () => {
             <div className={styles.projectsContainer}>
               {dataset.projects && dataset.projects.length > 0 ? (
                 <div className={styles.projectList}>
-                  {dataset.projects.items.map(project => (
+
+                  {(dataset.projects || []).map(project => (
                     <Card key={project.id} className={styles.projectCard}>
                       <div className={styles.projectInfo}>
                         <Title level={5}>{project.name}</Title>

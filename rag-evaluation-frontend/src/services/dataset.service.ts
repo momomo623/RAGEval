@@ -169,5 +169,15 @@ export const datasetService = {
   // 从项目中移除数据集
   async unlinkDatasetFromProject(link: ProjectDatasetLink): Promise<void> {
     await api.delete(`/v1/projects/${link.project_id}/datasets/${link.dataset_id}`);
+  },
+
+  // 复制数据集
+  async copyDataset(datasetId: string, newName?: string): Promise<Dataset> {
+    let url = `/v1/datasets/${datasetId}/copy`;
+    if (newName) {
+      url += `?name=${encodeURIComponent(newName)}`;
+    }
+    
+    return api.post<Dataset>(url);
   }
 }; 

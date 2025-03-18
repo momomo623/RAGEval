@@ -26,7 +26,8 @@ from app.services.dataset_service import (
     get_dataset_with_stats,
     link_dataset_to_project,
     unlink_dataset_from_project,
-    get_questions_by_dataset
+    get_questions_by_dataset,
+    copy_dataset
 )
 from app.models.question import Question
 from app.models.dataset import Dataset
@@ -63,56 +64,64 @@ def create_dataset_api(
 def read_datasets(
     *,
     db: Session = Depends(get_db),
-    page: int = Query(1, gt=0),       # 改为页码，从1开始
-    size: int = Query(12, gt=0, le=100), # 改为每页数量
-    is_public: Optional[bool] = None,
-    tags: Optional[str] = Query(None, description="标签，多个用逗号分隔"),
-    search: Optional[str] = Query(None, description="搜索关键词"),
+    page: int = Query(1, gt=0),
+    size: int = Query(10, gt=0, le=100),
+    search: Optional[str] = None, 
+    include_public: bool = Query(True, description="是否包含其他用户的公开数据集"),
     current_user: User = Depends(get_current_user)
 ) -> Any:
     """
-    获取用户的所有数据集（带分页）
+    获取用户的数据集列表，optionally包含其他用户的公开数据集
     """
-    tag_list = tags.split(",") if tags else None
+    skip = (page - 1) * size
     
-    # 获取总数
-    query = db.query(Dataset).filter(Dataset.user_id == current_user.id)
+    # 获取数据集列表
+    datasets = get_datasets_by_user(
+        db, 
+        user_id=str(current_user.id), 
+        skip=skip, 
+        limit=size, 
+        search=search,
+        include_public=include_public
+    )
     
-    if is_public is not None:
-        query = query.filter(Dataset.is_public == is_public)
-        
-    if tag_list:
-        for tag in tag_list:
-            query = query.filter(Dataset.tags.contains([tag]))
-    
-    if search:
+    # 计算总数（需要考虑筛选条件）
+    query = db.query(func.count(Dataset.id))
+    if include_public:
         query = query.filter(
             or_(
-                Dataset.name.ilike(f"%{search}%"),
-                Dataset.description.ilike(f"%{search}%")
+                Dataset.user_id == current_user.id,
+                Dataset.is_public == True
+            )
+        )
+    else:
+        query = query.filter(Dataset.user_id == current_user.id)
+    
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            or_(
+                Dataset.name.ilike(search_term),
+                Dataset.description.ilike(search_term)
             )
         )
     
-    # 计算总数
-    total = query.count()
+    total = query.scalar()
     
-    # 计算分页
-    offset = (page - 1) * size
-    datasets = query.offset(offset).limit(size).all()
-    print("=====================")
-
-    # 为每个数据集添加问题数量
+    # 计算总页数
+    pages = (total + size - 1) // size if total > 0 else 1
+    
+    # 准备返回结果
     result = []
     for dataset in datasets:
+        # 获取此数据集的问题数量
         question_count = db.query(func.count(Question.id)).filter(
             Question.dataset_id == dataset.id
         ).scalar()
-        print(type(dataset.id))
         
-        # 创建数据字典，确保UUID被转换为字符串
         dataset_dict = {
-            "id": dataset.id,
-            "user_id": str(dataset.user_id),
+            "id": str(dataset.id),
+            "user_id": str(dataset.user_id) if str(dataset.user_id) == str(current_user.id) else None,
             "name": dataset.name,
             "description": dataset.description,
             "is_public": dataset.is_public,
@@ -120,14 +129,11 @@ def read_datasets(
             "dataset_metadata": dataset.dataset_metadata or {},
             "question_count": question_count,
             "created_at": dataset.created_at,
-            "updated_at": dataset.updated_at
+            "updated_at": dataset.updated_at,
+            "is_owner": str(dataset.user_id) == str(current_user.id)
         }
         result.append(dataset_dict)
     
-    # 计算总页数
-    pages = (total + size - 1) // size if total > 0 else 1
-    
-    # 返回分页结果
     return {
         "items": result,
         "total": total,
@@ -181,7 +187,7 @@ def read_public_datasets(
         
         dataset_dict = {
             "id": str(dataset.id),
-            "user_id": str(dataset.user_id),
+            "user_id": str(dataset.user_id) if str(dataset.user_id) == str(current_user.id) else None,
             "name": dataset.name,
             "description": dataset.description,
             "is_public": dataset.is_public,
@@ -249,18 +255,37 @@ def update_dataset_api(
     current_user: User = Depends(get_current_user)
 ) -> Any:
     """
-    更新数据集
+    更新数据集信息
     """
     dataset = get_dataset(db, dataset_id=dataset_id)
     if not dataset:
         raise HTTPException(status_code=404, detail="数据集未找到")
     
-    # 检查修改权限
-    if str(dataset.user_id) != str(current_user.id) and not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="无权修改此数据集")
+    # 严格检查所有权 - 只有创建者可以修改，即使是管理员也不行
+    if str(dataset.user_id) != str(current_user.id):
+        raise HTTPException(status_code=403, detail="您不是此数据集的所有者，无权修改")
     
+    # 更新数据集
     dataset = update_dataset(db, dataset_id=dataset_id, obj_in=dataset_in)
-    return dataset
+    
+    # 获取问题数量
+    question_count = db.query(func.count(Question.id)).filter(
+        Question.dataset_id == dataset.id
+    ).scalar()
+    
+    # 返回响应
+    return {
+        "id": str(dataset.id),
+        "user_id": str(dataset.user_id),
+        "name": dataset.name,
+        "description": dataset.description,
+        "is_public": dataset.is_public,
+        "tags": dataset.tags or [],
+        "dataset_metadata": dataset.dataset_metadata or {},
+        "question_count": question_count,
+        "created_at": dataset.created_at,
+        "updated_at": dataset.updated_at
+    }
 
 @router.delete("/{dataset_id}")
 def delete_dataset_api(
@@ -423,4 +448,49 @@ def read_dataset_questions(
         }
         result.append(question_dict)
     
-    return result 
+    return result
+
+@router.post("/{dataset_id}/copy", response_model=DatasetOut)
+def copy_dataset_api(
+    *,
+    db: Session = Depends(get_db),
+    dataset_id: str,
+    name: Optional[str] = Query(None, description="新数据集名称"),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """
+    复制公开数据集到当前用户的私人数据集
+    """
+    # 检查源数据集
+    source_dataset = get_dataset(db, dataset_id=dataset_id)
+    if not source_dataset:
+        raise HTTPException(status_code=404, detail="数据集未找到")
+    
+    # 检查权限 - 如果数据集不是公开的且不属于当前用户，则拒绝访问
+    if not source_dataset.is_public and str(source_dataset.user_id) != str(current_user.id):
+        raise HTTPException(status_code=403, detail="无权复制此数据集")
+    
+    # 执行复制
+    new_dataset = copy_dataset(db, source_dataset_id=dataset_id, user_id=str(current_user.id), new_name=name)
+    
+    if not new_dataset:
+        raise HTTPException(status_code=500, detail="复制数据集失败")
+    
+    # 获取问题数量
+    question_count = db.query(func.count(Question.id)).filter(
+        Question.dataset_id == new_dataset.id
+    ).scalar()
+    
+    # 返回响应
+    return {
+        "id": str(new_dataset.id),
+        "user_id": str(new_dataset.user_id),
+        "name": new_dataset.name,
+        "description": new_dataset.description,
+        "is_public": new_dataset.is_public,
+        "tags": new_dataset.tags or [],
+        "dataset_metadata": new_dataset.dataset_metadata or {},
+        "question_count": question_count,
+        "created_at": new_dataset.created_at,
+        "updated_at": new_dataset.updated_at
+    } 

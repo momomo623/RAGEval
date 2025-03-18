@@ -1,6 +1,6 @@
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, desc
 from fastapi.encoders import jsonable_encoder
 
 from app.models.dataset import Dataset, ProjectDataset
@@ -25,19 +25,38 @@ def get_datasets_by_user(
     user_id: str, 
     skip: int = 0, 
     limit: int = 100,
-    tags: Optional[List[str]] = None,
-    is_public: Optional[bool] = None
+    search: Optional[str] = None,
+    include_public: bool = True  # 添加包含公开数据集的选项
 ) -> List[Dataset]:
-    """获取用户的所有数据集"""
-    query = db.query(Dataset).filter(Dataset.user_id == user_id)
+    """获取用户的数据集，optionally包含其他用户的公开数据集"""
+    # 基础查询 - 用户自己的数据集
+    query = db.query(Dataset)
     
-    if is_public is not None:
-        query = query.filter(Dataset.is_public == is_public)
-        
-    if tags:
-        for tag in tags:
-            query = query.filter(Dataset.tags.contains([tag]))
-            
+    if include_public:
+        # 查询条件：用户自己的数据集 OR 其他用户的公开数据集
+        query = query.filter(
+            or_(
+                Dataset.user_id == user_id,
+                Dataset.is_public == True
+            )
+        )
+    else:
+        # 只查询用户自己的数据集
+        query = query.filter(Dataset.user_id == user_id)
+    
+    # 添加搜索条件
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            or_(
+                Dataset.name.ilike(search_term),
+                Dataset.description.ilike(search_term)
+            )
+        )
+    
+    # 先查询自己的数据集，再查询公开的数据集
+    query = query.order_by(Dataset.user_id == user_id, desc(Dataset.created_at))
+    
     return query.offset(skip).limit(limit).all()
 
 def get_public_datasets(
@@ -202,4 +221,53 @@ def get_questions_by_dataset(
     if difficulty:
         query = query.filter(Question.difficulty == difficulty)
         
-    return query.offset(skip).limit(limit).all() 
+    return query.offset(skip).limit(limit).all()
+
+def copy_dataset(db: Session, source_dataset_id: str, user_id: str, new_name: Optional[str] = None) -> Optional[Dataset]:
+    """复制公开数据集为用户的私人数据集"""
+    # 获取源数据集
+    source_dataset = get_dataset(db, dataset_id=source_dataset_id)
+    if not source_dataset:
+        return None
+        
+    # 检查源数据集是否公开
+    if not source_dataset.is_public and str(source_dataset.user_id) != user_id:
+        return None
+    
+    # 创建新数据集数据
+    new_dataset_data = {
+        "user_id": user_id,
+        "name": new_name or f"{source_dataset.name} (复制)",
+        "description": source_dataset.description,
+        "is_public": False,  # 默认为私有
+        "tags": source_dataset.tags,
+        "dataset_metadata": source_dataset.dataset_metadata
+    }
+    
+    # 创建新数据集
+    new_dataset = Dataset(**new_dataset_data)
+    db.add(new_dataset)
+    db.commit()
+    db.refresh(new_dataset)
+    
+    # 复制所有问题
+    questions = db.query(Question).filter(
+        Question.dataset_id == source_dataset_id
+    ).all()
+    
+    for question in questions:
+        new_question = Question(
+            dataset_id=new_dataset.id,
+            question_text=question.question_text,
+            standard_answer=question.standard_answer,
+            category=question.category,
+            difficulty=question.difficulty,
+            type=question.type,
+            tags=question.tags,
+            question_metadata=question.question_metadata
+        )
+        db.add(new_question)
+    
+    db.commit()
+    
+    return new_dataset 
