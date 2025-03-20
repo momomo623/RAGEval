@@ -52,7 +52,7 @@ const DatasetDetailPage: React.FC = () => {
   
   useEffect(() => {
     if (id) {
-      fetchDatasetDetail(id);
+      // fetchDatasetDetail(id);
       fetchQuestions(id, {
         page: currentPage,
         size: pageSize,
@@ -62,6 +62,11 @@ const DatasetDetailPage: React.FC = () => {
       });
     }
   }, [id, currentPage, pageSize, searchText, categoryFilter, difficultyFilter]);
+  useEffect(() => {
+    if (id) {
+      fetchDatasetDetail(id);
+    }
+  }, [id]);
   
   useEffect(() => {
     // 获取当前用户信息
@@ -403,14 +408,7 @@ const DatasetDetailPage: React.FC = () => {
   };
   
   const columns = [
-    {
-      title: 'ID',
-      dataIndex: 'id',
-      key: 'id',
-      width: 80,
-      ellipsis: true,
-      render: (text: string) => <span>{text.substring(0, 8)}...</span>
-    },
+
     {
       title: '问题',
       dataIndex: 'question_text',
@@ -459,54 +457,54 @@ const DatasetDetailPage: React.FC = () => {
         );
       },
     },
-    {
-      title: '分类',
-      dataIndex: 'category',
-      key: 'category',
-      width: 120,
-      render: (text: string, record: Question) => {
-        if (isEditing(record)) {
-          return (
-            <Form.Item
-              name="category"
-              style={{ margin: 0 }}
-            >
-              <Select style={{ width: '100%' }}>
-                <Option value="general">通用</Option>
-                <Option value="product">产品</Option>
-                <Option value="technical">技术</Option>
-                <Option value="user">用户</Option>
-                <Option value="api">API</Option>
-              </Select>
-            </Form.Item>
-          );
-        }
-        return text;
-      },
-    },
-    {
-      title: '难度',
-      dataIndex: 'difficulty',
-      key: 'difficulty',
-      width: 100,
-      render: (text: string, record: Question) => {
-        if (isEditing(record)) {
-          return (
-            <Form.Item
-              name="difficulty"
-              style={{ margin: 0 }}
-            >
-              <Select style={{ width: '100%' }}>
-                <Option value="easy">简单</Option>
-                <Option value="medium">中等</Option>
-                <Option value="hard">困难</Option>
-              </Select>
-            </Form.Item>
-          );
-        }
-        return text;
-      },
-    },
+    // {
+    //   title: '分类',
+    //   dataIndex: 'category',
+    //   key: 'category',
+    //   width: 120,
+    //   render: (text: string, record: Question) => {
+    //     if (isEditing(record)) {
+    //       return (
+    //         <Form.Item
+    //           name="category"
+    //           style={{ margin: 0 }}
+    //         >
+    //           <Select style={{ width: '100%' }}>
+    //             <Option value="general">通用</Option>
+    //             <Option value="product">产品</Option>
+    //             <Option value="technical">技术</Option>
+    //             <Option value="user">用户</Option>
+    //             <Option value="api">API</Option>
+    //           </Select>
+    //         </Form.Item>
+    //       );
+    //     }
+    //     return text;
+    //   },
+    // },
+    // {
+    //   title: '难度',
+    //   dataIndex: 'difficulty',
+    //   key: 'difficulty',
+    //   width: 100,
+    //   render: (text: string, record: Question) => {
+    //     if (isEditing(record)) {
+    //       return (
+    //         <Form.Item
+    //           name="difficulty"
+    //           style={{ margin: 0 }}
+    //         >
+    //           <Select style={{ width: '100%' }}>
+    //             <Option value="easy">简单</Option>
+    //             <Option value="medium">中等</Option>
+    //             <Option value="hard">困难</Option>
+    //           </Select>
+    //         </Form.Item>
+    //       );
+    //     }
+    //     return text;
+    //   },
+    // },
     {
       title: '操作',
       key: 'action',
@@ -710,7 +708,7 @@ const DatasetDetailPage: React.FC = () => {
                 </Button>
               </div>
               <div className={styles.tableFilters}>
-                <Select 
+                {/* <Select 
                   defaultValue="all" 
                   style={{ width: 120 }} 
                   onChange={handleCategoryFilterChange}
@@ -729,7 +727,7 @@ const DatasetDetailPage: React.FC = () => {
                   <Option value="easy">简单</Option>
                   <Option value="medium">中等</Option>
                   <Option value="hard">困难</Option>
-                </Select>
+                </Select> */}
                 <Input.Search
                   placeholder="搜索问题"
                   allowClear

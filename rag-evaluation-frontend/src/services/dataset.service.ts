@@ -292,7 +292,7 @@ export const datasetService = {
   // 创建带RAG回答的问题
   async createQuestionWithRag(datasetId: string, questionData: any): Promise<Question> {
     try {
-      const response = await api.post(`/v1/datasets/${datasetId}/questions/with-rag`, questionData);
+      const response = await api.post(`/v1/datasets-questions/${datasetId}/questions/with-rag`, questionData);
       return response;
     } catch (error) {
       console.error('创建问题及RAG回答失败:', error);

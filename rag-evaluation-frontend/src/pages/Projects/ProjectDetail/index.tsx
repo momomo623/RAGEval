@@ -13,6 +13,8 @@ import { projectService } from '../../../services/project.service';
 import { datasetService } from '../../../services/dataset.service';
 import { Dataset } from '../../../types/dataset';
 import styles from './ProjectDetail.module.css';
+import ConfigButton from '../../../components/ConfigButton';
+import { useConfigContext } from '../../../contexts/ConfigContext';
 
 const { Title, Text, Paragraph } = Typography;
 const { TabPane } = Tabs;
@@ -21,6 +23,7 @@ const { confirm } = Modal;
 const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { getLLMConfig, getRAGConfig } = useConfigContext();
   
   const [loading, setLoading] = useState(true);
   const [project, setProject] = useState<any>(null);
@@ -103,7 +106,16 @@ const ProjectDetailPage: React.FC = () => {
   
   // 启动新评测
   const handleStartEvaluation = () => {
-    navigate(`/projects/${id}/evaluations/new`);
+    const llmConfig = getLLMConfig();
+    const ragConfig = getRAGConfig();
+    
+    if (!llmConfig || !ragConfig) {
+      // 提示用户配置
+      return;
+    }
+    
+    // 开始评测逻辑...
+    console.log('使用配置进行评测:', { llmConfig, ragConfig });
   };
   
   // 查看评测报告
@@ -356,6 +368,10 @@ const ProjectDetailPage: React.FC = () => {
           </div>
         </TabPane>
       </Tabs>
+      
+      <Space direction="vertical" size="middle" style={{ width: '100%', marginTop: 16 }}>
+        <ConfigButton text="系统配置" type="default" />
+      </Space>
     </Layout.Content>
   );
 };
