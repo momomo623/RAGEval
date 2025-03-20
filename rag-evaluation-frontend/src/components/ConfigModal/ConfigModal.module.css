@@ -1,0 +1,49 @@
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+.infoIcon {
+  margin-left: 4px;
+  color: #1890ff;
+}
+
+.nestedFormItem {
+  margin-top: 12px;
+  margin-bottom: 0;
+}
+
+.cardTitle {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.headerWithSample {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  font-weight: 500;
+}
+
+.tabHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  font-weight: 500;
+}
+
+.footerWithClear {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.formActionsWithClear {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 24px;
+} 
