@@ -13,9 +13,11 @@ from app.schemas.rag_answer import (
     BatchCollectionRequest,
     BatchImportRequest,
     ApiRequestConfig,
-    CollectionProgress
+    CollectionProgress,
+    RagAnswerCreate
 )
 from app.services.rag_service import RagService
+from app.models.rag_answer import RagAnswer
 
 router = APIRouter()
 
@@ -188,4 +190,73 @@ def delete_rag_answer(
     # 删除回答
     rag_service.delete_rag_answer(answer_id)
     
-    return {"detail": "回答已删除"} 
+    return {"detail": "回答已删除"}
+
+@router.post("", response_model=RagAnswerOut)
+def create_rag_answer(
+    *,
+    db: Session = Depends(get_db),
+    rag_answer_in: RagAnswerCreate,
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """
+    创建RAG回答
+    """
+    # 检查问题是否存在
+    question = db.query(Question).filter(Question.id == rag_answer_in.question_id).first()
+    if not question:
+        raise HTTPException(status_code=404, detail="问题未找到")
+    
+    # 检查是否已经存在相同版本的回答
+    existing_answer = db.query(RagAnswer).filter(
+        RagAnswer.question_id == rag_answer_in.question_id,
+        RagAnswer.version == rag_answer_in.version
+    ).first()
+    
+    if existing_answer:
+        raise HTTPException(status_code=400, detail=f"该问题的 {rag_answer_in.version} 版本回答已存在")
+    
+    # 创建RAG回答
+    rag_answer = RagAnswer(**rag_answer_in.dict())
+    db.add(rag_answer)
+    db.commit()
+    db.refresh(rag_answer)
+    
+    return rag_answer
+
+@router.get("/question/{question_id}/version/{version}", response_model=RagAnswerOut)
+def get_rag_answer_by_version(
+    *,
+    db: Session = Depends(get_db),
+    question_id: str,
+    version: str,
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """
+    获取指定问题的特定版本RAG回答
+    """
+    rag_answer = db.query(RagAnswer).filter(
+        RagAnswer.question_id == question_id,
+        RagAnswer.version == version
+    ).first()
+    
+    if not rag_answer:
+        raise HTTPException(status_code=404, detail="未找到指定版本的RAG回答")
+    
+    return rag_answer
+
+@router.get("/question/{question_id}/versions", response_model=List[RagAnswerOut])
+def get_all_rag_answer_versions(
+    *,
+    db: Session = Depends(get_db),
+    question_id: str,
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """
+    获取问题的所有版本RAG回答
+    """
+    rag_answers = db.query(RagAnswer).filter(
+        RagAnswer.question_id == question_id
+    ).all()
+    
+    return rag_answers 

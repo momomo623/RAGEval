@@ -28,40 +28,37 @@ const DatasetsPage: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [filterTag, setFilterTag] = useState<string | undefined>(undefined);
   const [filterType, setFilterType] = useState<string>('all');
+  const [filterTags, setFilterTags] = useState<string | undefined>(undefined);
+  const [searchKeyword, setSearchKeyword] = useState<string | undefined>(undefined);
   
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchDatasets();
-  }, [currentPage, pageSize, searchText, filterTag, filterType]);
+    fetchDatasets(currentPage, pageSize, filterType, filterTags || filterTag, searchKeyword || searchText);
+  }, [currentPage, pageSize, filterType, filterTags, filterTag, searchKeyword, searchText]);
 
-  const fetchDatasets = async () => {
+  const fetchDatasets = async (
+    page: number, 
+    size: number, 
+    filterType: string = 'all',
+    tags?: string,
+    search?: string
+  ) => {
     setLoading(true);
     try {
-      const params: any = {
-        page: currentPage,
-        size: pageSize,
-        search: searchText || undefined,
-        tag: filterTag
-      };
-
-      if (filterType === 'public') {
-        params.is_public = true;
-      } else if (filterType === 'private') {
-        params.is_public = false;
-      }
-
-      console.log("发送分页参数:", params);
-
-      const result = await datasetService.getDatasets(params);
-      console.log("获取到的数据集:", result);
-      setDatasets(result.datasets);
+      const response = await datasetService.getDatasets({
+        page,
+        size,
+        filter_type: filterType as 'all' | 'my' | 'public' | 'private',
+        tags,
+        search
+      });
       
-      setTotal(result.total);
+      setDatasets(response.datasets);
+      setTotal(response.total);
     } catch (error) {
-      console.error('获取数据集失败:', error);
-      message.error('获取数据集失败，请重试');
-      setDatasets([]); // 失败时设置为空数组
+      console.error('获取数据集列表失败:', error);
+      message.error('获取数据集列表失败');
     } finally {
       setLoading(false);
     }
@@ -91,7 +88,7 @@ const DatasetsPage: React.FC = () => {
         try {
           await datasetService.deleteDataset(dataset.id);
           message.success('数据集已删除');
-          fetchDatasets();
+          fetchDatasets(currentPage, pageSize, filterType, filterTags || filterTag, searchKeyword || searchText);
         } catch (error) {
           console.error('删除数据集失败:', error);
           message.error('删除数据集失败，请重试');
@@ -103,10 +100,11 @@ const DatasetsPage: React.FC = () => {
   const handlePageChange = (page: number, size?: number) => {
     setCurrentPage(page);
     if (size) setPageSize(size);
+    fetchDatasets(page, size || pageSize, filterType, filterTags, searchKeyword);
   };
 
   const handleSearch = (value: string) => {
-    setSearchText(value);
+    setSearchKeyword(value || undefined);
     setCurrentPage(1);
   };
 
@@ -116,7 +114,8 @@ const DatasetsPage: React.FC = () => {
   };
 
   const handleFilterTagChange = (value: string) => {
-    setFilterTag(value === 'all' ? undefined : value);
+    const tags = value === 'all' ? undefined : value;
+    setFilterTags(tags);
     setCurrentPage(1);
   };
 

@@ -1,7 +1,9 @@
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Integer, Float
+from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Integer, Float, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 import uuid
+from datetime import datetime
 
 from app.db.base import Base
 from app.models.types import StringUUID
@@ -11,21 +13,32 @@ class RagAnswer(Base):
 
     id = Column(StringUUID, primary_key=True, default=uuid.uuid4)
     question_id = Column(StringUUID, ForeignKey("questions.id", ondelete="CASCADE"), nullable=False)
-    answer_text = Column(Text, nullable=False)
+    answer = Column(Text, nullable=False)
     collection_method = Column(String(20), nullable=False)  # api, manual
-    source_system = Column(String(100))  # RAG系统标识
-    api_config_id = Column(StringUUID, ForeignKey("api_configs.id", ondelete="SET NULL"))
     
     # 性能相关字段
-    first_response_time = Column(Integer)  # 首次响应时间(毫秒)
-    total_response_time = Column(Integer)  # 总响应时间(毫秒)
+    first_response_time = Column(Float)  # 首次响应时间(秒)，使用numeric(10,3)
+    total_response_time = Column(Float)  # 总响应时间(秒)，使用numeric(10,3)
     character_count = Column(Integer)  # 字符数
-    characters_per_second = Column(Float)  # 生成速度(字符/秒)
+    characters_per_second = Column(Float)  # 生成速度(字符/秒)，使用numeric(10,2)
     
     raw_response = Column(JSONB)  # 原始API响应
-    answer_metadata = Column(JSONB)  # 将 metadata 重命名为 answer_metadata
+    # 删除不存在的字段
+    # answer_metadata = Column(JSONB)
     
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    version = Column(String(50), nullable=True)  # 版本信息
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    # 数据库中可能没有updated_at字段，如果确实没有，需要删除这行
+    # updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # 关系
+    question = relationship("Question", back_populates="rag_answers")
+    
+    # 添加复合唯一约束
+    __table_args__ = (
+        UniqueConstraint('question_id', 'version', name='unique_question_version'),
+    )
 
 class ApiConfig(Base):
     __tablename__ = "api_configs"

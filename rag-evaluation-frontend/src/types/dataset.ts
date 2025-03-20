@@ -76,4 +76,42 @@ export interface ProjectDatasetLink {
 export interface BatchLinkDatasetsRequest {
   project_id: string;
   dataset_ids: string[];
+}
+
+export interface RagAnswer {
+  id: string;
+  question_id: string;
+  answer_text: string;
+  source_type: string;
+  version: string;
+  api_config_id?: string;
+  response_time?: number;
+  token_count?: number;
+  metadata?: any;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateRagAnswerRequest {
+  question_id: string;
+  answer_text: string;
+  source_type: string;
+  version?: string;
+  api_config_id?: string;
+  response_time?: number;
+  token_count?: number;
+  metadata?: any;
+}
+
+export interface ImportQuestionWithRagRequest {
+  dataset_id: string;
+  questions: {
+    question_text: string;
+    standard_answer: string;
+    category?: string;
+    difficulty?: string;
+    type?: string;
+    tags?: string[];
+    rag_answer?: CreateRagAnswerRequest;
+  }[];
 } 

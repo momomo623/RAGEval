@@ -66,14 +66,33 @@ def read_datasets(
     db: Session = Depends(get_db),
     page: int = Query(1, gt=0),
     size: int = Query(10, gt=0, le=100),
-    search: Optional[str] = None, 
-    include_public: bool = Query(True, description="是否包含其他用户的公开数据集"),
+    search: Optional[str] = None,
+    filter_type: Optional[str] = Query("all", description="筛选类型: all/my/public/private"),
+    tags: Optional[str] = Query(None, description="标签，多个用逗号分隔"),
     current_user: User = Depends(get_current_user)
 ) -> Any:
     """
-    获取用户的数据集列表，optionally包含其他用户的公开数据集
+    获取数据集列表，支持多种筛选条件
     """
     skip = (page - 1) * size
+    
+    # 处理标签
+    tag_list = tags.split(",") if tags else None
+    
+    # 设置公开和所有者筛选
+    include_public = True
+    only_public = False
+    only_private = False
+    only_mine = False
+    
+    if filter_type == "my":
+        include_public = False  # 只看我的数据集
+        only_mine = True
+    elif filter_type == "public":
+        only_public = True  # 只看公开数据集
+    elif filter_type == "private":
+        only_private = True  # 只看私有数据集
+        include_public = False
     
     # 获取数据集列表
     datasets = get_datasets_by_user(
@@ -82,21 +101,43 @@ def read_datasets(
         skip=skip, 
         limit=size, 
         search=search,
-        include_public=include_public
+        include_public=include_public,
+        only_public=only_public,
+        only_private=only_private,
+        only_mine=only_mine,
+        tags=tag_list
     )
     
     # 计算总数（需要考虑筛选条件）
     query = db.query(func.count(Dataset.id))
+    
+    # 应用相同的筛选逻辑用于计算总数
     if include_public:
-        query = query.filter(
-            or_(
+        if only_public:
+            query = query.filter(Dataset.is_public == True)
+        elif only_private:
+            query = query.filter(
                 Dataset.user_id == current_user.id,
-                Dataset.is_public == True
+                Dataset.is_public == False
             )
-        )
+        else:
+            query = query.filter(
+                or_(
+                    Dataset.user_id == current_user.id,
+                    Dataset.is_public == True
+                )
+            )
     else:
         query = query.filter(Dataset.user_id == current_user.id)
+        if only_private:
+            query = query.filter(Dataset.is_public == False)
     
+    # 应用标签筛选
+    if tag_list:
+        for tag in tag_list:
+            query = query.filter(Dataset.tags.contains([tag]))
+    
+    # 应用搜索关键词
     if search:
         search_term = f"%{search}%"
         query = query.filter(

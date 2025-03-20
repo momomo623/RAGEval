@@ -26,14 +26,45 @@ def get_datasets_by_user(
     skip: int = 0, 
     limit: int = 100,
     search: Optional[str] = None,
-    include_public: bool = True  # 添加包含公开数据集的选项
+    include_public: bool = True,
+    only_public: bool = False,
+    only_private: bool = False,
+    only_mine: bool = False,
+    tags: Optional[List[str]] = None
 ) -> List[Dataset]:
-    """获取用户的数据集，optionally包含其他用户的公开数据集"""
-    # 基础查询 - 用户自己的数据集
+    """
+    获取用户的数据集，支持多种筛选条件
+    
+    参数:
+        db: 数据库会话
+        user_id: 用户ID
+        skip: 分页偏移
+        limit: 分页大小限制
+        search: 搜索关键词，用于名称和描述的模糊搜索
+        include_public: 是否包含其他用户的公开数据集
+        only_public: 是否只返回公开数据集
+        only_private: 是否只返回私有数据集
+        only_mine: 是否只返回当前用户的数据集
+        tags: 标签列表，用于筛选
+    """
+    # 基础查询
     query = db.query(Dataset)
     
-    if include_public:
-        # 查询条件：用户自己的数据集 OR 其他用户的公开数据集
+    # 用户和公开状态筛选
+    if only_public:
+        # 只返回公开数据集
+        query = query.filter(Dataset.is_public == True)
+    elif only_private:
+        # 只返回用户自己的私有数据集
+        query = query.filter(
+            Dataset.user_id == user_id,
+            Dataset.is_public == False
+        )
+    elif only_mine:
+        # 只返回用户自己的所有数据集
+        query = query.filter(Dataset.user_id == user_id)
+    elif include_public:
+        # 返回用户自己的数据集和其他用户的公开数据集
         query = query.filter(
             or_(
                 Dataset.user_id == user_id,
@@ -41,10 +72,15 @@ def get_datasets_by_user(
             )
         )
     else:
-        # 只查询用户自己的数据集
+        # 只返回用户自己的数据集
         query = query.filter(Dataset.user_id == user_id)
     
-    # 添加搜索条件
+    # 标签筛选
+    if tags:
+        for tag in tags:
+            query = query.filter(Dataset.tags.contains([tag]))
+    
+    # 关键词搜索
     if search:
         search_term = f"%{search}%"
         query = query.filter(
@@ -54,7 +90,7 @@ def get_datasets_by_user(
             )
         )
     
-    # 先查询自己的数据集，再查询公开的数据集
+    # 先展示用户自己的数据集，再展示其他公开数据集
     query = query.order_by(Dataset.user_id == user_id, desc(Dataset.created_at))
     
     return query.offset(skip).limit(limit).all()

@@ -4,7 +4,8 @@ from sqlalchemy import or_, func
 from fastapi.encoders import jsonable_encoder
 
 from app.models.question import Question
-from app.schemas.question import QuestionCreate, QuestionUpdate, QuestionBase
+from app.schemas.question import QuestionCreate, QuestionUpdate, QuestionBase, QuestionImportWithRagAnswer
+from app.models.rag_answer import RagAnswer
 
 def get_question(db: Session, question_id: str) -> Optional[Question]:
     """获取单个问题"""
@@ -158,4 +159,46 @@ def get_questions_by_project(
     if difficulty:
         query = query.filter(Question.difficulty == difficulty)
         
-    return query.offset(skip).limit(limit).all() 
+    return query.offset(skip).limit(limit).all()
+
+def import_questions_with_rag_answers(
+    db: Session,
+    dataset_id: str,
+    questions_data: List[QuestionImportWithRagAnswer]
+) -> List[Question]:
+    """导入问题并同时导入RAG回答"""
+    imported_questions = []
+    
+    for question_data in questions_data:
+        # 提取RAG回答数据
+        rag_answer_text = question_data.rag_answer
+        question_data_dict = question_data.dict(exclude={"rag_answer"})
+        
+        # 创建问题
+        question = Question(
+            dataset_id=dataset_id,
+            **question_data_dict
+        )
+        db.add(question)
+        db.flush()  # 获取问题ID
+        
+        # 如果有RAG回答数据，创建RAG回答
+        if rag_answer_text:
+            rag_answer = RagAnswer(
+                question_id=question.id,
+                answer_text=rag_answer_text,
+                collection_method="import",  # 设置默认值
+                source_system="import",  # 设置默认值
+                version="v1"  # 默认版本
+            )
+            db.add(rag_answer)
+        
+        imported_questions.append(question)
+    
+    db.commit()
+    
+    # 刷新问题对象以获取完整数据
+    for question in imported_questions:
+        db.refresh(question)
+    
+    return imported_questions 

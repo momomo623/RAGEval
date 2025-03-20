@@ -3,7 +3,7 @@ from fastapi import APIRouter
 from app.api.api_v1.endpoints import (
     auth, users, datasets, projects, questions, 
     rag_answers, evaluations, auto_evaluation, 
-    manual_evaluation, reports, performance
+    manual_evaluation, reports, performance, dataset_questions
 )
 
 api_router = APIRouter()
@@ -18,6 +18,7 @@ api_router.include_router(auto_evaluation.router, prefix="/auto-evaluations", ta
 api_router.include_router(manual_evaluation.router, prefix="/manual-evaluations", tags=["人工评测"])
 api_router.include_router(reports.router, prefix="/reports", tags=["报告管理"])
 api_router.include_router(performance.router, prefix="/performance", tags=["性能测试"])
+api_router.include_router(dataset_questions.router, prefix="/datasets-questions", tags=["dataset-questions"])
 
 @api_router.get("/health")
 def health_check():

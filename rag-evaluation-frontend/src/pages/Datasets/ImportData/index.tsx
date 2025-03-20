@@ -32,6 +32,7 @@ const ImportDataPage: React.FC = () => {
   const [fileList, setFileList] = useState<any[]>([]);
   const [fileType, setFileType] = useState<'excel' | 'csv'>('csv');
   const [previewText, setPreviewText] = useState<string[]>([]);
+  const [includeRagAnswers, setIncludeRagAnswers] = useState(false);
   
   useEffect(() => {
     if (id) {
@@ -155,7 +156,12 @@ const ImportDataPage: React.FC = () => {
           return;
         }
         
-        request.file = fileList[0].originFileObj;
+        const formData = new FormData();
+        formData.append('file', fileList[0].originFileObj);
+        formData.append('dataset_id', id);
+        formData.append('include_rag_answers', includeRagAnswers.toString());
+        
+        request.file = formData;
       } else {
         const text = form.getFieldValue('importText');
         if (!text) {
@@ -344,6 +350,12 @@ const ImportDataPage: React.FC = () => {
                   </Select>
                 </Form.Item>
               </div>
+              
+              <Form.Item name="include_rag_answers" valuePropName="checked">
+                <Checkbox onChange={(e) => setIncludeRagAnswers(e.target.checked)}>
+                  包含RAG回答（Excel表格需要有rag_answer列）
+                </Checkbox>
+              </Form.Item>
               
               <div className={styles.fileFormat}>
                 <Title level={5}>文件格式要求</Title>

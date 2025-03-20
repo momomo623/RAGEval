@@ -8,23 +8,35 @@ class RagAnswerBase(BaseModel):
     answer_text: str
     collection_method: str  # api, manual
     source_system: Optional[str] = None
-    first_response_time: Optional[int] = None  # 毫秒
-    total_response_time: Optional[int] = None  # 毫秒
+    first_response_time: Optional[float] = None
+    total_response_time: Optional[float] = None
     character_count: Optional[int] = None
-    answer_metadata: Optional[Dict[str, Any]] = None
+    version: Optional[str] = "v1"  # 默认版本为v1
+
+    class Config:
+        fields = {
+            "answer_text": "answer"
+        }
 
 class RagAnswerCreate(RagAnswerBase):
     raw_response: Optional[Dict[str, Any]] = None
     api_config_id: Optional[str] = None
+    response_time: Optional[float] = None
+    token_count: Optional[int] = None
 
 class RagAnswerUpdate(BaseModel):
     answer_text: Optional[str] = None
     source_system: Optional[str] = None
+    version: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
+    api_config_id: Optional[str] = None
+    response_time: Optional[float] = None
+    token_count: Optional[int] = None
 
 class RagAnswerInDBBase(RagAnswerBase):
     id: str
     created_at: datetime
+    updated_at: datetime
     
     class Config:
         from_attributes = True
@@ -66,4 +78,8 @@ class CollectionProgress(BaseModel):
     in_progress: int
     status: str  # queued, running, completed, failed
     job_id: Optional[str] = None
-    errors: Optional[List[Dict[str, Any]]] = None 
+    errors: Optional[List[Dict[str, Any]]] = None
+
+# 批量创建RAG回答的请求模型
+class RagAnswerBatchCreate(BaseModel):
+    items: List[RagAnswerCreate] 

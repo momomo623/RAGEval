@@ -10,7 +10,7 @@ class QuestionBase(BaseModel):
     category: Optional[str] = None
     difficulty: Optional[str] = None
     type: Optional[str] = None
-    tags: Optional[Dict[str, Any]] = None
+    tags: Optional[Union[Dict[str, Any], List[str]]] = None
     question_metadata: Optional[Dict[str, Any]] = None
 
 # 创建问题时的请求模型
@@ -57,4 +57,21 @@ class QuestionGenerateRequest(BaseModel):
 class QuestionGenerateResponse(BaseModel):
     generated_questions: List[Dict[str, Any]]
     saved_questions: List[QuestionOut] = []
-    count: int 
+    count: int
+
+# 新增的批量删除请求模式
+class BatchDeleteRequest(BaseModel):
+    """批量删除问题的请求模型"""
+    question_ids: List[str]
+
+    class Config:
+        from_attributes = True
+
+# 添加导入问题时包含RAG回答的模型
+class QuestionImportWithRagAnswer(QuestionBase):
+    rag_answer: Optional[str] = None
+    
+# 修改批量导入模型
+class QuestionBatchImport(BaseModel):
+    dataset_id: str
+    questions: List[QuestionImportWithRagAnswer] 

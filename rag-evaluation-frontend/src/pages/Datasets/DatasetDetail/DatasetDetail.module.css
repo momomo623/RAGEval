@@ -138,4 +138,83 @@
   .tableFilters {
     flex-wrap: wrap;
   }
+}
+
+.batchAddContainer {
+  margin-top: 16px;
+}
+
+.batchInstructions {
+  margin-bottom: 16px;
+  padding: 12px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+}
+
+.batchInstructions h5 {
+  margin-bottom: 8px;
+}
+
+.batchInstructions p {
+  margin-bottom: 4px;
+}
+
+.batchPreview {
+  margin-top: 16px;
+}
+
+.previewList {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.previewItem {
+  padding: 12px;
+  margin-bottom: 8px;
+  border: 1px solid #f0f0f0;
+  border-radius: 4px;
+}
+
+.previewQuestion {
+  margin-bottom: 8px;
+}
+
+.previewAnswer {
+  margin-bottom: 8px;
+  color: #666;
+}
+
+.previewMeta {
+  display: flex;
+  gap: 8px;
+}
+
+.previewMore {
+  text-align: center;
+  padding: 8px;
+  color: #888;
+  font-style: italic;
+}
+
+.ragAnswerSection {
+  background-color: #f9f9f9;
+  padding: 16px;
+  border-radius: 4px;
+  margin-top: 8px;
+}
+
+.batchOptions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  padding: 8px 0;
+}
+
+.previewRagAnswer {
+  margin-bottom: 8px;
+  color: #722ed1;
+  background-color: #f9f0ff;
+  padding: 4px 8px;
+  border-radius: 4px;
 } 

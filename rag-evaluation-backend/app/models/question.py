@@ -1,6 +1,7 @@
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey
+from sqlalchemy import Column, String, Text, DateTime, ForeignKey, ARRAY, JSON
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 import uuid
 
 from app.db.base import Base
@@ -19,4 +20,7 @@ class Question(Base):
     tags = Column(JSONB)  # 额外标签
     question_metadata = Column(JSONB)  # 元数据，用于存储问题的附加信息，重命名以避免与SQLAlchemy保留名冲突
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now()) 
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # 添加反向关系
+    rag_answers = relationship("RagAnswer", back_populates="question", cascade="all, delete-orphan") 
