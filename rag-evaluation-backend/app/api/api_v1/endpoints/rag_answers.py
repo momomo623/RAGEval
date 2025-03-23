@@ -14,10 +14,12 @@ from app.schemas.rag_answer import (
     BatchImportRequest,
     ApiRequestConfig,
     CollectionProgress,
-    RagAnswerCreate
+    RagAnswerCreate,
+    RagAnswerUpdate
 )
 from app.services.rag_service import RagService
 from app.models.rag_answer import RagAnswer
+from app.models.dataset import Dataset
 
 router = APIRouter()
 
@@ -163,7 +165,7 @@ def read_rag_answer(
     
     return answer
 
-@router.delete("/{answer_id}")
+@router.delete("/{answer_id}", response_model=Dict[str, Any])
 def delete_rag_answer(
     *,
     db: Session = Depends(get_db),
@@ -173,18 +175,24 @@ def delete_rag_answer(
     """
     删除RAG回答
     """
-    # 获取回答
     rag_service = RagService(db)
     answer = rag_service.get_rag_answer(answer_id)
     
     if not answer:
         raise HTTPException(status_code=404, detail="回答未找到")
     
-    # 检查权限
+    # 检查权限 - 修复从问题查询到数据集
     question = db.query(Question).filter(Question.id == answer.question_id).first()
-    project = db.query(Project).filter(Project.id == question.project_id).first()
+    if not question:
+        raise HTTPException(status_code=404, detail="相关问题未找到")
     
-    if project.user_id != current_user.id and not current_user.is_admin:
+    # 问题属于数据集，不是项目
+    dataset = db.query(Dataset).filter(Dataset.id == question.dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="相关数据集未找到")
+    
+    # 检查用户权限 (使用数据集的user_id)
+    if str(dataset.user_id) != str(current_user.id) and not current_user.is_admin:
         raise HTTPException(status_code=403, detail="无权删除此回答")
     
     # 删除回答
@@ -196,28 +204,44 @@ def delete_rag_answer(
 def create_rag_answer(
     *,
     db: Session = Depends(get_db),
-    rag_answer_in: RagAnswerCreate,
+    rag_answer_in: Dict[str, Any] = Body(...),
     current_user: User = Depends(get_current_user)
 ) -> Any:
     """
     创建RAG回答
     """
+    # 基本验证
+    required_fields = ["question_id", "answer", "version"]
+    for field in required_fields:
+        if field not in rag_answer_in:
+            raise HTTPException(status_code=400, detail=f"缺少必要字段: {field}")
+    
     # 检查问题是否存在
-    question = db.query(Question).filter(Question.id == rag_answer_in.question_id).first()
+    question = db.query(Question).filter(Question.id == rag_answer_in["question_id"]).first()
     if not question:
         raise HTTPException(status_code=404, detail="问题未找到")
     
     # 检查是否已经存在相同版本的回答
     existing_answer = db.query(RagAnswer).filter(
-        RagAnswer.question_id == rag_answer_in.question_id,
-        RagAnswer.version == rag_answer_in.version
+        RagAnswer.question_id == rag_answer_in["question_id"],
+        RagAnswer.version == rag_answer_in["version"]
     ).first()
     
     if existing_answer:
-        raise HTTPException(status_code=400, detail=f"该问题的 {rag_answer_in.version} 版本回答已存在")
+        raise HTTPException(status_code=400, detail=f"该问题的 {rag_answer_in['version']} 版本回答已存在")
+    
+    # 只提取数据库模型支持的字段
+    valid_fields = ["question_id", "answer", "collection_method", "version", 
+                    "first_response_time", "total_response_time", "character_count", "raw_response"]
+    
+    rag_answer_data = {k: v for k, v in rag_answer_in.items() if k in valid_fields}
+    
+    # 设置默认值
+    if "collection_method" not in rag_answer_data:
+        rag_answer_data["collection_method"] = "manual"
     
     # 创建RAG回答
-    rag_answer = RagAnswer(**rag_answer_in.dict())
+    rag_answer = RagAnswer(**rag_answer_data)
     db.add(rag_answer)
     db.commit()
     db.refresh(rag_answer)
@@ -259,4 +283,58 @@ def get_all_rag_answer_versions(
         RagAnswer.question_id == question_id
     ).all()
     
-    return rag_answers 
+    return rag_answers
+
+@router.put("/{answer_id}", response_model=RagAnswerOut)
+def update_rag_answer(
+    *,
+    db: Session = Depends(get_db),
+    answer_id: str,
+    rag_answer_in: Dict[str, Any] = Body(...),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """
+    更新RAG回答
+    """
+    # 获取现有回答
+    rag_answer = db.query(RagAnswer).filter(RagAnswer.id == answer_id).first()
+    if not rag_answer:
+        raise HTTPException(status_code=404, detail="回答未找到")
+    
+    # 检查权限 - 修复从问题查询到数据集
+    question = db.query(Question).filter(Question.id == rag_answer.question_id).first()
+    if not question:
+        raise HTTPException(status_code=404, detail="相关问题未找到")
+    
+    # 问题属于数据集，不是项目，所以我们需要从数据集获取用户ID
+    dataset = db.query(Dataset).filter(Dataset.id == question.dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="相关数据集未找到")
+    
+    # 检查用户权限 (使用数据集的user_id)
+    if str(dataset.user_id) != str(current_user.id) and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="无权更新此回答")
+    
+    # 如果版本发生变化，检查是否会与现有版本冲突
+    if "version" in rag_answer_in and rag_answer_in["version"] != rag_answer.version:
+        existing_version = db.query(RagAnswer).filter(
+            RagAnswer.question_id == rag_answer.question_id,
+            RagAnswer.version == rag_answer_in["version"],
+            RagAnswer.id != answer_id
+        ).first()
+        
+        if existing_version:
+            raise HTTPException(status_code=400, detail=f"该问题的 {rag_answer_in['version']} 版本回答已存在")
+    
+    # 只更新模型支持的字段
+    valid_fields = ["answer", "collection_method", "version", 
+                   "first_response_time", "total_response_time", "character_count", "raw_response"]
+    
+    for key, value in rag_answer_in.items():
+        if key in valid_fields:
+            setattr(rag_answer, key, value)
+    
+    db.commit()
+    db.refresh(rag_answer)
+    
+    return rag_answer 

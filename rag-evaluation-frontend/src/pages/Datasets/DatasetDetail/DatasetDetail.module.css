@@ -217,4 +217,171 @@
   background-color: #f9f0ff;
   padding: 4px 8px;
   border-radius: 4px;
+}
+
+.ragAnswersContainer {
+  padding: 10px;
+  background-color: #fafafa;
+  border-radius: 4px;
+}
+
+.ragAnswerCard {
+  margin-bottom: 12px;
+  border-left: 3px solid #1890ff;
+}
+
+.ragAnswerHeader {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #666;
+}
+
+.ragAnswerContent {
+  white-space: pre-wrap;
+  padding: 10px 0;
+  border-bottom: 1px dashed #eee;
+  margin-bottom: 10px;
+}
+
+.ragAnswerPerformance {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hasRagAnswers {
+  position: relative;
+}
+
+.hasRagAnswers::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #1890ff;
+  transform: translateY(-50%);
+}
+
+.questionWithRag {
+  position: relative;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.questionWithRag:hover {
+  background-color: #f0f7ff;
+}
+
+.ragIndicator {
+  margin-left: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0 4px;
+  height: 20px;
+  line-height: 20px;
+}
+
+.ragAnswersHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.ragAnswersHeader .ant-divider {
+  margin: 0;
+  flex: 1;
+  margin-right: 16px;
+}
+
+.ragAnswerActions {
+  display: flex;
+  gap: 8px;
+}
+
+.ragAnswerHeader {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #666;
+  flex-wrap: wrap;
+}
+
+.questionContainer {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 4px 0;
+  cursor: pointer;
+}
+
+.questionText {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 8px;
+}
+
+.ragBadge {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 2px 6px;
+  font-size: 12px;
+  border-radius: 12px;
+  margin-left: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.ragBadge:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.ragCount {
+  font-weight: bold;
+  margin-right: 4px;
+}
+
+.ragLabel {
+  letter-spacing: 0.5px;
+}
+
+/* 对于没有RAG回答的标签，添加不同的样式 */
+.ragBadge[class*="ant-tag-default"] {
+  border: 1px dashed #d9d9d9;
+  background-color: #fafafa;
+  color: #666;
+}
+
+.ragBadge[class*="ant-tag-default"]:hover {
+  border-color: #40a9ff;
+  color: #40a9ff;
+}
+
+/* 为空RAG列表添加提示样式 */
+.emptyRagContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+}
+
+.emptyRagIcon {
+  font-size: 36px;
+  color: #d9d9d9;
+  margin-bottom: 16px;
+}
+
+.emptyRagText {
+  color: #999;
+  margin-bottom: 16px;
 } 

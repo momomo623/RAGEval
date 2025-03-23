@@ -27,15 +27,31 @@ class QuestionUpdate(BaseModel):
     tags: Optional[Dict[str, Any]] = None
     question_metadata: Optional[Dict[str, Any]] = None
 
-# 问题响应模型
+# 首先添加一个 RAG 答案模型
+class RagAnswerOut(BaseModel):
+    id: str
+    answer: str
+    collection_method: str
+    version: Optional[str] = None
+    first_response_time: Optional[float] = None
+    total_response_time: Optional[float] = None
+    character_count: Optional[int] = None
+    characters_per_second: Optional[float] = None
+    created_at: Optional[datetime] = None
+    
+    class Config:
+        orm_mode = True
+
+# 然后修改 QuestionOut 模型
 class QuestionOut(QuestionBase):
     id: str
     dataset_id: str
     created_at: datetime
     updated_at: datetime
-
+    rag_answers: Optional[List[RagAnswerOut]] = []
+    
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 # 批量创建问题请求
 class QuestionBatchCreate(BaseModel):

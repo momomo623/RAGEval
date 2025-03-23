@@ -2,6 +2,7 @@ from typing import Any, List, Optional
 import io
 import pandas as pd
 from fastapi.responses import StreamingResponse
+import urllib.parse
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form, Body
 from sqlalchemy.orm import Session
@@ -78,6 +79,25 @@ def read_questions(
     # 格式化返回数据
     result = []
     for question in questions:
+        # 获取该问题的所有RAG答案
+        rag_answers = db.query(RagAnswer).filter(RagAnswer.question_id == question.id).all()
+        
+        # 格式化RAG答案数据
+        rag_answers_list = []
+        for rag_answer in rag_answers:
+            rag_answer_dict = {
+                "id": str(rag_answer.id),
+                "answer": rag_answer.answer,
+                "collection_method": rag_answer.collection_method,
+                "version": rag_answer.version,
+                "first_response_time": rag_answer.first_response_time,
+                "total_response_time": rag_answer.total_response_time,
+                "character_count": rag_answer.character_count,
+                "characters_per_second": rag_answer.characters_per_second,
+                "created_at": rag_answer.created_at
+            }
+            rag_answers_list.append(rag_answer_dict)
+        
         question_dict = {
             "id": str(question.id),
             "dataset_id": str(question.dataset_id),
@@ -89,7 +109,8 @@ def read_questions(
             "tags": question.tags,
             "question_metadata": question.question_metadata,
             "created_at": question.created_at,
-            "updated_at": question.updated_at
+            "updated_at": question.updated_at,
+            "rag_answers": rag_answers_list  # 新增：包含RAG答案列表
         }
         result.append(question_dict)
     
@@ -583,19 +604,26 @@ def export_questions(
     # 准备数据
     data = []
     for q in questions:
-        # 转换tags从字典到字符串
-        tags_str = ", ".join(q.tags.keys()) if q.tags else ""
+        # 处理标签，确保兼容不同的数据格式
+        tags_str = ""
+        if q.tags:
+            if isinstance(q.tags, dict):
+                # 如果是字典格式，使用键作为标签
+                tags_str = ", ".join(q.tags.keys())
+            elif isinstance(q.tags, list):
+                # 如果是列表格式，直接连接元素
+                tags_str = ", ".join(q.tags)
+            else:
+                # 其他情况，转换为字符串
+                tags_str = str(q.tags)
         
         data.append({
-            # "ID": str(q.id),
             "问题": q.question_text,
             "标准答案": q.standard_answer,
             "分类": q.category,
             "难度": q.difficulty,
             "类型": q.type,
             "标签": tags_str,
-            # "创建时间": q.created_at.strftime("%Y-%m-%d %H:%M:%S") if q.created_at else "",
-            # "更新时间": q.updated_at.strftime("%Y-%m-%d %H:%M:%S") if q.updated_at else ""
         })
     
     # 创建DataFrame
@@ -611,32 +639,26 @@ def export_questions(
         worksheet = writer.sheets['问题列表']
         
         # 设置列宽
-        # worksheet.set_column('A:A', 36)  # ID
-        worksheet.set_column('B:B', 40)  # 问题
-        worksheet.set_column('C:C', 40)  # 标准答案
-        worksheet.set_column('D:D', 15)  # 分类
-        worksheet.set_column('E:E', 10)  # 难度
-        worksheet.set_column('F:F', 10)  # 类型
-        worksheet.set_column('G:G', 20)  # 标签
-        # worksheet.set_column('H:I', 20)  # 时间列
+        worksheet.set_column('A:A', 40)  # 问题
+        worksheet.set_column('B:B', 40)  # 标准答案
+        worksheet.set_column('C:C', 15)  # 分类
+        worksheet.set_column('D:D', 10)  # 难度
+        worksheet.set_column('E:E', 10)  # 类型
+        worksheet.set_column('F:F', 20)  # 标签
     
     # 重置文件指针位置
     output.seek(0)
     
-    # 文件名
-    filename = f"dataset_{dataset.name}_{dataset_id}_questions.xlsx"
-
-    # 保存到当前文件夹中
-    # 文件名
-    print(f"filename: {filename}")
-
-    # 保存到当前文件夹中
-    # with open(filename, 'wb') as f:
-    #     f.write(output.getvalue())
-
-
+    # 使用ASCII字符构建安全的文件名
+    safe_name = dataset.name.replace(" ", "_").replace("/", "_").replace("\\", "_")
+    filename = f"dataset_{dataset_id}_questions.xlsx"
+    
+    # 使用RFC 5987规范处理文件名的Content-Disposition
+    encoded_filename = urllib.parse.quote(filename)
+    content_disposition = f"attachment; filename=\"{encoded_filename}\"; filename*=UTF-8''{encoded_filename}"
+    
     return StreamingResponse(
         output,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers={"Content-Disposition": content_disposition}
     ) 

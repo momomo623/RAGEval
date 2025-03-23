@@ -114,45 +114,20 @@ export const datasetService = {
   },
 
   // 获取数据集的问题列表
-  async getQuestions(
-    datasetId: string, 
-    params?: {
-      page?: number;
-      size?: number;
-      search?: string;
-      category?: string;
-      difficulty?: string;
-    }
-  ): Promise<{questions: Question[], total: number}> {
+  async getQuestions(datasetId: string, params?: any): Promise<any> {
     try {
-      let url = `/v1/datasets-questions/${datasetId}/questions`;
-      if (params) {
-        const queryParams = new URLSearchParams();
-        Object.entries(params).forEach(([key, value]) => {
-          if (value !== undefined && value !== null) {
-            queryParams.append(key, String(value));
-          }
-        });
-        
-        const queryString = queryParams.toString();
-        if (queryString) {
-          url += `?${queryString}`;
-        }
-      }
+      const response = await api.get(`/v1/datasets-questions/${datasetId}/questions`, { params });
       
-      console.log('发送请求URL:', url);
-      
-      const response = await api.get(url);
-      console.log('API响应:', response);
-      
-      // 确保返回格式正确
+      // 将后端返回的分页数据转换为前端需要的格式
       return {
-        questions: response.items || [],
-        total: response.total || 0
+        questions: response.items,
+        total: response.total,
+        page: response.page,
+        pages: response.pages
       };
     } catch (error) {
-      console.error('API error:', error);
-      return { questions: [], total: 0 };
+      console.error('获取问题列表失败:', error);
+      throw error;
     }
   },
 

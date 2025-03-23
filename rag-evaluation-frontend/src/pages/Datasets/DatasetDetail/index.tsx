@@ -14,6 +14,7 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import { DatasetDetail, Question } from '../../../types/dataset';
 import { datasetService } from '../../../services/dataset.service';
+import { ragAnswerService } from '../../../services/rag-answer.service';
 import styles from './DatasetDetail.module.css';
 import TextArea from 'antd/es/input/TextArea';
 import QuestionGenerationContent from '../../QuestionGeneration/QuestionGenerationContent';
@@ -22,6 +23,20 @@ const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
 const { TabPane } = Tabs;
 const { confirm } = Modal;
+
+interface QuestionWithRag extends Question {
+  rag_answers?: Array<{
+    id: string;
+    answer: string;
+    version: string;
+    collection_method: string;
+    created_at: string;
+    first_response_time?: number;
+    total_response_time?: number;
+    character_count?: number;
+    characters_per_second?: number;
+  }>;
+}
 
 const DatasetDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -50,6 +65,11 @@ const DatasetDetailPage: React.FC = () => {
   const [includeRagAnswer, setIncludeRagAnswer] = useState<boolean>(false);
   const [ragVersion, setRagVersion] = useState<string>('v1');
   const [form] = Form.useForm();
+  const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([]);
+  const [isRagAnswerModalVisible, setIsRagAnswerModalVisible] = useState(false);
+  const [editingRagAnswer, setEditingRagAnswer] = useState<any>(null);
+  const [currentQuestionId, setCurrentQuestionId] = useState<string>('');
+  const [ragAnswerForm] = Form.useForm();
   
   useEffect(() => {
     if (id) {
@@ -218,6 +238,10 @@ const DatasetDetailPage: React.FC = () => {
       onOk: async () => {
         try {
           const nameInput = document.getElementById('new-dataset-name') as HTMLInputElement;
+          if (!dataset) {
+            message.error('数据集信息不存在');
+            return;
+          }
           const newName = nameInput?.value || `${dataset.name} (复制)`;
           
           const newDataset = await datasetService.copyDataset(dataset.id, newName);
@@ -319,7 +343,7 @@ const DatasetDetailPage: React.FC = () => {
         // 如果包含RAG回答字段，添加到结果中
         if (includeRagAnswer && rag_answer) {
           result.rag_answer = {
-            answer_text: rag_answer,
+            answer: rag_answer,
             version: version || 'v1',
             collection_method: 'import',
             source_system: 'manual import'
@@ -342,19 +366,19 @@ const DatasetDetailPage: React.FC = () => {
       if (addTabMode === 'single') {
         const values = await addForm.validateFields();
         
-        if (includeRagAnswer && values.rag_answer_text?.trim()) {
+        if (includeRagAnswer && values.rag_answer?.trim()) {
           // 构建包含RAG回答的请求
           const questionWithRag = {
             ...values,
             rag_answer: {
-              answer_text: values.rag_answer_text,
+              answer: values.rag_answer,
               version: values.rag_version || 'v1',
               collection_method: 'manual',
               source_system: 'manual input'
             }
           };
           
-          delete questionWithRag.rag_answer_text;
+          delete questionWithRag.rag_answer;
           delete questionWithRag.rag_version;
           
           await datasetService.createQuestionWithRag(id!, questionWithRag);
@@ -411,12 +435,223 @@ const DatasetDetailPage: React.FC = () => {
     overflow: 'auto'
   };
   
+  const renderRagAnswers = (ragAnswers: any[], questionId: string) => {
+    // 确保ragAnswers是数组
+    if (!ragAnswers) {
+      ragAnswers = [];
+    }
+    
+    // 当没有RAG回答时显示更友好的界面
+    if (ragAnswers.length === 0) {
+      return (
+        <div className={styles.ragAnswersContainer}>
+          <div className={styles.emptyRagContainer}>
+            <div className={styles.emptyRagIcon}>
+              <QuestionOutlined />
+            </div>
+            <div className={styles.emptyRagText}>
+              该问题还没有RAG回答
+            </div>
+            <Button 
+              type="primary" 
+              icon={<PlusOutlined />}
+              onClick={() => showAddRagAnswerModal(questionId)}
+            >
+              添加RAG回答
+            </Button>
+          </div>
+        </div>
+      );
+    }
+    
+    // 按版本分组
+    const versionGroups = ragAnswers.reduce((groups: any, answer: any) => {
+      const version = answer.version || '未知版本';
+      if (!groups[version]) {
+        groups[version] = [];
+      }
+      groups[version].push(answer);
+      return groups;
+    }, {});
+    
+    return (
+      <div className={styles.ragAnswersContainer}>
+        <div className={styles.ragAnswersHeader}>
+          <span style={{fontSize: '16px', fontWeight: 'bold'}}>RAG系统回答 ({ragAnswers.length}个)</span>
+          <Button 
+            type="primary" 
+            size="small" 
+            icon={<PlusOutlined />}
+            onClick={() => showAddRagAnswerModal(questionId)}
+          >
+            添加RAG回答
+          </Button>
+        </div>
+        
+        <Tabs type="card" size="small">
+          {Object.entries(versionGroups).map(([version, answers]) => {
+            const answerArray = Array.isArray(answers) ? answers : [];
+            return (
+              <TabPane tab={`${version} (${answerArray.length})`} key={version}>
+                {answerArray.map((answer) => (
+                  <Card 
+                    key={answer.id} 
+                    size="small" 
+                    className={styles.ragAnswerCard}
+                    title={
+                      <div className={styles.ragAnswerHeader}>
+                        <span>版本: {answer.version || '未知'}</span>
+                        <span>收集方式: {answer.collection_method}</span>
+                        <span>时间: {new Date(answer.created_at).toLocaleString()}</span>
+                        <div className={styles.ragAnswerActions}>
+                          <Button 
+                            type="link" 
+                            icon={<EditOutlined />} 
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              showEditRagAnswerModal(answer, questionId);
+                            }}
+                          >
+                            编辑
+                          </Button>
+                          <Popconfirm
+                            title="确定要删除此RAG回答吗?"
+                            onConfirm={(e) => {
+                              e?.stopPropagation();
+                              handleDeleteRagAnswer(answer.id, questionId);
+                            }}
+                            onCancel={(e) => e?.stopPropagation()}
+                          >
+                            <Button 
+                              type="link" 
+                              danger 
+                              icon={<DeleteOutlined />} 
+                              size="small"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              删除
+                            </Button>
+                          </Popconfirm>
+                        </div>
+                      </div>
+                    }
+                  >
+                    <div className={styles.ragAnswerContent}>
+                      {answer.answer}
+                    </div>
+                    {answer.first_response_time && (
+                      <div className={styles.ragAnswerPerformance}>
+                        <Tag color="blue">首次响应: {answer.first_response_time.toFixed(2)}秒</Tag>
+                        <Tag color="green">总响应时间: {answer.total_response_time?.toFixed(2)}秒</Tag>
+                        <Tag color="purple">字符数: {answer.character_count}</Tag>
+                        <Tag color="orange">生成速度: {answer.characters_per_second?.toFixed(2)}字/秒</Tag>
+                      </div>
+                    )}
+                  </Card>
+                ))}
+              </TabPane>
+            );
+          })}
+        </Tabs>
+      </div>
+    );
+  };
+  
+  // 显示添加 RAG 回答模态框
+  const showAddRagAnswerModal = (questionId: string) => {
+    setCurrentQuestionId(questionId);
+    setEditingRagAnswer(null);
+    ragAnswerForm.resetFields();
+    setIsRagAnswerModalVisible(true);
+  };
+  
+  // 显示编辑 RAG 回答模态框
+  const showEditRagAnswerModal = (ragAnswer: any, questionId: string) => {
+    setCurrentQuestionId(questionId);
+    setEditingRagAnswer(ragAnswer);
+    ragAnswerForm.setFieldsValue({
+      answer: ragAnswer.answer,
+      version: ragAnswer.version,
+      collection_method: ragAnswer.collection_method || 'manual'
+    });
+    setIsRagAnswerModalVisible(true);
+  };
+  
+  // 处理 RAG 回答提交
+  const handleRagAnswerSubmit = async () => {
+    try {
+      const values = await ragAnswerForm.validateFields();
+      
+      // 创建请求数据对象，使用 answer 而不是 answer
+      const requestData = editingRagAnswer ? {
+        answer: values.answer,  // 更新时使用 answer
+        version: values.version,
+        collection_method: values.collection_method,
+        question_id: currentQuestionId
+      } : {
+        answer: values.answer,      // 创建时使用 answer
+        version: values.version,
+        collection_method: values.collection_method,
+        question_id: currentQuestionId
+      };
+      
+      if (editingRagAnswer) {
+        // 更新现有回答
+        await ragAnswerService.updateRagAnswer(editingRagAnswer.id, requestData);
+        message.success('RAG回答已更新');
+      } else {
+        // 添加新回答
+        await ragAnswerService.createRagAnswer(requestData);
+        message.success('RAG回答已添加');
+      }
+      
+      setIsRagAnswerModalVisible(false);
+      
+      // 刷新问题列表以显示更新
+      fetchQuestions(id!, {
+        page: currentPage,
+        size: pageSize,
+        search: searchText,
+        category: categoryFilter,
+        difficulty: difficultyFilter
+      });
+      
+    } catch (error) {
+      console.error('保存RAG回答失败:', error);
+      message.error('保存失败，请重试');
+    }
+  };
+  
+  // 处理删除 RAG 回答
+  const handleDeleteRagAnswer = async (ragAnswerId: string, questionId: string) => {
+    try {
+      await ragAnswerService.deleteRagAnswer(ragAnswerId);
+      message.success('RAG回答已删除');
+      
+      // 刷新问题列表
+      fetchQuestions(id!, {
+        page: currentPage,
+        size: pageSize,
+        search: searchText,
+        category: categoryFilter,
+        difficulty: difficultyFilter
+      });
+      
+    } catch (error) {
+      console.error('删除RAG回答失败:', error);
+      message.error('删除失败，请重试');
+    }
+  };
+  
   const columns = [
     {
       title: '序号',
       dataIndex: 'index',
       key: 'index',
-      width: 80,
+      width: 60,
+      // 居中
+      align: 'center',
       render: (_: any, __: any, index: number) => (currentPage - 1) * pageSize + index + 1,
     },
     {
@@ -425,7 +660,7 @@ const DatasetDetailPage: React.FC = () => {
       key: 'question_text',
       width: 300,
       ellipsis: true,
-      render: (text: string, record: Question) => {
+      render: (text: string, record: QuestionWithRag) => {
         if (isEditing(record)) {
           return (
             <Form.Item
@@ -437,10 +672,47 @@ const DatasetDetailPage: React.FC = () => {
             </Form.Item>
           );
         }
+        
         return (
-          <Tooltip title={text} placement="topLeft" overlayStyle={{ maxWidth: '600px' }}>
-            <span>{text}</span>
-          </Tooltip>
+          <div 
+            className={styles.questionContainer}
+            onClick={() => {
+              // 无论是否有RAG回答，点击都可以展开
+              if (expandedRowKeys.includes(record.id)) {
+                setExpandedRowKeys([]);
+              } else {
+                setExpandedRowKeys([record.id]);
+              }
+            }}
+          >
+            <div className={styles.questionText}>
+              <Tooltip title={text} placement="topLeft" overlayStyle={{ maxWidth: '600px' }}>
+                <span>{text}</span>
+              </Tooltip>
+            </div>
+            {/* 改为始终显示RAG标签，只是根据有无回答来区分样式 */}
+            <Tag 
+              color={record.rag_answers?.length ? "blue" : "default"} 
+              className={styles.ragBadge}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (expandedRowKeys.includes(record.id)) {
+                  setExpandedRowKeys([]);
+                } else {
+                  setExpandedRowKeys([record.id]);
+                }
+              }}
+            >
+              {record.rag_answers?.length ? (
+                <>
+                  <span className={styles.ragCount}>{record.rag_answers.length}</span>
+                  <span className={styles.ragLabel}>RAG</span>
+                </>
+              ) : (
+                <span className={styles.ragLabel}>添加RAG</span>
+              )}
+            </Tag>
+          </div>
         );
       },
     },
@@ -473,7 +745,7 @@ const DatasetDetailPage: React.FC = () => {
     {
       title: '操作',
       key: 'action',
-      width: 180,
+      width: 140, // 减小宽度
       fixed: 'right',
       render: (_: any, record: Question) => {
         const editable = isEditing(record);
@@ -732,8 +1004,8 @@ const DatasetDetailPage: React.FC = () => {
                 <Form form={form}>
                   <Table
                     rowSelection={rowSelection}
-                    columns={columns}
-                    dataSource={questions}
+                    columns={columns as any}
+                    dataSource={questions as QuestionWithRag[]}
                     rowKey="id"
                     pagination={{
                       current: currentPage,
@@ -742,6 +1014,15 @@ const DatasetDetailPage: React.FC = () => {
                       onChange: handlePageChange,
                       showSizeChanger: true,
                       onShowSizeChange: handlePageSizeChange
+                    }}
+                    expandable={{
+                      expandedRowKeys,
+                      onExpand: (expanded, record) => {
+                        setExpandedRowKeys(expanded ? [record.id] : []);
+                      },
+                      expandedRowRender: (record: QuestionWithRag) => 
+                        renderRagAnswers(record.rag_answers || [], record.id),
+                      showExpandColumn: false,
                     }}
                     scroll={{ x: 950 }}
                   />
@@ -889,7 +1170,7 @@ const DatasetDetailPage: React.FC = () => {
                   <Row gutter={24}>
                     <Col span={18}>
                       <Form.Item
-                        name="rag_answer_text"
+                        name="rag_answer"
                         label="RAG系统回答"
                       >
                         <TextArea rows={4} placeholder="请输入RAG系统的回答内容" />
@@ -973,7 +1254,7 @@ const DatasetDetailPage: React.FC = () => {
                         </div>
                         {question.rag_answer && (
                           <div className={styles.previewRagAnswer}>
-                            <Text type="secondary">RAG回答:</Text> {question.rag_answer.answer_text} 
+                            <Text type="secondary">RAG回答:</Text> {question.rag_answer.answer} 
                             <Tag color="purple" style={{ marginLeft: 8 }}>版本: {question.rag_answer.version}</Tag>
                           </div>
                         )}
@@ -994,6 +1275,57 @@ const DatasetDetailPage: React.FC = () => {
             </div>
           </TabPane>
         </Tabs>
+      </Modal>
+
+      {/* RAG 回答编辑模态框 */}
+      <Modal
+        title={editingRagAnswer ? "编辑RAG回答" : "添加RAG回答"}
+        visible={isRagAnswerModalVisible}
+        onOk={handleRagAnswerSubmit}
+        onCancel={() => setIsRagAnswerModalVisible(false)}
+        width={700}
+        okText={editingRagAnswer ? "更新" : "添加"}
+        cancelText="取消"
+      >
+        <Form
+          form={ragAnswerForm}
+          layout="vertical"
+        >
+          <Form.Item
+            name="answer"
+            label="回答内容"
+            rules={[{ required: true, message: '请输入回答内容' }]}
+          >
+            <TextArea rows={8} placeholder="请输入RAG系统回答内容" />
+          </Form.Item>
+          
+          <Row gutter={24}>
+            <Col span={12}>
+              <Form.Item
+                name="version"
+                label="版本"
+                initialValue="v1"
+                rules={[{ required: true, message: '请输入版本' }]}
+              >
+                <Input placeholder="如：v1, v2, gpt-4等" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="collection_method"
+                label="收集方式"
+                initialValue="manual"
+                rules={[{ required: true, message: '请选择收集方式' }]}
+              >
+                <Select>
+                  <Option value="manual">手动输入</Option>
+                  <Option value="api">API调用</Option>
+                  <Option value="import">导入</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+        </Form>
       </Modal>
     </Layout.Content>
   );

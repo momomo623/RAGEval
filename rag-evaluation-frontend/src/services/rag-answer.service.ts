@@ -26,9 +26,9 @@ export const ragAnswerService = {
   },
 
   // 创建RAG回答
-  async createRagAnswer(ragAnswer: CreateRagAnswerRequest): Promise<RagAnswer> {
+  async createRagAnswer(data: RagAnswerCreateRequest): Promise<any> {
     try {
-      const response = await api.post('/v1/rag-answers', ragAnswer);
+      const response = await api.post('/v1/rag-answers', data);
       return response;
     } catch (error) {
       console.error('创建RAG回答失败:', error);
@@ -37,9 +37,9 @@ export const ragAnswerService = {
   },
 
   // 更新RAG回答
-  async updateRagAnswer(id: string, ragAnswer: Partial<CreateRagAnswerRequest>): Promise<RagAnswer> {
+  async updateRagAnswer(id: string, data: RagAnswerUpdateRequest): Promise<any> {
     try {
-      const response = await api.put(`/v1/rag-answers/${id}`, ragAnswer);
+      const response = await api.put(`/v1/rag-answers/${id}`, data);
       return response;
     } catch (error) {
       console.error('更新RAG回答失败:', error);
@@ -97,6 +97,17 @@ export const ragAnswerService = {
     } catch (error) {
       console.error('批量导入RAG回答失败:', error);
       throw error;
+    }
+  },
+
+  // 获取问题的所有 RAG 回答
+  async getRagAnswersByQuestion(questionId: string): Promise<any[]> {
+    try {
+      const response = await api.get(`/v1/rag-answers/question/${questionId}`);
+      return response;
+    } catch (error) {
+      console.error('获取RAG回答失败:', error);
+      return [];
     }
   }
 }; 

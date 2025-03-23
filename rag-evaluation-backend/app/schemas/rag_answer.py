@@ -5,9 +5,9 @@ import uuid
 
 class RagAnswerBase(BaseModel):
     question_id: str
-    answer_text: str
+    answer: str
     collection_method: str  # api, manual
-    source_system: Optional[str] = None
+    # source_system: Optional[str] = None
     first_response_time: Optional[float] = None
     total_response_time: Optional[float] = None
     character_count: Optional[int] = None
@@ -15,28 +15,28 @@ class RagAnswerBase(BaseModel):
 
     class Config:
         fields = {
-            "answer_text": "answer"
+            "answer": "answer"
         }
 
 class RagAnswerCreate(RagAnswerBase):
     raw_response: Optional[Dict[str, Any]] = None
-    api_config_id: Optional[str] = None
-    response_time: Optional[float] = None
+    # api_config_id: Optional[str] = None
+    # response_time: Optional[float] = None
     token_count: Optional[int] = None
 
 class RagAnswerUpdate(BaseModel):
-    answer_text: Optional[str] = None
-    source_system: Optional[str] = None
+    answer: Optional[str] = None
+    # source_system: Optional[str] = None
     version: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
-    api_config_id: Optional[str] = None
-    response_time: Optional[float] = None
+    # api_config_id: Optional[str] = None
+    # response_time: Optional[float] = None
     token_count: Optional[int] = None
 
 class RagAnswerInDBBase(RagAnswerBase):
     id: str
     created_at: datetime
-    updated_at: datetime
+    updated_at: Optional[datetime] = None
     
     class Config:
         from_attributes = True
@@ -63,13 +63,13 @@ class BatchCollectionRequest(BaseModel):
     api_config: ApiRequestConfig
     concurrent_requests: int = 1
     max_attempts: int = 1
-    source_system: str = "RAG系统"
+    # source_system: str = "RAG系统"
     collect_performance: bool = True
 
 class BatchImportRequest(BaseModel):
     project_id: str
     answers: List[Dict[str, Any]]  # 包含question_id和answer的列表
-    source_system: str = "手动导入"
+    # source_system: str = "手动导入"
 
 class CollectionProgress(BaseModel):
     total: int
