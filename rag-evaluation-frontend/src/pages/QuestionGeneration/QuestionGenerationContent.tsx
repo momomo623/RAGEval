@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Upload, Spin, Form, InputNumber, Select, Radio, Divider, message, Table, Progress, Alert, Checkbox, Slider, Modal } from 'antd';
-import { UploadOutlined, FileTextOutlined, CheckCircleOutlined, CloseCircleOutlined, ReloadOutlined, FullscreenOutlined } from '@ant-design/icons';
+import { Card, Button, Upload, Spin, Form, InputNumber, Select, Radio, Divider, message, Table, Progress, Alert, Checkbox, Slider, Modal, Tooltip } from 'antd';
+import { UploadOutlined, FileTextOutlined, CheckCircleOutlined, CloseCircleOutlined, ReloadOutlined, FullscreenOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useConfigContext } from '../../contexts/ConfigContext';
 import { questionGeneratorService, SplitterType } from '../../services/QuestionGeneratorService';
@@ -52,6 +52,9 @@ const QuestionGenerationContent: React.FC<QuestionGenerationContentProps> = ({ d
   const [expandedChunks, setExpandedChunks] = useState<Set<string>>(new Set());
   const [modalVisible, setModalVisible] = useState(false);
   const [currentChunk, setCurrentChunk] = useState<TextChunk | null>(null);
+  
+  // 添加选择行状态
+  const [selectedQAKeys, setSelectedQAKeys] = useState<React.Key[]>([]);
   
   useEffect(() => {
     // 检查LLM配置
@@ -243,6 +246,32 @@ const QuestionGenerationContent: React.FC<QuestionGenerationContentProps> = ({ d
     setModalVisible(true);
   };
   
+  // 添加选择行处理函数
+  const handleQASelectChange = (selectedRowKeys: React.Key[]) => {
+    setSelectedQAKeys(selectedRowKeys);
+  };
+  
+  // 添加处理已选项的函数
+  const handleDeleteSelectedQAs = () => {
+    if (selectedQAKeys.length === 0) {
+      message.warning('请至少选择一项');
+      return;
+    }
+    
+    Modal.confirm({
+      title: `确定要删除所选的 ${selectedQAKeys.length} 个问答对吗?`,
+      content: '删除后不会影响已保存到数据集的问答对',
+      onOk: () => {
+        const filteredQAs = generatedQAs.filter(
+          qa => !selectedQAKeys.includes(qa.id)
+        );
+        setGeneratedQAs(filteredQAs);
+        setSelectedQAKeys([]);
+        message.success(`已删除 ${selectedQAKeys.length} 个问答对`);
+      }
+    });
+  };
+  
   const renderUploadContent = () => (
     <Card title="上传文件" className={styles.card}>
       <div className={styles.uploadSection}>
@@ -268,7 +297,10 @@ const QuestionGenerationContent: React.FC<QuestionGenerationContentProps> = ({ d
           </p>
           <p className="ant-upload-text">点击或拖拽文件到此区域上传</p>
           <p className="ant-upload-hint">
-            支持 TXT, PDF, DOCX, MD, HTML 格式文件，建议文件大小不超过10MB
+            支持 TXT, MD 格式文件，建议文件大小不超过10MB
+          </p>
+          <p className="ant-upload-hint">
+            因为本系统不专注于文件格式转换，所以请上传纯文本文件，您可以在其他平台转换文件格式后上传。
           </p>
         </Upload.Dragger>
         
@@ -595,20 +627,68 @@ const QuestionGenerationContent: React.FC<QuestionGenerationContentProps> = ({ d
         )}
       </div>
       
+      <div className={styles.tableHeader}>
+        <div className={styles.tableActions}>
+          {selectedQAKeys.length > 0 && (
+            <Button 
+              danger 
+              icon={<DeleteOutlined />} 
+              onClick={handleDeleteSelectedQAs}
+            >
+              删除所选 ({selectedQAKeys.length})
+            </Button>
+          )}
+        </div>
+      </div>
+      
       <Divider />
       
-      <Table
-        dataSource={generatedQAs}
-        rowKey="id"
-        pagination={{ pageSize: 10 }}
-        scroll={{ y: 400 }}
-      >
-        <Column title="问题" dataIndex="question" key="question" ellipsis />
-        <Column title="回答" dataIndex="answer" key="answer" ellipsis />
-        <Column title="难度" dataIndex="difficulty" key="difficulty" width={100} />
-        <Column title="类别" dataIndex="category" key="category" width={100} />
-        <Column title="来源文件" dataIndex="sourceFileName" key="sourceFileName" width={150} />
-      </Table>
+      <div className={styles.tableContainer}>
+        <Table
+          dataSource={generatedQAs}
+          rowKey="id"
+          rowSelection={{
+            selectedRowKeys: selectedQAKeys,
+            onChange: handleQASelectChange
+          }}
+          pagination={{ pageSize: 10 }}
+          scroll={{ x: 1100, y: 400 }}
+        >
+          <Column 
+            title="序号" 
+            key="index" 
+            width={80}
+            render={(_, __, index) => index + 1}
+          />
+          <Column 
+            title="问题" 
+            dataIndex="question" 
+            key="question" 
+            width={300}
+            ellipsis={{ showTitle: false }} 
+            render={(text) => (
+              <Tooltip placement="topLeft" title={text} overlayStyle={{ maxWidth: '600px' }}>
+                <span>{text}</span>
+              </Tooltip>
+            )}
+          />
+          <Column 
+            title="回答" 
+            dataIndex="answer" 
+            key="answer" 
+            width={400}
+            ellipsis={{ showTitle: false }}
+            render={(text) => (
+              <Tooltip placement="topLeft" title={text} overlayStyle={{ maxWidth: '600px' }}>
+                <span>{text}</span>
+              </Tooltip>
+            )}
+          />
+          <Column title="难度" dataIndex="difficulty" key="difficulty" width={100} />
+          <Column title="类别" dataIndex="category" key="category" width={100} />
+          <Column title="来源文件" dataIndex="sourceFileName" key="sourceFileName" width={180} ellipsis />
+        </Table>
+      </div>
       
       <div className={styles.actionBar}>
         <Button onClick={() => setCurrentTab('chunks')}>

@@ -1,0 +1,55 @@
+/* 表格容器样式 */
+.tableContainer {
+  width: 100%;
+  overflow-x: auto;
+  margin-bottom: 20px;
+}
+
+/* 表格内的长文本样式 */
+.textWithEllipsis {
+  max-width: 300px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+/* 表格头部工具栏 */
+.tableHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.tableActions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.tableFilters {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* 批量操作按钮 */
+.batchActionButton {
+  margin-left: 8px;
+  display: flex;
+  align-items: center;
+}
+
+.batchActionButton .anticon {
+  margin-right: 4px;
+}
+
+/* 序号列样式 */
+.indexColumn {
+  text-align: center;
+  color: #999;
+  font-size: 12px;
+} 

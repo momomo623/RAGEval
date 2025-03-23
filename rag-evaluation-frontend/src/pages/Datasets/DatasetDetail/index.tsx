@@ -170,26 +170,23 @@ const DatasetDetailPage: React.FC = () => {
   };
   
   const handleSelectChange = (selectedRowKeys: React.Key[]) => {
-    setSelectedRowKeys(selectedKeys);
+    setSelectedRowKeys(selectedRowKeys);
   };
   
   const handleBatchDelete = () => {
     if (selectedRowKeys.length === 0) {
-      message.info('请先选择要删除的问题');
+      message.warning('请至少选择一个问题');
       return;
     }
     
     confirm({
-      title: `确定要删除选中的 ${selectedRowKeys.length} 个问题吗?`,
+      title: `确定要删除所选的 ${selectedRowKeys.length} 个问题吗?`,
       icon: <ExclamationCircleOutlined />,
-      content: '删除后无法恢复。',
-      okText: '删除',
-      okType: 'danger',
-      cancelText: '取消',
+      content: '此操作不可恢复',
       onOk: async () => {
         try {
           await datasetService.batchDeleteQuestions(id!, selectedRowKeys as string[]);
-          message.success('已删除选中的问题');
+          message.success(`成功删除 ${selectedRowKeys.length} 个问题`);
           setSelectedRowKeys([]);
           fetchQuestions(id!, {
             page: currentPage,
@@ -199,8 +196,8 @@ const DatasetDetailPage: React.FC = () => {
             difficulty: difficultyFilter
           });
         } catch (error) {
-          console.error('批量删除问题失败:', error);
-          message.error('批量删除问题失败');
+          console.error('批量删除失败:', error);
+          message.error('批量删除失败');
         }
       }
     });
@@ -408,12 +405,25 @@ const DatasetDetailPage: React.FC = () => {
     }
   };
   
+  // 添加表格样式
+  const tableStyle = {
+    width: '100%',
+    overflow: 'auto'
+  };
+  
   const columns = [
-
+    {
+      title: '序号',
+      dataIndex: 'index',
+      key: 'index',
+      width: 80,
+      render: (_: any, __: any, index: number) => (currentPage - 1) * pageSize + index + 1,
+    },
     {
       title: '问题',
       dataIndex: 'question_text',
       key: 'question_text',
+      width: 300,
       ellipsis: true,
       render: (text: string, record: Question) => {
         if (isEditing(record)) {
@@ -428,7 +438,7 @@ const DatasetDetailPage: React.FC = () => {
           );
         }
         return (
-          <Tooltip title={text}>
+          <Tooltip title={text} placement="topLeft" overlayStyle={{ maxWidth: '600px' }}>
             <span>{text}</span>
           </Tooltip>
         );
@@ -436,6 +446,7 @@ const DatasetDetailPage: React.FC = () => {
     },
     {
       title: '标准答案',
+      width: 350,
       dataIndex: 'standard_answer',
       key: 'standard_answer',
       ellipsis: true,
@@ -452,64 +463,18 @@ const DatasetDetailPage: React.FC = () => {
           );
         }
         return (
-          <Tooltip title={text}>
+          <Tooltip title={text} placement="topLeft" overlayStyle={{ maxWidth: '600px' }}>
             <span>{text}</span>
           </Tooltip>
         );
       },
     },
-    // {
-    //   title: '分类',
-    //   dataIndex: 'category',
-    //   key: 'category',
-    //   width: 120,
-    //   render: (text: string, record: Question) => {
-    //     if (isEditing(record)) {
-    //       return (
-    //         <Form.Item
-    //           name="category"
-    //           style={{ margin: 0 }}
-    //         >
-    //           <Select style={{ width: '100%' }}>
-    //             <Option value="general">通用</Option>
-    //             <Option value="product">产品</Option>
-    //             <Option value="technical">技术</Option>
-    //             <Option value="user">用户</Option>
-    //             <Option value="api">API</Option>
-    //           </Select>
-    //         </Form.Item>
-    //       );
-    //     }
-    //     return text;
-    //   },
-    // },
-    // {
-    //   title: '难度',
-    //   dataIndex: 'difficulty',
-    //   key: 'difficulty',
-    //   width: 100,
-    //   render: (text: string, record: Question) => {
-    //     if (isEditing(record)) {
-    //       return (
-    //         <Form.Item
-    //           name="difficulty"
-    //           style={{ margin: 0 }}
-    //         >
-    //           <Select style={{ width: '100%' }}>
-    //             <Option value="easy">简单</Option>
-    //             <Option value="medium">中等</Option>
-    //             <Option value="hard">困难</Option>
-    //           </Select>
-    //         </Form.Item>
-    //       );
-    //     }
-    //     return text;
-    //   },
-    // },
+    
     {
       title: '操作',
       key: 'action',
       width: 180,
+      fixed: 'right',
       render: (_: any, record: Question) => {
         const editable = isEditing(record);
         return editable ? (
@@ -561,6 +526,28 @@ const DatasetDetailPage: React.FC = () => {
         category: categoryFilter,
         difficulty: difficultyFilter
       });
+    }
+  };
+  
+  const handlePageSizeChange = (current: number, size: number) => {
+    setCurrentPage(current);
+    setPageSize(size);
+  };
+  
+  const handleExport = async () => {
+    try {
+      // 收集当前的过滤条件
+      const filters = {
+        search: searchText,
+        category: categoryFilter,
+        difficulty: difficultyFilter
+      };
+      
+      // 导出当前筛选的数据
+      await datasetService.exportQuestions(id!, filters);
+    } catch (error) {
+      message.error('导出失败，请重试');
+      console.error('导出错误:', error);
     }
   };
   
@@ -638,7 +625,7 @@ const DatasetDetailPage: React.FC = () => {
                         <Menu.Item key="import" icon={<UploadOutlined />} onClick={handleImportData}>
                           导入数据
                         </Menu.Item>
-                        <Menu.Item key="export" icon={<DownloadOutlined />} onClick={handleExportData}>
+                        <Menu.Item key="export" icon={<DownloadOutlined />} onClick={handleExport}>
                           导出数据
                         </Menu.Item>
                       </Menu>
@@ -663,7 +650,7 @@ const DatasetDetailPage: React.FC = () => {
                   )}
                   <Button 
                     icon={<DownloadOutlined />} 
-                    onClick={handleExportData}
+                    onClick={handleExport}
                   >
                     导出数据
                   </Button>
@@ -700,13 +687,15 @@ const DatasetDetailPage: React.FC = () => {
                 >
                   添加问题
                 </Button>
-                <Button 
-                  icon={<DeleteOutlined />} 
-                  disabled={selectedRowKeys.length === 0}
-                  onClick={handleBatchDelete}
-                >
-                  批量删除
-                </Button>
+                {selectedRowKeys.length > 0 && (
+                  <Button 
+                    danger 
+                    icon={<DeleteOutlined />} 
+                    onClick={handleBatchDelete}
+                  >
+                    删除所选 ({selectedRowKeys.length})
+                  </Button>
+                )}
               </div>
               <div className={styles.tableFilters}>
                 {/* <Select 
@@ -739,21 +728,25 @@ const DatasetDetailPage: React.FC = () => {
             </div>
             
             {!questionsLoading && questions.length > 0 ? (
-              <Form form={form}>
-                <Table
-                  columns={columns}
-                  dataSource={questions}
-                  rowKey="id"
-                  pagination={{
-                    current: currentPage,
-                    pageSize,
-                    total,
-                    onChange: handlePageChange,
-                    showTotal: (total) => `共 ${total} 条数据`
-                  }}
-                  scroll={{ x: 'max-content' }}
-                />
-              </Form>
+              <div className={styles.tableContainer}>
+                <Form form={form}>
+                  <Table
+                    rowSelection={rowSelection}
+                    columns={columns}
+                    dataSource={questions}
+                    rowKey="id"
+                    pagination={{
+                      current: currentPage,
+                      pageSize: pageSize,
+                      total: total,
+                      onChange: handlePageChange,
+                      showSizeChanger: true,
+                      onShowSizeChange: handlePageSizeChange
+                    }}
+                    scroll={{ x: 950 }}
+                  />
+                </Form>
+              </div>
             ) : (
               <Empty description={questionsLoading ? "加载中..." : "暂无数据"} />
             )}
@@ -830,6 +823,7 @@ const DatasetDetailPage: React.FC = () => {
                   <Form.Item
                     name="standard_answer"
                     label="标准答案"
+                    
                     rules={[{ required: true, message: '请输入标准答案' }]}
                   >
                     <TextArea rows={4} placeholder="请输入标准答案" />

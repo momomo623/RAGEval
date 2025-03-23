@@ -274,4 +274,33 @@
   gap: 24px;
   color: #666;
   font-size: 13px;
+}
+
+.tableContainer {
+  width: 100%;
+  overflow-x: auto;
+  margin-bottom: 20px;
+  border: 1px solid #f0f0f0;
+  border-radius: 2px;
+}
+
+/* 更强的表格单元格样式覆盖 */
+:global(.ant-table-wrapper .ant-table-tbody > tr > td) {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 0; /* 强制单元格尊重宽度设置 */
+}
+
+/* 确保固定列正确显示 */
+:global(.ant-table-wrapper .ant-table-cell-fix-right) {
+  background: #fff;
+}
+
+/* 强化工具提示样式 */
+:global(.ant-tooltip-inner) {
+  max-width: 500px;
+  max-height: 300px;
+  overflow-y: auto;
+  word-break: break-all;
 } 

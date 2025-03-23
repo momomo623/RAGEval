@@ -1,4 +1,7 @@
 from typing import Any, List, Optional
+import io
+import pandas as pd
+from fastapi.responses import StreamingResponse
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form, Body
 from sqlalchemy.orm import Session
@@ -530,4 +533,110 @@ def batch_create_questions_with_rag(
         }
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"批量创建失败: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"批量创建失败: {str(e)}")
+
+@router.get("/{dataset_id}/export")
+def export_questions(
+    *,
+    db: Session = Depends(get_db),
+    dataset_id: str,
+    current_user: User = Depends(get_current_user),
+    search: Optional[str] = None,
+    category: Optional[str] = None,
+    difficulty: Optional[str] = None
+) -> Any:
+    """
+    导出数据集问题为Excel
+    """
+    # 检查数据集是否存在
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="数据集未找到")
+    
+    # 检查访问权限
+    if not dataset.is_public and str(dataset.user_id) != str(current_user.id) and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="无权访问此数据集")
+    
+    # 构建查询（与列表接口类似但不分页）
+    query = db.query(Question).filter(Question.dataset_id == dataset_id)
+    
+    # 应用搜索过滤
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            or_(
+                Question.question_text.ilike(search_term),
+                Question.standard_answer.ilike(search_term)
+            )
+        )
+    
+    # 应用分类和难度过滤
+    if category:
+        query = query.filter(Question.category == category)
+    
+    if difficulty:
+        query = query.filter(Question.difficulty == difficulty)
+    
+    # 获取所有符合条件的问题
+    questions = query.all()
+    
+    # 准备数据
+    data = []
+    for q in questions:
+        # 转换tags从字典到字符串
+        tags_str = ", ".join(q.tags.keys()) if q.tags else ""
+        
+        data.append({
+            # "ID": str(q.id),
+            "问题": q.question_text,
+            "标准答案": q.standard_answer,
+            "分类": q.category,
+            "难度": q.difficulty,
+            "类型": q.type,
+            "标签": tags_str,
+            # "创建时间": q.created_at.strftime("%Y-%m-%d %H:%M:%S") if q.created_at else "",
+            # "更新时间": q.updated_at.strftime("%Y-%m-%d %H:%M:%S") if q.updated_at else ""
+        })
+    
+    # 创建DataFrame
+    df = pd.DataFrame(data)
+    
+    # 生成Excel文件
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, sheet_name='问题列表', index=False)
+        
+        # 获取工作簿和工作表对象
+        workbook = writer.book
+        worksheet = writer.sheets['问题列表']
+        
+        # 设置列宽
+        # worksheet.set_column('A:A', 36)  # ID
+        worksheet.set_column('B:B', 40)  # 问题
+        worksheet.set_column('C:C', 40)  # 标准答案
+        worksheet.set_column('D:D', 15)  # 分类
+        worksheet.set_column('E:E', 10)  # 难度
+        worksheet.set_column('F:F', 10)  # 类型
+        worksheet.set_column('G:G', 20)  # 标签
+        # worksheet.set_column('H:I', 20)  # 时间列
+    
+    # 重置文件指针位置
+    output.seek(0)
+    
+    # 文件名
+    filename = f"dataset_{dataset.name}_{dataset_id}_questions.xlsx"
+
+    # 保存到当前文件夹中
+    # 文件名
+    print(f"filename: {filename}")
+
+    # 保存到当前文件夹中
+    # with open(filename, 'wb') as f:
+    #     f.write(output.getvalue())
+
+
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    ) 

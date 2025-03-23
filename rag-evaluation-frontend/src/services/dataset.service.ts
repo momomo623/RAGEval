@@ -11,6 +11,7 @@ import {
   BatchLinkDatasetsRequest,
   ImportQuestionWithRagRequest
 } from '../types/dataset';
+import { message } from 'antd';
 
 // 定义分页响应接口
 interface PaginatedResponse<T> {
@@ -183,20 +184,104 @@ export const datasetService = {
   },
 
   // 批量删除问题
-  async batchDeleteQuestions(datasetId: string, questionIds: string[]): Promise<void> {
-    await api.post(`/v1/datasets-questions/${datasetId}/questions/batch-delete`, { question_ids: questionIds });
+  async batchDeleteQuestions(datasetId: string, questionIds: string[]): Promise<any> {
+    const response = await api.post(`/v1/datasets-questions/${datasetId}/questions/batch-delete`, {
+      question_ids: questionIds
+    });
+    return response.data;
   },
 
   // 导出问题
-  async exportQuestions(datasetId: string): Promise<void> {
-    const response = await api.get(`/v1/datasets-questions/${datasetId}/export`, { responseType: 'blob' });
-    const url = window.URL.createObjectURL(new Blob([response]));
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `dataset-${datasetId}-questions.xlsx`);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+  async exportQuestions(datasetId: string, filters?: {
+    search?: string,
+    category?: string,
+    difficulty?: string
+  }): Promise<void> {
+    try {
+      // 构建查询参数
+      const queryParams = new URLSearchParams();
+      if (filters) {
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value) queryParams.append(key, value);
+        });
+      }
+      
+      // 添加时间戳防止缓存
+      queryParams.append('_t', Date.now().toString());
+      
+      const queryString = queryParams.toString();
+      
+      // 修正 API 路径 - 这里可能需要添加API前缀或修改路径
+      // 尝试方法1: 使用/api前缀
+      const url = `/api/v1/datasets-questions/${datasetId}/export${queryString ? `?${queryString}` : ''}`;
+      
+      // 使用消息提示加载状态
+      const loadingMessage = message.loading('正在生成导出文件...', 0);
+      
+      console.log('发起导出请求:', url);
+      
+      // 获取认证信息
+      const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+      const tokenType = localStorage.getItem('token_type') || sessionStorage.getItem('token_type') || 'Bearer';
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+          ...(token ? { 'Authorization': `${tokenType} ${token}` } : {})
+        }
+      });
+      
+      // 关闭加载提示
+      loadingMessage();
+      
+      console.log('导出响应状态:', response.status, response.statusText);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`导出失败: ${response.status} ${response.statusText}. ${errorText}`);
+      }
+      
+      // 获取二进制数据
+      const blobData = await response.blob();
+      
+      if (blobData.size === 0) {
+        throw new Error('获取到的文件为空');
+      }
+      
+      // 创建下载链接
+      const downloadUrl = window.URL.createObjectURL(blobData);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      
+      // 从响应头获取文件名
+      const contentDisposition = response.headers.get('content-disposition');
+      let filename = `dataset-${datasetId}-questions.xlsx`;
+      
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/);
+        if (filenameMatch && filenameMatch[1]) {
+          filename = filenameMatch[1];
+        }
+      }
+      
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      
+      // 释放URL对象
+      window.URL.revokeObjectURL(downloadUrl);
+      
+      message.success('导出成功');
+    } catch (error) {
+      message.error(`导出失败: ${error instanceof Error ? error.message : '请重试'}`);
+      console.error('导出错误:', error);
+    }
   },
 
   // 导入问题
