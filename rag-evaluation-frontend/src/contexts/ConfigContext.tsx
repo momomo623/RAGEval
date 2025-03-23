@@ -1,4 +1,4 @@
-import React, { createContext, useContext, ReactNode, useState, useCallback } from 'react';
+import React, { createContext, useContext, ReactNode, useState, useCallback, useEffect } from 'react';
 import ConfigModal from '../components/ConfigModal';
 import { LLMConfig, RAGConfig } from '../hooks/useConfig';
 

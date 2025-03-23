@@ -369,9 +369,7 @@ const ProjectDetailPage: React.FC = () => {
         </TabPane>
       </Tabs>
       
-      <Space direction="vertical" size="middle" style={{ width: '100%', marginTop: 16 }}>
-        <ConfigButton text="系统配置" type="default" />
-      </Space>
+      
     </Layout.Content>
   );
 };

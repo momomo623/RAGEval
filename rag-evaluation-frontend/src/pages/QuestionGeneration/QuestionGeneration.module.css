@@ -1,0 +1,277 @@
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.header {
+  margin-bottom: 24px;
+}
+
+.header h1 {
+  margin-bottom: 8px; 
+}
+
+.content {
+  min-height: 600px;
+}
+
+.card {
+  margin-bottom: 24px;
+}
+
+.actionBar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.chunksInfo {
+  margin-bottom: 24px;
+  background-color: #f9f9f9;
+  padding: 16px;
+  border-radius: 4px;
+}
+
+.chunksInfo p {
+  margin-bottom: 16px;
+}
+
+.chunksList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.chunkCard {
+  border: 1px solid #d9d9d9;
+  transition: all 0.3s;
+  cursor: pointer;
+}
+
+.chunkCard:hover {
+  border-color: #40a9ff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.09);
+}
+
+.chunkSelected {
+  border-color: #1890ff;
+  background-color: #e6f7ff;
+}
+
+.chunkHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.chunkInfo {
+  display: flex;
+  gap: 16px;
+  color: #888;
+  font-size: 12px;
+}
+
+.chunkContent {
+  font-size: 14px;
+  white-space: pre-wrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: max-height 0.3s ease;
+  position: relative;
+  max-height: 100px;
+}
+
+.chunkContentExpanded {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.viewMoreBtn {
+  position: relative;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  margin-top: 8px;
+  cursor: pointer;
+  color: #1890ff;
+  font-size: 12px;
+  background: linear-gradient(transparent, #f7f7f7);
+  padding: 4px 0;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.progressCard {
+  padding: 16px;
+}
+
+.progressInfo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 16px;
+}
+
+.currentChunk {
+  margin: 16px 0;
+  padding: 16px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+}
+
+.generationPreview {
+  margin-top: 24px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.qaPreview {
+  margin-bottom: 16px;
+  padding: 12px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+}
+
+.question {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.answer {
+  color: #666;
+}
+
+.resultSummary {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.statCard {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+}
+
+.statIcon {
+  font-size: 24px;
+  margin-right: 16px;
+  color: #1890ff;
+}
+
+.statInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.statValue {
+  font-size: 24px;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.statLabel {
+  font-size: 14px;
+  color: #666;
+  margin-top: 4px;
+}
+
+.chunkSizeSlider {
+  margin-top: 16px;
+  padding: 16px;
+  background-color: #f0f5ff;
+  border-radius: 4px;
+  border: 1px solid #d6e4ff;
+}
+
+.chunkSizeSlider h4 {
+  margin-bottom: 12px;
+  color: #1890ff;
+}
+
+.sliderContainer {
+  display: flex;
+  align-items: center;
+  margin: 16px 0;
+  padding: 0 8px;
+}
+
+.sliderLabel {
+  width: 100px;
+  flex-shrink: 0;
+  color: #666;
+  font-size: 12px;
+  text-align: center;
+}
+
+.sliderMain {
+  flex: 1;
+  margin: 0 16px;
+  min-width: 200px;
+}
+
+.sliderDescription {
+  font-size: 12px;
+  color: #666;
+  line-height: 1.5;
+}
+
+/* 为分割策略选择器添加样式 */
+.splitterSelector {
+  margin-top: 16px;
+}
+
+.splitterSelector h4 {
+  margin-bottom: 12px;
+  color: #1890ff;
+}
+
+.splitterSelector .ant-radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.splitterSelector .ant-radio-button-wrapper {
+  margin-right: 0;
+}
+
+/* 点击查看全文的模态窗口样式 */
+.modalContent {
+  white-space: pre-wrap;
+  max-height: 70vh;
+  overflow-y: auto;
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 16px;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.modalInfo {
+  display: flex;
+  gap: 24px;
+  color: #666;
+  font-size: 13px;
+} 

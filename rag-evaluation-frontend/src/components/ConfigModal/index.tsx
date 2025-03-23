@@ -331,7 +331,7 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ visible, onClose }) => {
       <Tabs activeKey={activeTab} onChange={setActiveTab}>
         <TabPane tab="LLM模型配置" key="llm">
           <div className={styles.tabHeader}>
-            <div>LLM模型配置</div>
+            <div>LLM模型配置（OpenAI接口规范）</div>
           </div>
 
           <Form

@@ -24,6 +24,8 @@ const ConfigButton: React.FC<ConfigButtonProps> = ({
 
   const button = (
     <Button 
+      // 取消边框
+      style={{ border: 'none' }}
       type={type} 
       onClick={showConfigModal} 
       size={size}

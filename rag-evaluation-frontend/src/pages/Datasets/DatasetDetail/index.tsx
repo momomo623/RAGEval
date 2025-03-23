@@ -16,6 +16,7 @@ import { DatasetDetail, Question } from '../../../types/dataset';
 import { datasetService } from '../../../services/dataset.service';
 import styles from './DatasetDetail.module.css';
 import TextArea from 'antd/es/input/TextArea';
+import QuestionGenerationContent from '../../QuestionGeneration/QuestionGenerationContent';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
@@ -785,6 +786,12 @@ const DatasetDetailPage: React.FC = () => {
               )}
             </div>
           </TabPane>
+
+          {/* AI生成问答对 */}
+          <TabPane tab="AI生成问答对" key="generate-qa">
+            {dataset && id && <QuestionGenerationContent datasetId={id} />}
+          </TabPane>
+
         </Tabs>
       </Card>
       
