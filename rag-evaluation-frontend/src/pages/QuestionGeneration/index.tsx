@@ -397,10 +397,36 @@ const QuestionGenerationPage: React.FC = () => {
       >
         <Column title="问题" dataIndex="question" key="question" ellipsis />
         <Column title="回答" dataIndex="answer" key="answer" ellipsis />
-        <Column title="难度" dataIndex="difficulty" key="difficulty" width={100} />
-        <Column title="类别" dataIndex="category" key="category" width={100} />
+        <Column 
+          title="难度" 
+          dataIndex="difficulty" 
+          key="difficulty" 
+          width={100}
+          render={(text) => {
+            const difficultyMap = {
+              'easy': '简单',
+              'medium': '中等',
+              'hard': '困难'
+            };
+            return (difficultyMap as any)[text] || text;
+          }}
+        />
+        <Column 
+          title="类别" 
+          dataIndex="category" 
+          key="category" 
+          width={100}
+          render={(text) => {
+            const categoryMap = {
+              'factoid': '事实型',
+              'conceptual': '概念型',
+              'procedural': '程序型',
+              'comparative': '比较型'
+            };
+            return (categoryMap as any)[text] || text;
+          }}
+        />
       </Table>
-      
       <div className={styles.actionBar}>
         <Button onClick={() => setCurrentTab('chunks')}>
           返回设置

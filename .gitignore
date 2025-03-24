@@ -1,0 +1,38 @@
+# General ignored files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IntelliJ IDEA
+/.idea/*
+*.iml
+/out/
+
+# Python
+*.pyc
+*.pyo
+*.log
+**/__pycache__/
+dist/
+build/
+/venv/
+env/
+*.egg-info/
+*.egg
+sdist/
+
+# React
+/node_modules
+/build
+.parcel-cache
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Miscellaneous
+*.swp
+*~
+/.vscode/

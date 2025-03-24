@@ -33,6 +33,9 @@ export class QuestionGeneratorService {
   private defaultChunkSize = 1000;
   private splitterType: SplitterType = 'recursive';
 
+// 5. 原文依据:原文依据应该来源于原文，并不超过10个字
+  
+
   // 默认提示词模板
   private defaultPromptTemplate = `你是一个专业的问答对生成专家。根据给定的文本，生成高质量的问答对。
 文本内容: "{{text}}"
@@ -40,9 +43,10 @@ export class QuestionGeneratorService {
 请根据上述文本生成{{count}}个问答对，问题难度为{{difficulty}}。
 每个问答对包含以下内容：
 1. 问题：清晰简洁，直接从文本内容出发
-2. 答案：准确完整，基于文本内容
+2. 答案：答案应该简明扼要，不要冗长，以最短的文字回答
 3. 难度：easy/medium/hard
 4. 类别：factoid（事实型）/conceptual（概念型）/procedural（程序型）/comparative（比较型）
+
 
 请以JSON格式输出，格式如下：
 [
@@ -50,7 +54,7 @@ export class QuestionGeneratorService {
     "question": "问题内容",
     "answer": "答案内容",
     "difficulty": "难度级别",
-    "category": "问题类别"
+    "category": "问题类别",
   }
 ]`;
 

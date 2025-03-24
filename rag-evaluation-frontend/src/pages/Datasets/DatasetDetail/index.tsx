@@ -741,6 +741,35 @@ const DatasetDetailPage: React.FC = () => {
         );
       },
     },
+    {
+      title: '难度',
+      dataIndex: 'difficulty',
+      key: 'difficulty',
+      width: 100,
+      render: (text) => {
+        const difficultyMap = {
+          'easy': '简单',
+          'medium': '中等',
+          'hard': '困难'
+        };
+        return difficultyMap[text] || text;
+      }
+    },
+    {
+      title: '分类',
+      dataIndex: 'category',
+      key: 'category',
+      width: 100,
+      render: (text) => {
+        const categoryMap = {
+          'factoid': '事实型',
+          'conceptual': '概念型',
+          'procedural': '程序型',
+          'comparative': '比较型'
+        };
+        return categoryMap[text] || text;
+      }
+    },
     
     {
       title: '操作',
@@ -1110,6 +1139,10 @@ const DatasetDetailPage: React.FC = () => {
                     <TextArea rows={4} placeholder="请输入标准答案" />
                   </Form.Item>
                 </Col>
+
+    
+
+
               </Row>
               
               <Row gutter={16}>
@@ -1120,10 +1153,10 @@ const DatasetDetailPage: React.FC = () => {
                     initialValue="general"
                   >
                     <Select>
-                      <Option value="general">通用</Option>
-                      <Option value="product">产品</Option>
-                      <Option value="technical">技术</Option>
-                      <Option value="user">用户</Option>
+                      <Option value="factoid">事实型</Option>
+                      <Option value="conceptual">概念型</Option>
+                      <Option value="procedural">程序型</Option>
+                      <Option value="comparative">比较型</Option>
                     </Select>
                   </Form.Item>
                 </Col>
@@ -1151,6 +1184,7 @@ const DatasetDetailPage: React.FC = () => {
                       <Option value="important">重要</Option>
                       <Option value="api">API</Option>
                       <Option value="feature">功能</Option>
+                      <Option value="all">可自定义输入</Option>
                     </Select>
                   </Form.Item>
                 </Col>

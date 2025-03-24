@@ -684,8 +684,38 @@ const QuestionGenerationContent: React.FC<QuestionGenerationContentProps> = ({ d
               </Tooltip>
             )}
           />
-          <Column title="难度" dataIndex="difficulty" key="difficulty" width={100} />
-          <Column title="类别" dataIndex="category" key="category" width={100} />
+<Column 
+          title="难度" 
+          dataIndex="difficulty" 
+          key="difficulty" 
+          width={100}
+          render={(text) => {
+            const difficultyMap = {
+              'easy': '简单',
+              'medium': '中等',
+              'hard': '困难'
+            };
+            return (difficultyMap as any)[text] || text;
+          }}
+        />
+        <Column 
+          title="类别" 
+          dataIndex="category" 
+          key="category" 
+          width={100}
+          render={(text) => {
+            const categoryMap = {
+              'factoid': '事实型',
+              'conceptual': '概念型',
+              'procedural': '程序型',
+              'comparative': '比较型'
+            };
+            return (categoryMap as any)[text] || text;
+          }}
+        />
+
+          {/* <Column title="难度" dataIndex="difficulty" key="difficulty" width={100} />
+          <Column title="类别" dataIndex="category" key="category" width={100} /> */}
           <Column title="来源文件" dataIndex="sourceFileName" key="sourceFileName" width={180} ellipsis />
         </Table>
       </div>
