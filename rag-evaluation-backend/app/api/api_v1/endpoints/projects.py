@@ -160,13 +160,6 @@ def read_project_datasets(
     # 获取关联的数据集
     from app.services.dataset_service import get_project_datasets_with_question_count_efficient
     datasets = get_project_datasets_with_question_count_efficient(db, project_id=project_id)
-#    [{'dataset': <app.models.dataset.Dataset object at 0x115b625c0>, 'question_count': 45}, {'dataset': <app.models.dataset.Dataset object at 0x115b626e0>, 'question_count': 3}]
-    print(datasets[0])  
-    print(datasets[0]['dataset'])
-    print(datasets[0]['question_count'])
-    print("--------------------------------")
-    print("--------------------------------")
-
     
     # 转换UUID为字符串
     result = []

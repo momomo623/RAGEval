@@ -5,7 +5,21 @@
 [![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.68%2B-blue.svg)](https://fastapi.tiangolo.com/)
 
-> !!! 项目仍在开发中，当前已完成后端部分...
+!!! 项目仍在开发中 !!!
+
+已完成：
+- ✅ 项目管理。创建项目，选择数据集，进行性能（未完成）、精度测试（未完成）、评估报告（未完成）。
+- ✅ 数据集相关功能。创建数据集，单个/批量新增问答对/RAG问答。
+- ✅ 系统配置。配置大模型API、自有RAG系统API，并进行健康检查。
+- ✅ AI生成问答对。上传文档，进行文档切分，并行请求大模型API生成问答对。
+
+未完成：
+- 🔜  评测引擎。自动评测（未完成）、人工评测（未完成）、性能测试（未完成）。
+- 🔜  报告生成。生成评估报告（未完成）。
+
+
+当前很多文件有待整理，基本功能完成，会逐步完善。
+
 
 ## 🚀 项目简介
 
@@ -49,41 +63,14 @@
 
 ### 启动步骤
 ```bash
-# 克隆仓库
-git clone https://github.com/your-org/rageval.git
+# 当前没有Docker支持，需要手动启动
+# 后续完成基本功能后，会提供Docker一键部署
 
-# 安装依赖
-pip install -r requirements.txt
-
-# 配置环境变量
-cp .env.example .env
-
-# 初始化数据库
-python -m app.db.init_db
-
-# 启动服务
-uvicorn app.main:app --reload
 ```
 
 ### Docker启动
 ```bash
 docker-compose up -d
-```
-
-## ⚙️ 配置说明
-
-### 环境变量配置（.env）
-```ini
-# 大模型配置
-OPENAI_API_KEY=your-api-key
-OPENAI_BASE_URL=https://api.openai.com/v1
-EVALUATION_MODEL_NAME=gpt-4-turbo
-
-# 数据库配置
-POSTGRES_SERVER=localhost
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
-POSTGRES_DB=rageval
 ```
 
 ## 📐 系统架构
@@ -118,17 +105,3 @@ POSTGRES_DB=rageval
 ## 📄 开源协议
 
 本项目采用 [MIT License](LICENSE)
-```
-
-主要亮点说明：
-1. 采用徽章增强专业感
-2. 功能展示使用图标+简明要点
-3. 包含快速启动的代码块
-4. 系统架构用ASCII图示直观展示
-5. 强调开箱即用特性
-6. 包含贡献指南和开源协议
-7. 关键配置项单独列出
-8. 支持传统部署和Docker两种方式
-
-可根据实际需求调整环境变量配置和架构细节。建议在Github仓库中添加以下标签提升曝光：
-`rag` `evaluation` `nlp` `ai-testing` `llm`
