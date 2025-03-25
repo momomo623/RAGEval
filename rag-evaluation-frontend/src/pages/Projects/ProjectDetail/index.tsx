@@ -15,6 +15,7 @@ import { Dataset } from '../../../types/dataset';
 import styles from './ProjectDetail.module.css';
 import ConfigButton from '../../../components/ConfigButton';
 import { useConfigContext } from '../../../contexts/ConfigContext';
+import { PerformanceTestsManager } from '../../../components/PerformanceTests/PerformanceTestsManager';
 
 const { Title, Text, Paragraph } = Typography;
 const { TabPane } = Tabs;
@@ -352,7 +353,10 @@ const ProjectDetailPage: React.FC = () => {
         <TabPane tab="评测" key="evaluations">
           {renderEvaluations()}
         </TabPane>
-        <TabPane tab="报告" key="reports">
+        <TabPane tab="性能测试" key="performance">
+          <PerformanceTestsManager projectId={id!} />
+        </TabPane>
+        <TabPane tab="报表" key="reports">
           <div className={styles.reportsSection}>
             <div className={styles.sectionHeader}>
               <Title level={5}>评测报告</Title>

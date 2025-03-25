@@ -1,0 +1,182 @@
+create table if not exists public.performance_tests
+(
+    id                  uuid                     default uuid_generate_v4()           not null
+        primary key,
+    name                varchar(100)                                                  not null,
+    project_id          uuid                                                          not null,
+    dataset_id          uuid,
+    description         text,
+    concurrency         integer                                                       not null,
+    version             varchar(50),
+    created_at          timestamp with time zone default now(),
+    started_at          timestamp with time zone,
+    completed_at        timestamp with time zone,
+    status              varchar(20)              default 'created'::character varying not null,
+    config              jsonb                    default '{}'::jsonb                  not null,
+    total_questions     integer                  default 0                            not null,
+    processed_questions integer                  default 0                            not null,
+    success_questions   integer                  default 0                            not null,
+    failed_questions    integer                  default 0                            not null,
+    summary_metrics     jsonb                    default '{}'::jsonb                  not null
+);
+
+comment on table public.performance_tests is 'RAG系统性能测试表';
+
+comment on column public.performance_tests.id is '性能测试唯一标识';
+
+comment on column public.performance_tests.name is '测试名称';
+
+comment on column public.performance_tests.project_id is '关联的项目ID';
+
+comment on column public.performance_tests.dataset_id is '关联的数据集ID';
+
+comment on column public.performance_tests.description is '测试描述信息';
+
+comment on column public.performance_tests.concurrency is '并发请求数量';
+
+comment on column public.performance_tests.version is '版本标识，与rag_answers表中的version对应';
+
+comment on column public.performance_tests.created_at is '测试创建时间';
+
+comment on column public.performance_tests.started_at is '测试开始时间';
+
+comment on column public.performance_tests.completed_at is '测试完成时间';
+
+comment on column public.performance_tests.status is '测试状态：created(已创建), running(运行中), completed(已完成), failed(失败)';
+
+comment on column public.performance_tests.config is '测试配置详情，包括超时设置、重试策略等';
+
+comment on column public.performance_tests.total_questions is '测试的总问题数量';
+
+comment on column public.performance_tests.processed_questions is '已处理的问题数量';
+
+comment on column public.performance_tests.success_questions is '成功处理的问题数量';
+
+comment on column public.performance_tests.failed_questions is '处理失败的问题数量';
+
+comment on column public.performance_tests.summary_metrics is '性能测试汇总指标，包含响应时间、吞吐量等统计数据
+{
+  "response_time": {
+    "first_token_time": {                 // 首个Token响应时间
+      "avg": 120.5,                       // 平均值（毫秒）
+      "max": 350.2,                       // 最大值
+      "min": 50.1,                        // 最小值
+      "p50": 115.3,                       // 50分位数
+      "p75": 190.4,                       // 75分位数
+      "p90": 240.8,                       // 90分位数
+      "p95": 280.5,                       // 95分位数
+      "p99": 320.1,                       // 99分位数
+      "samples": 1000                     // 样本数
+    },
+    "total_time": {                       // 总响应时间
+      "avg": 1200.5,
+      "max": 3500.2,
+      "min": 500.1,
+      "p50": 1150.3,
+      "p75": 1900.4,
+      "p90": 2400.8,
+      "p95": 2800.5,
+      "p99": 3200.1,
+      "samples": 1000
+    }
+  },
+  "throughput": {                         // 吞吐量指标
+    "requests_per_second": 15.3,          // 每秒请求处理数
+    "chars_per_second": 2450.7            // 每秒字符生成数
+  },
+  "character_stats": {                    // 字符统计
+    "input_chars": {                      // 输入字符统计
+      "avg": 125.7,
+      "max": 500,
+      "min": 10,
+      "total": 125700,
+      "samples": 1000
+    },
+    "output_chars": {                     // 输出字符统计
+      "avg": 350.3,
+      "max": 1200,
+      "min": 50,
+      "total": 350300,
+      "samples": 1000
+    }
+  },
+  "success_rate": 0.98,                   // 成功率
+  "test_duration_seconds": 65.3           // 测试持续时间（秒）
+}';
+
+alter table public.performance_tests
+    owner to postgres;
+
+create table if not exists public.rag_answers
+(
+    id                    uuid                     default uuid_generate_v4()       not null
+        primary key,
+    question_id           uuid                                                      not null,
+    answer                text                                                      not null,
+    raw_response          jsonb,
+    collection_method     varchar(20)              default 'api'::character varying not null,
+    first_response_time   numeric(10, 3),
+    total_response_time   numeric(10, 3),
+    character_count       integer,
+    characters_per_second numeric(10, 2),
+    created_at            timestamp with time zone default now(),
+    version               varchar(50),
+    performance_test_id   uuid
+        constraint fk_rag_answers_performance_test
+            references public.performance_tests
+            on delete set null,
+    sequence_number       integer,
+    constraint unique_question_version
+        unique (question_id, version)
+);
+
+comment on table public.rag_answers is 'RAG系统回答表';
+
+comment on column public.rag_answers.id is '回答唯一标识';
+
+comment on column public.rag_answers.question_id is '关联的问题ID';
+
+comment on column public.rag_answers.answer is 'RAG系统的回答';
+
+comment on column public.rag_answers.raw_response is '原始响应数据(JSON)';
+
+comment on column public.rag_answers.collection_method is '收集方式: api(API调用), manual_import(手动导入)';
+
+comment on column public.rag_answers.first_response_time is '首次响应时间(秒)';
+
+comment on column public.rag_answers.total_response_time is '总响应时间(秒)';
+
+comment on column public.rag_answers.character_count is '回答字符数';
+
+comment on column public.rag_answers.characters_per_second is '每秒生成字符数';
+
+comment on column public.rag_answers.created_at is '创建时间';
+
+comment on column public.rag_answers.performance_test_id is '关联的性能测试ID';
+
+comment on column public.rag_answers.sequence_number is '在性能测试中的序号';
+
+alter table public.rag_answers
+    owner to postgres;
+
+create index if not exists idx_rag_answers_question_id
+    on public.rag_answers (question_id);
+
+create index if not exists idx_rag_answers_performance
+    on public.rag_answers (total_response_time, first_response_time);
+
+create index if not exists idx_rag_answers_character_count
+    on public.rag_answers (character_count);
+
+create index if not exists idx_rag_answers_performance_test
+    on public.rag_answers (performance_test_id);
+
+create index if not exists idx_performance_tests_project_id
+    on public.performance_tests (project_id);
+
+create index if not exists idx_performance_status
+    on public.performance_tests (status);
+
+create index if not exists idx_performance_tests_version
+    on public.performance_tests (version);
+

@@ -1,90 +1,57 @@
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 from pydantic import BaseModel, Field
 from datetime import datetime
 import uuid
 
 class PerformanceTestBase(BaseModel):
-    project_id: str
     name: str
+    project_id: str
+    dataset_id: Optional[str] = None
     description: Optional[str] = None
-    test_type: str = "latency"  # latency, throughput, concurrency
+    concurrency: int = 1
+    version: Optional[str] = None
     config: Dict[str, Any] = {}
 
-class PerformanceTestCreate(BaseModel):
-    project_id: str
-    name: str
-    description: Optional[str] = None
-    test_type: str
-    config: Dict[str, Any]
+class PerformanceTestCreate(PerformanceTestBase):
+    pass
 
 class PerformanceTestUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
-    config: Optional[Dict[str, Any]] = None
+    status: Optional[str] = None
+    processed_questions: Optional[int] = None
+    success_questions: Optional[int] = None
+    failed_questions: Optional[int] = None
+    summary_metrics: Optional[Dict[str, Any]] = None
 
 class PerformanceTestInDBBase(PerformanceTestBase):
     id: str
-    user_id: str
     created_at: datetime
-    updated_at: datetime
-
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    status: str
+    total_questions: int
+    processed_questions: int
+    success_questions: int
+    failed_questions: int
+    summary_metrics: Dict[str, Any]
+    
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class PerformanceTestOut(PerformanceTestInDBBase):
     pass
 
-class PerformanceMetricBase(BaseModel):
-    test_id: str
-    rag_answer_id: Optional[str] = None
-    concurrency_level: int = 1
-    batch_size: Optional[int] = 1
-    response_time: Optional[float] = None
-    throughput: Optional[float] = None
-    success_rate: Optional[float] = None
-    cpu_usage: Optional[float] = None
-    memory_usage: Optional[float] = None
-    status: str = "success"
-    error_message: Optional[str] = None
-    performance_metadata: Optional[Dict[str, Any]] = None
-
-class PerformanceMetricCreate(PerformanceMetricBase):
+class PerformanceTestDetail(PerformanceTestOut):
     pass
 
-class PerformanceMetricInDBBase(PerformanceMetricBase):
-    id: str
-    created_at: datetime
+class PerformanceMetrics(BaseModel):
+    response_time: Dict[str, Any]
+    throughput: Dict[str, Any]
+    character_stats: Dict[str, Any]
+    success_rate: float
+    test_duration_seconds: float
 
-    class Config:
-        from_attributes = True
-
-class PerformanceMetricOut(PerformanceMetricInDBBase):
-    pass
-
-# 性能测试请求模型
-class PerformanceTestRequest(BaseModel):
-    project_id: str
-    name: str
-    description: Optional[str] = None
-    api_config_id: str
-    concurrency: int = Field(ge=1, le=50, default=1)
-    duration: int = Field(ge=1, le=300, default=60)  # 测试持续时间（秒）
-    ramp_up: int = Field(ge=0, le=60, default=0)  # 逐步增加负载的时间（秒）
-    requests_per_second: Optional[int] = Field(ge=1, default=None)  # 限制每秒请求数，None表示不限制
-    question_ids: Optional[List[str]] = None  # 要测试的问题ID列表，None表示使用项目中的所有问题
-
-class PerformanceTestRunResponse(BaseModel):
-    test_id: str
-    status: str = "running"
-    start_time: datetime = Field(default_factory=datetime.now)
-    estimated_completion: Optional[datetime] = None
-
-class PerformanceTestResult(BaseModel):
-    test_id: str
-    status: str
-    summary: Dict[str, Any]
-    metrics: List[Dict[str, Any]]
-    errors: Optional[List[Dict[str, Any]]] = None
-    start_time: datetime
-    end_time: Optional[datetime] = None
-    duration: Optional[float] = None  # 实际测试持续时间（秒） 
+class StartPerformanceTestRequest(BaseModel):
+    performance_test_id: str
+    question_ids: Optional[List[str]] = None  # 可选，如果为空则使用数据集中的所有问题 

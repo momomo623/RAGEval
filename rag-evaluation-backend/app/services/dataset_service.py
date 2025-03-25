@@ -306,4 +306,148 @@ def copy_dataset(db: Session, source_dataset_id: str, user_id: str, new_name: Op
     
     db.commit()
     
-    return new_dataset 
+    return new_dataset
+
+def get_datasets_with_question_count(
+    db: Session, 
+    skip: int = 0, 
+    limit: int = 100,
+    user_id: Optional[str] = None,
+    is_public: Optional[bool] = None,
+    tags: Optional[List[str]] = None,
+    search: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    """获取数据集列表并统计每个数据集的问题数量"""
+    from app.models.question import Question
+    from sqlalchemy import func, desc, or_
+    
+    # 基础数据集查询
+    dataset_query = db.query(Dataset)
+    
+    # 应用过滤条件
+    if user_id is not None:
+        dataset_query = dataset_query.filter(
+            or_(Dataset.user_id == user_id, Dataset.is_public == True)
+        )
+    
+    if is_public is not None:
+        dataset_query = dataset_query.filter(Dataset.is_public == is_public)
+    
+    if tags:
+        for tag in tags:
+            dataset_query = dataset_query.filter(Dataset.tags.contains([tag]))
+    
+    if search:
+        search_term = f"%{search}%"
+        dataset_query = dataset_query.filter(
+            or_(
+                Dataset.name.ilike(search_term),
+                Dataset.description.ilike(search_term)
+            )
+        )
+    
+    # 排序
+    if user_id:
+        dataset_query = dataset_query.order_by(Dataset.user_id == user_id, desc(Dataset.created_at))
+    else:
+        dataset_query = dataset_query.order_by(desc(Dataset.created_at))
+    
+    # 先获取分页后的数据集
+    datasets = dataset_query.offset(skip).limit(limit).all()
+    
+    # 为这些数据集获取问题数量
+    result = []
+    for dataset in datasets:
+        question_count = db.query(func.count(Question.id)).filter(
+            Question.dataset_id == str(dataset.id)
+        ).scalar()
+        
+        # 组合数据集和问题计数
+        dataset_dict = {
+            "dataset": dataset,
+            "question_count": question_count
+        }
+        result.append(dataset_dict)
+    
+    return result
+
+def get_project_datasets_with_question_count(
+    db: Session,
+    project_id: str
+) -> List[Dict[str, Any]]:
+    """获取项目关联的所有数据集，并统计每个数据集的问题数量"""
+    from app.models.question import Question
+    from sqlalchemy import func
+    
+    # 获取项目关联的数据集ID
+    dataset_ids = db.query(ProjectDataset.dataset_id).filter(
+        ProjectDataset.project_id == project_id
+    ).all()
+    
+    if not dataset_ids:
+        return []
+        
+    dataset_ids = [d[0] for d in dataset_ids]
+    
+    # 获取这些数据集的基本信息
+    datasets = db.query(Dataset).filter(
+        Dataset.id.in_(dataset_ids)
+    ).all()
+    
+    # 为每个数据集获取问题数量
+    result = []
+    for dataset in datasets:
+        question_count = db.query(func.count(Question.id)).filter(
+            Question.dataset_id == str(dataset.id)
+        ).scalar()
+        
+        result.append({
+            "dataset": dataset,
+            "question_count": question_count
+        })
+    
+    return result
+
+def get_project_datasets_with_question_count_efficient(
+    db: Session,
+    project_id: str
+) -> List[Dict[str, Any]]:
+    """高效获取项目关联的所有数据集及问题数量（单次查询）"""
+    from app.models.question import Question
+    from sqlalchemy import func, and_
+    
+    # 获取项目关联的数据集ID
+    dataset_ids = db.query(ProjectDataset.dataset_id).filter(
+        ProjectDataset.project_id == project_id
+    ).all()
+    
+    if not dataset_ids:
+        return []
+        
+    dataset_ids = [d[0] for d in dataset_ids]
+    
+    # 使用子查询和JOIN来一次性获取所有数据集的问题数量
+    subq = db.query(
+        Question.dataset_id.label('dataset_id'),
+        func.count(Question.id).label('question_count')
+    ).group_by(Question.dataset_id).subquery()
+    
+    # 查询数据集并左连接问题计数
+    query = db.query(
+        Dataset,
+        subq.c.question_count
+    ).outerjoin(
+        subq, Dataset.id == subq.c.dataset_id
+    ).filter(
+        Dataset.id.in_(dataset_ids)
+    )
+    
+    # 处理结果
+    result = []
+    for dataset, count in query.all():
+        result.append({
+            "dataset": dataset,
+            "question_count": count or 0  # 如果count为None，则设为0
+        })
+    
+    return result 
