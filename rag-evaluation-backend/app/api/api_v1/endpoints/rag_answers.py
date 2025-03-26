@@ -229,10 +229,14 @@ def create_rag_answer(
     
     if existing_answer:
         raise HTTPException(status_code=400, detail=f"该问题的 {rag_answer_in['version']} 版本回答已存在")
-    
+
     # 只提取数据库模型支持的字段
     valid_fields = ["question_id", "answer", "collection_method", "version", 
-                    "first_response_time", "total_response_time", "character_count", "raw_response"]
+                    "first_response_time", "total_response_time", "character_count", "raw_response"
+                    ,'charactersPerSecond'
+                    ,'sequenceNumber' 
+                    ,'characters_per_second'
+                    ,'performance_test_id']
     
     rag_answer_data = {k: v for k, v in rag_answer_in.items() if k in valid_fields}
     

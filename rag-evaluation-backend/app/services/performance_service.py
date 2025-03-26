@@ -133,8 +133,11 @@ class PerformanceService:
             return {"success_rate": 0, "test_duration_seconds": 0}
         
         # 计算测试持续时间
-        if test.started_at and test.completed_at:
-            test_duration = (test.completed_at - test.started_at).total_seconds()
+        if test.completed_at and test.started_at:
+            # 移除两个时间戳的时区信息，简化计算
+            naive_completed = test.completed_at.replace(tzinfo=None)
+            naive_started = test.started_at.replace(tzinfo=None)
+            test_duration = (naive_completed - naive_started).total_seconds()
         else:
             test_duration = 0
         

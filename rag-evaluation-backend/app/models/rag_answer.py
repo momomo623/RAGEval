@@ -31,6 +31,7 @@ class RagAnswer(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     # 数据库中可能没有updated_at字段，如果确实没有，需要删除这行
     # updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    performance_test_id = Column(StringUUID, ForeignKey("performance_tests.id", ondelete="CASCADE"), nullable=True)
     
     # 关系
     question = relationship("Question", back_populates="rag_answers")

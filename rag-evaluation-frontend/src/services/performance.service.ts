@@ -38,36 +38,40 @@ export interface StartPerformanceTestRequest {
   performance_test_id: string;
   question_ids?: string[];
 }
+export const performanceCreate = async () => {
+  return api.post<string>('/v1/performance/health');
+}
 
 export const performanceService = {
+
   // 创建性能测试
   create: async (data: PerformanceTestCreate): Promise<PerformanceTest> => {
-    return api.post<PerformanceTest>('/performance', data);
+    return api.post<PerformanceTest>('/v1/performance/add', data);
   },
 
   // 获取项目的所有性能测试
   getByProject: async (projectId: string): Promise<PerformanceTest[]> => {
-    return api.get<PerformanceTest[]>(`/performance/project/${projectId}`);
+    return api.get<PerformanceTest[]>(`/v1/performance/project/${projectId}`);
   },
 
   // 获取性能测试详情
   getDetail: async (id: string): Promise<PerformanceTestDetail> => {
-    return api.get<PerformanceTestDetail>(`/performance/${id}`);
+    return api.get<PerformanceTestDetail>(`/v1/performance/${id}`);
   },
 
   // 开始性能测试
   start: async (data: StartPerformanceTestRequest): Promise<PerformanceTest> => {
-    return api.post<PerformanceTest>('/performance/start', data);
+    return api.post<PerformanceTest>('/v1/performance/start', data);
   },
 
   // 完成性能测试
   complete: async (id: string): Promise<PerformanceTest> => {
-    return api.post<PerformanceTest>(`/performance/${id}/complete`);
+    return api.post<PerformanceTest>(`/v1/performance/${id}/complete`);
   },
 
   // 标记测试为失败
   fail: async (id: string, errorDetails: any): Promise<PerformanceTest> => {
-    return api.post<PerformanceTest>(`/performance/${id}/fail`, errorDetails);
+    return api.post<PerformanceTest>(`/v1/performance/${id}/fail`, errorDetails);
   },
 
   // 执行RAG性能测试
@@ -97,5 +101,20 @@ export const performanceService = {
     }
     
     return true;
-  }
+  },
+
+  // 根据ID获取单个性能测试的详情
+  getById: async (id: string) => {
+    try {
+      // 获取数据
+      const response = await api.get(`/v1/performance/${id}`);
+      console.log('API返回原始数据:', response);
+      
+      // 返回数据，确保取到正确的部分
+      return response;
+    } catch (error) {
+      console.error('获取性能测试详情失败:', error);
+      throw error;
+    }
+  },
 }; 

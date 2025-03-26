@@ -1,267 +1,323 @@
-import React, { useEffect, useState } from 'react';
-import { Card, Descriptions, Spin, Tabs, Table, Tag, Progress, Button, message, Statistic, Row, Col } from 'antd';
-import { PerformanceTestDetail, performanceService } from '../../services/performance.service';
+import React, { useState, useEffect } from 'react';
+import { 
+  Drawer, Descriptions, Statistic, Card, Row, Col, 
+  Divider, Table, Tag, Space, Progress, Typography, Button, Spin, Empty
+} from 'antd';
+import { 
+  CheckCircleOutlined, CloseCircleOutlined, 
+  SyncOutlined, FieldTimeOutlined, RocketOutlined,
+  FileTextOutlined, ExperimentOutlined
+} from '@ant-design/icons';
 import { TimeAgo } from '../common/TimeAgo';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import styles from './PerformanceTests.module.css';
+import { performanceService } from '../../services/performance.service';
+import { api } from '../../utils/api';
 
-const { TabPane } = Tabs;
+const { Title, Text } = Typography;
 
 interface PerformanceTestDetailProps {
-  testId: string;
-  onBack: () => void;
+  visible: boolean;
+  testId: string | null;
+  onClose: () => void;
 }
 
-export const PerformanceTestDetailView: React.FC<PerformanceTestDetailProps> = ({
+export const PerformanceTestDetail: React.FC<PerformanceTestDetailProps> = ({
+  visible,
   testId,
-  onBack
+  onClose
 }) => {
-  const [detail, setDetail] = useState<PerformanceTestDetail | null>(null);
   const [loading, setLoading] = useState(false);
-  const [loadingAction, setLoadingAction] = useState(false);
-
-  const fetchDetail = async () => {
-    setLoading(true);
-    try {
-      const data = await performanceService.getDetail(testId);
-      setDetail(data);
-    } catch (error) {
-      console.error('获取性能测试详情失败:', error);
-      message.error('获取性能测试详情失败');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [testData, setTestData] = useState<any>(null);
 
   useEffect(() => {
-    if (testId) {
-      fetchDetail();
+    if (visible && testId) {
+      setLoading(true);
+      
+      // 直接使用基础API调用，绕过service层
+      api.get(`/v1/performance/${testId}`)
+        .then(response => {
+          console.log("原始API响应:", response);
+          setTestData(response);
+        })
+        .catch(error => {
+          console.error("API调用失败:", error);
+        })
+        .finally(() => {
+          setLoading(false);
+        });
     }
-  }, [testId]);
+  }, [visible, testId]);
 
-  const handleStartTest = async () => {
-    if (!detail) return;
+  const renderStatusTag = (status: string) => {
+    let color = 'default';
+    let icon = null;
     
-    setLoadingAction(true);
-    try {
-      await performanceService.start({ performance_test_id: testId });
-      message.success('性能测试已开始');
-      fetchDetail(); // 刷新详情
-    } catch (error) {
-      console.error('开始性能测试失败:', error);
-      message.error('开始性能测试失败');
-    } finally {
-      setLoadingAction(false);
-    }
-  };
-
-  const getStatusTag = (status: string) => {
-    switch (status) {
-      case 'created':
-        return <Tag color="blue">待执行</Tag>;
-      case 'running':
-        return <Tag color="processing">执行中</Tag>;
+    switch(status) {
       case 'completed':
-        return <Tag color="success">已完成</Tag>;
+        color = 'success';
+        icon = <CheckCircleOutlined />;
+        break;
+      case 'running':
+        color = 'processing';
+        icon = <SyncOutlined spin />;
+        break;
       case 'failed':
-        return <Tag color="error">失败</Tag>;
-      default:
-        return <Tag>{status}</Tag>;
+        color = 'error';
+        icon = <CloseCircleOutlined />;
+        break;
     }
+    
+    return (
+      <Tag color={color} icon={icon}>
+        {status === 'completed' ? '已完成' : 
+         status === 'running' ? '运行中' : 
+         status === 'failed' ? '失败' : status}
+      </Tag>
+    );
   };
 
-  if (loading) {
-    return <Spin size="large" />;
-  }
+  const formatTimeValue = (value: any) => {
+    if (!value) return '—';
+    return `${parseFloat(value).toFixed(2)}秒`;
+  };
 
-  if (!detail) {
-    return <div>未找到性能测试数据</div>;
-  }
-
-  // 准备图表数据
-  const responseTimesData = detail.rag_answers?.map((answer, index) => ({
-    name: index + 1,
-    responseTime: answer.total_response_time,
-    firstResponseTime: answer.first_response_time,
-  })) || [];
-
-  // 获取总结指标
-  const metrics = detail.summary_metrics || {};
-  const responseTimeStats = metrics.response_time?.total_time || {};
-  const firstTokenStats = metrics.response_time?.first_token_time || {};
-  const throughput = metrics.throughput || {};
-  const successRate = (metrics.success_rate || 0) * 100;
+  const renderMetricsTable = (metricsData: any) => {
+    if (!metricsData || !metricsData.response_time || !metricsData.character_stats) {
+      return <Empty description="没有性能指标数据" />;
+    }
+    
+    // 准备表格数据
+    const columns = [
+      {
+        title: '指标维度',
+        dataIndex: 'metric',
+        key: 'metric',
+        width: 150,
+      },
+      {
+        title: '平均值',
+        dataIndex: 'avg',
+        key: 'avg',
+        render: (text: number, record: any) => record.unit ? `${text.toFixed(2)}${record.unit}` : text.toFixed(2),
+      },
+      {
+        title: '中位数(P50)',
+        dataIndex: 'p50',
+        key: 'p50',
+        render: (text: number, record: any) => record.unit ? `${text.toFixed(2)}${record.unit}` : text.toFixed(2),
+      },
+      {
+        title: 'P95',
+        dataIndex: 'p95',
+        key: 'p95',
+        render: (text: number, record: any) => record.unit ? `${text.toFixed(2)}${record.unit}` : text.toFixed(2),
+      },
+      {
+        title: 'P99',
+        dataIndex: 'p99',
+        key: 'p99',
+        render: (text: number, record: any) => record.unit ? `${text.toFixed(2)}${record.unit}` : text.toFixed(2),
+      },
+      {
+        title: '最小值',
+        dataIndex: 'min',
+        key: 'min',
+        render: (text: number, record: any) => record.unit ? `${text.toFixed(2)}${record.unit}` : text.toFixed(2),
+      },
+      {
+        title: '最大值',
+        dataIndex: 'max',
+        key: 'max',
+        render: (text: number, record: any) => record.unit ? `${text.toFixed(2)}${record.unit}` : text.toFixed(2),
+      },
+    ];
+    
+    // 准备行数据
+    const firstTokenData = metricsData.response_time.first_token_time || {};
+    const totalTimeData = metricsData.response_time.total_time || {};
+    const charsData = metricsData.character_stats.output_chars || {};
+    
+    const dataSource = [
+      {
+        key: 'first_token',
+        metric: '首次响应时间',
+        avg: firstTokenData.avg || 0,
+        p50: firstTokenData.p50 || 0,
+        p95: firstTokenData.p95 || 0,
+        p99: firstTokenData.p99 || 0,
+        min: firstTokenData.min || 0,
+        max: firstTokenData.max || 0,
+        unit: '秒'
+      },
+      {
+        key: 'total_time',
+        metric: '总响应时间',
+        avg: totalTimeData.avg || 0,
+        p50: totalTimeData.p50 || 0,
+        p95: totalTimeData.p95 || 0,
+        p99: totalTimeData.p99 || 0,
+        min: totalTimeData.min || 0,
+        max: totalTimeData.max || 0,
+        unit: '秒'
+      },
+      {
+        key: 'chars',
+        metric: '输出字符数',
+        avg: charsData.avg || 0,
+        p50: charsData.p50 || 0,
+        p95: charsData.p95 || 0,
+        p99: charsData.p99 || 0,
+        min: charsData.min || 0,
+        max: charsData.max || 0,
+        unit: '字符'
+      },
+    ];
+    
+    return (
+      <Table 
+        dataSource={dataSource}
+        columns={columns}
+        pagination={false}
+        size="small"
+        bordered
+        className={styles.metricsTable}
+      />
+    );
+  };
 
   return (
-    <div>
-      <Button onClick={onBack} style={{ marginBottom: 16 }}>返回列表</Button>
-      
-      <Card title={`性能测试详情: ${detail.name}`} bordered={false}>
-        <Descriptions bordered column={2}>
-          <Descriptions.Item label="测试名称">{detail.name}</Descriptions.Item>
-          <Descriptions.Item label="版本">{detail.version || '-'}</Descriptions.Item>
-          <Descriptions.Item label="状态">{getStatusTag(detail.status)}</Descriptions.Item>
-          <Descriptions.Item label="并发数">{detail.concurrency}</Descriptions.Item>
-          <Descriptions.Item label="创建时间"><TimeAgo date={detail.created_at} /></Descriptions.Item>
-          <Descriptions.Item label="测试时长">
-            {metrics.test_duration_seconds ? `${metrics.test_duration_seconds.toFixed(2)} 秒` : '-'}
-          </Descriptions.Item>
-          <Descriptions.Item label="总问题数">{detail.total_questions}</Descriptions.Item>
-          <Descriptions.Item label="处理问题数">{detail.processed_questions}</Descriptions.Item>
-          <Descriptions.Item label="成功数">{detail.success_questions}</Descriptions.Item>
-          <Descriptions.Item label="失败数">{detail.failed_questions}</Descriptions.Item>
-        </Descriptions>
-        
-        {detail.status === 'created' && (
-          <div style={{ marginTop: 16, textAlign: 'center' }}>
-            <Button type="primary" onClick={handleStartTest} loading={loadingAction}>
-              开始测试
-            </Button>
-          </div>
-        )}
-        
-        {detail.status === 'running' && (
-          <div style={{ marginTop: 16 }}>
-            <Progress 
-              percent={detail.processed_questions / detail.total_questions * 100} 
-              status="active" 
-              format={() => `${detail.processed_questions}/${detail.total_questions}`} 
-            />
-          </div>
-        )}
-        
-        {detail.status === 'completed' && (
-          <Tabs defaultActiveKey="summary" style={{ marginTop: 24 }}>
-            <TabPane tab="汇总统计" key="summary">
-              <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-                <Col span={6}>
-                  <Card>
-                    <Statistic 
-                      title="成功率" 
-                      value={successRate} 
-                      precision={2}
-                      suffix="%" 
-                      valueStyle={{ color: successRate > 90 ? '#3f8600' : '#cf1322' }}
-                    />
-                  </Card>
-                </Col>
-                <Col span={6}>
-                  <Card>
-                    <Statistic 
-                      title="平均响应时间" 
-                      value={responseTimeStats.avg || 0} 
-                      precision={2}
-                      suffix="秒" 
-                    />
-                  </Card>
-                </Col>
-                <Col span={6}>
-                  <Card>
-                    <Statistic 
-                      title="每秒处理请求" 
-                      value={throughput.requests_per_second || 0} 
-                      precision={2}
-                    />
-                  </Card>
-                </Col>
-                <Col span={6}>
-                  <Card>
-                    <Statistic 
-                      title="每秒生成字符" 
-                      value={throughput.chars_per_second || 0} 
-                      precision={2}
-                    />
-                  </Card>
-                </Col>
-              </Row>
+    <Drawer
+      title="性能测试详情"
+      placement="right"
+      width={920}
+      onClose={onClose}
+      visible={visible}
+      destroyOnClose
+    >
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '40px 0' }}>
+          <Spin size="large" />
+          <div style={{ marginTop: 16 }}>加载测试详情中...</div>
+        </div>
+      ) : testData && typeof testData === 'object' && Object.keys(testData).length > 0 ? (
+        <>
+          <Card loading={loading} className={styles.basicInfoCard}>
+            <Title level={4}>{testData.name}</Title>
+            <Descriptions bordered column={2} size="small">
+              <Descriptions.Item label="测试ID">{testData.id}</Descriptions.Item>
+              <Descriptions.Item label="版本">{testData.version || '—'}</Descriptions.Item>
+              <Descriptions.Item label="状态">{renderStatusTag(testData.status)}</Descriptions.Item>
+              <Descriptions.Item label="并发数">{testData.concurrency}</Descriptions.Item>
+              <Descriptions.Item label="创建时间">
+                <TimeAgo date={testData.created_at} />
+              </Descriptions.Item>
+              <Descriptions.Item label="完成时间">
+                {testData.completed_at ? (
+                  <TimeAgo date={testData.completed_at} />
+                ) : '—'}
+              </Descriptions.Item>
+              <Descriptions.Item label="测试时长" span={2}>
+                {testData.summary_metrics?.test_duration_seconds ? 
+                  `${parseFloat(testData.summary_metrics.test_duration_seconds).toFixed(2)}秒` : 
+                  '—'}
+              </Descriptions.Item>
+              <Descriptions.Item label="描述" span={2}>
+                {testData.description || '无描述'}
+              </Descriptions.Item>
+            </Descriptions>
+          </Card>
+
+          <Divider orientation="left">测试统计</Divider>
+          
+          <Row gutter={[16, 16]}>
+            <Col span={6}>
+              <Card className={styles.statCard}>
+                <Statistic 
+                  title="总问题数" 
+                  value={testData.total_questions || 0}
+                  prefix={<FileTextOutlined />} 
+                />
+              </Card>
+            </Col>
+            <Col span={6}>
+              <Card className={styles.statCard}>
+                <Statistic 
+                  title="已处理" 
+                  value={testData.processed_questions || 0}
+                  prefix={<ExperimentOutlined />} 
+                />
+              </Card>
+            </Col>
+            <Col span={6}>
+              <Card className={styles.statCard}>
+                <Statistic 
+                  title="成功率" 
+                  value={testData.summary_metrics?.success_rate ? 
+                    parseFloat((testData.summary_metrics.success_rate * 100).toFixed(2)) : 0}
+                  suffix="%" 
+                  precision={2}
+                  prefix={<CheckCircleOutlined style={{ color: '#52c41a' }} />} 
+                />
+              </Card>
+            </Col>
+            <Col span={6}>
+              <Card className={styles.statCard}>
+                <Statistic 
+                  title="每秒请求数" 
+                  value={testData.summary_metrics?.throughput?.requests_per_second ? 
+                    parseFloat(testData.summary_metrics.throughput.requests_per_second.toFixed(2)) : 0}
+                  prefix={<RocketOutlined />} 
+                  precision={2}
+                />
+              </Card>
+            </Col>
+          </Row>
+
+          {testData.status === 'completed' && testData.summary_metrics && (
+            <>
+              <Divider orientation="left">性能指标</Divider>
               
-              <Card title="响应时间分布" style={{ marginTop: 16 }}>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart
-                    data={[
-                      { name: 'p50', value: responseTimeStats.p50 || 0 },
-                      { name: 'p75', value: responseTimeStats.p75 || 0 },
-                      { name: 'p90', value: responseTimeStats.p90 || 0 },
-                      { name: 'p95', value: responseTimeStats.p95 || 0 },
-                      { name: 'p99', value: responseTimeStats.p99 || 0 },
-                      { name: 'max', value: responseTimeStats.max || 0 },
-                    ]}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis label={{ value: '响应时间(秒)', angle: -90, position: 'insideLeft' }} />
-                    <Tooltip formatter={(value: any) => [`${value.toFixed(3)} 秒`, '响应时间']} />
-                    <Bar dataKey="value" fill="#8884d8" />
-                  </BarChart>
-                </ResponsiveContainer>
+              {renderMetricsTable(testData.summary_metrics)}
+              
+              <Divider />
+              
+              <Card 
+                title="吞吐量指标" 
+                size="small"
+                className={styles.throughputCard}
+                loading={loading}
+              >
+                <Descriptions column={2} size="small">
+                  <Descriptions.Item label="每秒请求数">
+                    {testData.summary_metrics.throughput?.requests_per_second ? 
+                      parseFloat(testData.summary_metrics.throughput.requests_per_second.toFixed(2)) : 
+                      '—'}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="每秒字符数">
+                    {testData.summary_metrics.throughput?.chars_per_second ? 
+                      parseFloat(testData.summary_metrics.throughput.chars_per_second.toFixed(2)) : 
+                      '—'}
+                  </Descriptions.Item>
+                </Descriptions>
               </Card>
-            </TabPane>
-            
-            <TabPane tab="响应时间曲线" key="responseTimes">
-              <Card style={{ marginTop: 16 }}>
-                <ResponsiveContainer width="100%" height={400}>
-                  <AreaChart
-                    data={responseTimesData}
-                    margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" label={{ value: '请求序号', position: 'insideBottomRight', offset: 0 }} />
-                    <YAxis label={{ value: '响应时间(秒)', angle: -90, position: 'insideLeft' }} />
-                    <Tooltip formatter={(value: any) => [`${value.toFixed(3)} 秒`, '响应时间']} />
-                    <Area type="monotone" dataKey="responseTime" stroke="#8884d8" fill="#8884d8" name="总响应时间" />
-                    <Area type="monotone" dataKey="firstResponseTime" stroke="#82ca9d" fill="#82ca9d" name="首次响应时间" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </Card>
-            </TabPane>
-            
-            <TabPane tab="详细结果" key="details">
-              <Table
-                dataSource={detail.rag_answers || []}
-                rowKey="id"
-                pagination={{ pageSize: 10 }}
-                columns={[
-                  {
-                    title: '序号',
-                    dataIndex: 'sequence_number',
-                    key: 'sequence_number',
-                    width: 80,
-                  },
-                  {
-                    title: '问题',
-                    dataIndex: ['question', 'content'],
-                    key: 'question',
-                    ellipsis: true,
-                  },
-                  {
-                    title: '首次响应时间',
-                    dataIndex: 'first_response_time',
-                    key: 'first_response_time',
-                    render: (time: number) => time ? `${time.toFixed(3)} 秒` : '-',
-                  },
-                  {
-                    title: '总响应时间',
-                    dataIndex: 'total_response_time',
-                    key: 'total_response_time',
-                    render: (time: number) => time ? `${time.toFixed(3)} 秒` : '-',
-                  },
-                  {
-                    title: '字符数',
-                    dataIndex: 'character_count',
-                    key: 'character_count',
-                  },
-                  {
-                    title: '每秒字符数',
-                    dataIndex: 'characters_per_second',
-                    key: 'characters_per_second',
-                    render: (speed: number) => speed ? speed.toFixed(2) : '-',
-                  },
-                ]}
-              />
-            </TabPane>
-          </Tabs>
-        )}
-      </Card>
-    </div>
+            </>
+          )}
+        </>
+      ) : (
+        <div className={styles.noData}>
+          <div>无数据</div>
+          <div style={{ fontSize: '14px', marginTop: '8px' }}>
+            测试ID: {testId || '未知'} 
+          </div>
+          <Button 
+            type="primary" 
+            style={{ marginTop: '16px' }}
+            onClick={() => testId && fetchTestDetail(testId)}
+          >
+            重试加载
+          </Button>
+        </div>
+      )}
+    </Drawer>
   );
 }; 

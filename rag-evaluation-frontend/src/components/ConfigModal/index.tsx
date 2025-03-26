@@ -16,15 +16,16 @@ import {
   Divider,
   Popconfirm
 } from 'antd';
-import { 
-  QuestionCircleOutlined, 
-  PlusOutlined, 
-  MinusCircleOutlined, 
+import {
+  QuestionCircleOutlined,
+  PlusOutlined,
+  MinusCircleOutlined,
   ExperimentOutlined,
   DeleteOutlined
 } from '@ant-design/icons';
 import OpenAI from 'openai';
 import styles from './ConfigModal.module.css';
+import { executeRAGRequest, RAGRequestConfig } from '../../utils/ragUtils';
 
 const { TabPane } = Tabs;
 const { Panel } = Collapse;
@@ -48,6 +49,9 @@ interface RAGConfig {
   requestHeaders: string; // 存储为字符串格式
   requestTemplate: string;
   responsePath: string;
+  isStream: boolean;
+  streamEventField: string;
+  streamEventValue: string;
 }
 
 interface ConfigModalProps {
@@ -71,8 +75,8 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ visible, onClose }) => {
           const config = JSON.parse(savedLLMConfig);
           llmForm.setFieldsValue({
             ...config,
-            additionalParams: config.additionalParams ? 
-              JSON.stringify(config.additionalParams, null, 2) : 
+            additionalParams: config.additionalParams ?
+              JSON.stringify(config.additionalParams, null, 2) :
               '{}'
           });
           setUseCustomParams(!!config.additionalParams);
@@ -93,21 +97,21 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ visible, onClose }) => {
   const clearAllConfigs = () => {
     localStorage.removeItem(LLM_CONFIG_KEY);
     localStorage.removeItem(RAG_CONFIG_KEY);
-    
+
     // 重置表单
     llmForm.resetFields();
     ragForm.resetFields();
-    
+
     message.success('所有配置已清除');
   };
-  
+
   // 清除LLM配置
   const clearLLMConfig = () => {
     localStorage.removeItem(LLM_CONFIG_KEY);
     llmForm.resetFields();
     message.success('LLM配置已清除');
   };
-  
+
   // 清除RAG配置
   const clearRAGConfig = () => {
     localStorage.removeItem(RAG_CONFIG_KEY);
@@ -136,15 +140,18 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ visible, onClose }) => {
   const saveRAGConfig = (values: any) => {
     try {
       // 确保requestHeaders是字符串
-      const requestHeaders = typeof values.requestHeaders === 'string' 
-        ? values.requestHeaders 
+      const requestHeaders = typeof values.requestHeaders === 'string'
+        ? values.requestHeaders
         : JSON.stringify(values.requestHeaders, null, 2);
-        
+
       const config: RAGConfig = {
         url: values.url,
         requestHeaders: requestHeaders, // 存储为字符串
         requestTemplate: values.requestTemplate,
-        responsePath: values.responsePath
+        responsePath: values.responsePath,
+        isStream: values.isStream,
+        streamEventField: values.streamEventField,
+        streamEventValue: values.streamEventValue,
       };
       localStorage.setItem(RAG_CONFIG_KEY, JSON.stringify(config));
       message.success('RAG系统配置已保存');
@@ -154,8 +161,8 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ visible, onClose }) => {
     }
   };
 
-  // 填充Dify样例
-  const fillDifyExample = () => {
+  // 填充Dify样例 - CHATFLOW模式
+  const fillDifyExample_Chatflow = () => {
     ragForm.setFieldsValue({
       url: 'http://localhost/v1/chat-messages',
       requestHeaders: JSON.stringify({
@@ -165,14 +172,43 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ visible, onClose }) => {
       requestTemplate: JSON.stringify({
         "inputs": {},
         "query": "{{question}}",
-        "response_mode": "blocking",
+        "response_mode": "streaming",
         "conversation_id": "",
         "user": "abc-123"
       }, null, 2),
-      responsePath: "answer"
+      responsePath: "answer",
+      isStream: true,
+      streamEventField: "event",
+      streamEventValue: "message"
     });
     message.info(<p>已填充Dify API样例配置</p>, 5); // 设置显示时间为5秒
-    message.info(<p>本样例为工作流类型，其他类型接口请参考Dify文档</p>,5);
+    message.info(<p>本样例为Chatflow类型，其他类型接口请参考Dify文档</p>, 5);
+  };
+  // 填充Dify样例 - 工作流模式
+  const fillDifyExample_Flow = () => {
+    ragForm.setFieldsValue({
+      url: 'http://localhost/v1/workflows/run',
+      requestHeaders: JSON.stringify({
+        "Authorization": "Bearer 你的密钥",
+        "Content-Type": "application/json"
+      }, null, 2),
+      // {
+      //   "inputs": {"query": "{{question}}"},
+      //   "response_mode": "streaming",
+      //   "user": "abc-123"
+      // }
+      requestTemplate: JSON.stringify({
+        "inputs": { "query": "{{question}}" },
+        "response_mode": "streaming",
+        "user": "abc-123"
+      }, null, 2),
+      responsePath: "data.text",
+      isStream: true,
+      streamEventField: "event",
+      streamEventValue: "text_chunk"
+    });
+    message.info(<p>已填充Dify API样例配置</p>, 5); // 设置显示时间为5秒
+    message.info(<p>本样例为工作流类型，其他类型接口请参考Dify文档</p>, 5);
   };
 
   // 测试LLM接口
@@ -201,20 +237,20 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ visible, onClose }) => {
 
       // 发送测试请求
       const completion = await openai.chat.completions.create(params);
-      
+
       message.destroy(); // 销毁加载提示
-      
+
       if (completion) {
         message.success('连接成功！收到响应: ' + completion.choices[0]?.message?.content?.substring(0, 20) + '...');
         saveLLMConfig(values);
       } else {
         message.warning('连接成功但响应异常');
       }
-      
+
     } catch (error) {
       message.destroy(); // 销毁加载提示
       console.error('测试LLM API失败:', error);
-      
+
       let errorMessage = '连接失败';
       if (error instanceof Error) {
         // 提取有用的错误信息
@@ -228,7 +264,7 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ visible, onClose }) => {
           errorMessage = `连接失败: ${error.message}`;
         }
       }
-      
+
       message.error(errorMessage);
     } finally {
       setTestLoading(false);
@@ -241,62 +277,53 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ visible, onClose }) => {
       const values = await ragForm.validateFields();
       setTestLoading(true);
       message.loading('正在测试连接...', 0);
-      
-      // 解析请求头
-      const requestHeaders = JSON.parse(values.requestHeaders || '{}');
-      
-      // 构建测试请求体
-      const requestTemplate = JSON.parse(values.requestTemplate);
-      const requestBody = JSON.stringify(
-        // 替换占位符
-        JSON.parse(
-          JSON.stringify(requestTemplate).replace('{{question}}', '这是一个RAG系统测试问题，请简短回复。')
-        )
-      );
-      
-      // 构建请求头
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-        ...requestHeaders
+
+      // 准备配置对象
+      const ragConfig: RAGRequestConfig = {
+        url: values.url,
+        headers: JSON.parse(values.requestHeaders || '{}'),
+        requestTemplate: JSON.parse(values.requestTemplate),
+        responsePath: values.responsePath,
+        isStream: values.isStream,
+        streamEventField: values.streamEventField,
+        streamEventValue: values.streamEventValue,
       };
-      
-      // 发送请求
-      const response = await fetch(values.url, {
-        method: 'POST',
-        headers,
-        body: requestBody,
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP错误: ${response.status} ${response.statusText}`);
-      }
-      
-      // 解析响应
-      const data = await response.json();
-      
-      // 从响应中提取答案
-      const paths = values.responsePath.split('.');
-      let result = data;
-      for (const path of paths) {
-        if (result && result[path] !== undefined) {
-          result = result[path];
-        } else {
-          throw new Error(`响应路径 "${values.responsePath}" 无效，无法找到回答`);
-        }
-      }
-      
+
+      // 收到的文本块计数（用于流式响应）
+      let chunkCount = 0;
+
+      // 使用通用执行函数发送测试请求
+      const result = await executeRAGRequest(
+        '这是一个RAG系统测试问题，请简短回复。',
+        ragConfig,
+        // 流式响应进度回调
+        values.isStream ? (chunk) => {
+          chunkCount++;
+        } : undefined
+      );
+
       message.destroy(); // 销毁加载提示
-      message.success('连接成功！收到响应: ' + (typeof result === 'string' ? result.substring(0, 20) + '...' : '成功'));
-      saveRAGConfig(values);
-      
+
+      if (result.success) {
+        if (values.isStream) {
+          message.success(`连接成功！收到 ${chunkCount} 个文本块，完整回答: ${result.content.substring(0, 30)}...`);
+        } else {
+          message.success('连接成功！收到响应: ' + (result.content.substring(0, 30) + '...'));
+        }
+
+        // 测试成功后保存配置
+        saveRAGConfig(values);
+      } else {
+        message.error('连接失败: ' + (result.error?.message || '未知错误'));
+      }
     } catch (error) {
       message.destroy(); // 销毁加载提示
-      
+
       let errorMessage = '连接失败';
       if (error instanceof Error) {
         errorMessage = `测试失败: ${error.message}`;
       }
-      
+
       message.error(errorMessage);
       console.error('测试RAG API失败:', error);
     } finally {
@@ -311,12 +338,12 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ visible, onClose }) => {
       onCancel={onClose}
       width={900}
       footer={
-       <></>
+        <></>
       }
       destroyOnClose
     >
-      <Alert 
-        message="隐私说明" 
+      <Alert
+        message="隐私说明"
         description={
           <div>
             <p>所有配置（包括API密钥）仅存储在您的浏览器本地存储中，<strong>不会</strong>上传至任何服务器。这些数据将永久保存在您的设备上，直到您主动清除浏览器数据或使用此页面的"清除配置"功能。</p>
@@ -351,7 +378,7 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ visible, onClose }) => {
             >
               <Input placeholder="https://api.openai.com/v1" />
             </Form.Item>
-            
+
             <Form.Item
               name="apiKey"
               label="API密钥"
@@ -407,8 +434,8 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ visible, onClose }) => {
                 okText="确定"
                 cancelText="取消"
               >
-                <Button 
-                  type="text" 
+                <Button
+                  type="text"
                   danger
                   icon={<DeleteOutlined />}
                   size="small"
@@ -427,18 +454,29 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ visible, onClose }) => {
             </div>
           </Form>
         </TabPane>
-        
+
         <TabPane tab="RAG系统配置" key="rag">
           <div className={styles.headerWithSample}>
             <div>RAG系统配置</div>
-            <Button 
-              type="link" 
-              icon={<ExperimentOutlined />} 
-              onClick={fillDifyExample}
-              size="small"
-            >
-              Dify样例
-            </Button>
+            <div>
+              <Button
+                type="link"
+                icon={<ExperimentOutlined />}
+                onClick={fillDifyExample_Flow}
+                size="small"
+              >
+                Dify样例-Flow
+              </Button>
+              <Button
+                type="link"
+                icon={<ExperimentOutlined />}
+                onClick={fillDifyExample_Chatflow}
+                size="small"
+              >
+                Dify样例-Chatflow
+              </Button>
+
+            </div>
           </div>
 
           <Form
@@ -458,12 +496,12 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ visible, onClose }) => {
             >
               <Input placeholder="https://your-rag-system.com/api/query" />
             </Form.Item>
-            
+
             <Form.Item
               name="requestHeaders"
               label={
                 <span>
-                  请求头 
+                  请求头
                   <Tooltip title="配置HTTP请求头，包括认证信息">
                     <QuestionCircleOutlined className={styles.infoIcon} />
                   </Tooltip>
@@ -488,12 +526,12 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ visible, onClose }) => {
                 placeholder='{"Content-Type": "application/json", "Authorization": "Bearer your-token"}'
               />
             </Form.Item>
-            
+
             <Form.Item
               name="requestTemplate"
               label={
                 <span>
-                  请求模板 
+                  请求模板
                   <Tooltip title="使用{{question}}作为问题占位符">
                     <QuestionCircleOutlined className={styles.infoIcon} />
                   </Tooltip>
@@ -518,13 +556,13 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ visible, onClose }) => {
                 placeholder='{"query": "{{question}}", "options": {"temperature": 0.7}}'
               />
             </Form.Item>
-            
+
             <Form.Item
               name="responsePath"
               label={
                 <span>
-                  响应路径 
-                  <Tooltip title="从响应JSON中提取回答的路径（例如：data.answer，其中data代表响应的根节点）">
+                  响应数据路径
+                  <Tooltip title="从响应JSON中提取回答的路径（例如：{'answer': '你好呀'}，那么响应数据路径为'answer'）">
                     <QuestionCircleOutlined className={styles.infoIcon} />
                   </Tooltip>
                 </span>
@@ -534,6 +572,73 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ visible, onClose }) => {
               <Input placeholder="data.answer" />
             </Form.Item>
 
+            <Form.Item
+              name="isStream"
+              label={
+                <span>
+                  启用流式输出
+                  <Tooltip title="如果RAG系统使用流式响应，请启用此选项">
+                    <QuestionCircleOutlined className={styles.infoIcon} />
+                  </Tooltip>
+                </span>
+              }
+              valuePropName="checked"
+            >
+              <Switch />
+            </Form.Item>
+
+            <Form.Item
+              noStyle
+              shouldUpdate={(prevValues, currentValues) => prevValues.isStream !== currentValues.isStream}
+            >
+              {({ getFieldValue }) =>
+                getFieldValue('isStream') ? (
+                  <div className={styles.streamConfig}>
+                    <Form.Item
+                      name="streamEventField"
+                      label=<span>
+                        事件类型字段
+                        <Tooltip title="如果您的流式响应有多个事件类型，请填入事件类型字段。如：event">
+                          <QuestionCircleOutlined className={styles.infoIcon} />
+                        </Tooltip>
+                      </span>
+                      rules={[{ required: true, message: '请输入事件类型字段' }]}
+                    >
+                      <Input placeholder="event" />
+                    </Form.Item>
+
+                    <Form.Item
+                      name="streamEventValue"
+                      label=<span>
+                        事件类型值
+                        <Tooltip title="请填入标识文本类型的字段值，例如返回格式{'event': 'message'...}，填入‘message’，，含义是当event字段值为message时，为最终需要的文本类型字段">
+                          <QuestionCircleOutlined className={styles.infoIcon} />
+                        </Tooltip>
+                      </span>
+                      rules={[{ required: true, message: '请输入事件类型值' }]}
+                    >
+                      <Input placeholder="text_chunk" />
+                    </Form.Item>
+
+                    {/* <Form.Item
+                      name="streamDataPath"
+                      label={
+                        <span>
+                          流内容提取路径
+                          <Tooltip title="从流式响应事件中提取回答内容的路径（如：data.text）">
+                            <QuestionCircleOutlined className={styles.infoIcon} />
+                          </Tooltip>
+                        </span>
+                      }
+                      rules={[{ required: true, message: '请输入数据提取路径' }]}
+                    >
+                      <Input placeholder="data.text" />
+                    </Form.Item> */}
+                  </div>
+                ) : null
+              }
+            </Form.Item>
+
             <div className={styles.formActionsWithClear}>
               <Popconfirm
                 title="确定要清除RAG配置吗？"
@@ -541,8 +646,8 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ visible, onClose }) => {
                 okText="确定"
                 cancelText="取消"
               >
-                <Button 
-                  type="text" 
+                <Button
+                  type="text"
                   danger
                   icon={<DeleteOutlined />}
                   size="small"

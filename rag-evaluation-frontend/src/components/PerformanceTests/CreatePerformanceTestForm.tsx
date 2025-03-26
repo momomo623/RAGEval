@@ -56,6 +56,7 @@ export const CreatePerformanceTestForm: React.FC<CreatePerformanceTestFormProps>
       };
 
       const result = await performanceService.create(testData);
+      // const result = await performanceService.test(testData);
       message.success('性能测试创建成功');
       onSuccess(result.id);
     } catch (error) {
@@ -67,7 +68,7 @@ export const CreatePerformanceTestForm: React.FC<CreatePerformanceTestFormProps>
   };
 
   return (
-    <Card title="创建性能测试" bordered={false}>
+    <div>
       <Spin spinning={loading || loadingDatasets}>
         <Form
           form={form}
@@ -132,6 +133,6 @@ export const CreatePerformanceTestForm: React.FC<CreatePerformanceTestFormProps>
           </Form.Item>
         </Form>
       </Spin>
-    </Card>
+    </div>
   );
 }; 
