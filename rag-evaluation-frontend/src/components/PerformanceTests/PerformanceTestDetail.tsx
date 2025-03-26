@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Drawer, Descriptions, Statistic, Card, Row, Col, 
-  Divider, Table, Tag, Space, Progress, Typography, Button, Spin, Empty
+  Divider, Table, Tag, Space, Progress, Typography, Button, Spin, Empty, message, List, Input, Select
 } from 'antd';
 import { 
   CheckCircleOutlined, CloseCircleOutlined, 
@@ -28,6 +28,19 @@ export const PerformanceTestDetail: React.FC<PerformanceTestDetailProps> = ({
 }) => {
   const [loading, setLoading] = useState(false);
   const [testData, setTestData] = useState<any>(null);
+  const [qaPairs, setQAPairs] = useState<any[]>([]);
+  const [qaLoading, setQALoading] = useState<boolean>(false);
+  const [searchValue, setSearchValue] = useState('');
+  const [filterSuccess, setFilterSuccess] = useState<boolean | null>(null);
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pageSize: 10,
+    total: 0,
+    showSizeChanger: true,
+    pageSizeOptions: ['5', '10', '20'],
+    onChange: (page: number, pageSize: number) => {},
+    onShowSizeChange: (current: number, size: number) => {}
+  });
 
   useEffect(() => {
     if (visible && testId) {
@@ -47,6 +60,17 @@ export const PerformanceTestDetail: React.FC<PerformanceTestDetailProps> = ({
         });
     }
   }, [visible, testId]);
+
+  useEffect(() => {
+    if (testId && visible) {
+      performanceService.fetchTestDetail(testId, 1, 10);
+      
+      // 如果测试已完成，获取问答对
+      if (testData && testData.status === 'completed') {
+        fetchQAPairs(testId);
+      }
+    }
+  }, [testId, visible]);
 
   const renderStatusTag = (status: string) => {
     let color = 'default';
@@ -185,6 +209,48 @@ export const PerformanceTestDetail: React.FC<PerformanceTestDetailProps> = ({
     );
   };
 
+  const fetchQAPairs = async (testId: string, page: number = 1, pageSize: number = 10) => {
+    try {
+      setQALoading(true);
+      const response = await performanceService.fetchTestDetail(testId, page, pageSize);
+      console.log("问答对列表:", response);
+      // 使用标准分页格式的响应
+      setQAPairs(response.items || []);
+      
+      // 存储分页信息
+      setPagination({
+        current: response.page,
+        pageSize: response.size,
+        total: response.total,
+        showSizeChanger: true,
+        pageSizeOptions: ['5', '10', '20'],
+        onChange: (page, pageSize) => fetchQAPairs(testId, page, pageSize),
+        onShowSizeChange: (current, size) => fetchQAPairs(testId, 1, size)
+      });
+    } catch (error) {
+      console.error('获取问答对列表失败:', error);
+      message.error('获取问答对列表失败');
+    } finally {
+      setQALoading(false);
+    }
+  };
+
+  // 过滤问答对
+  const filteredQAPairs = qaPairs.filter(item => {
+    // 成功状态过滤
+    if (filterSuccess !== null && item.success !== filterSuccess) {
+      return false;
+    }
+    
+    // 搜索过滤
+    if (searchValue && !item.question_content.toLowerCase().includes(searchValue.toLowerCase()) && 
+        !item.answer?.toLowerCase().includes(searchValue.toLowerCase())) {
+      return false;
+    }
+    
+    return true;
+  });
+
   return (
     <Drawer
       title="性能测试详情"
@@ -204,7 +270,7 @@ export const PerformanceTestDetail: React.FC<PerformanceTestDetailProps> = ({
           <Card loading={loading} className={styles.basicInfoCard}>
             <Title level={4}>{testData.name}</Title>
             <Descriptions bordered column={2} size="small">
-              <Descriptions.Item label="测试ID">{testData.id}</Descriptions.Item>
+              {/* <Descriptions.Item label="测试ID">{testData.id}</Descriptions.Item> */}
               <Descriptions.Item label="版本">{testData.version || '—'}</Descriptions.Item>
               <Descriptions.Item label="状态">{renderStatusTag(testData.status)}</Descriptions.Item>
               <Descriptions.Item label="并发数">{testData.concurrency}</Descriptions.Item>
@@ -300,6 +366,69 @@ export const PerformanceTestDetail: React.FC<PerformanceTestDetailProps> = ({
                   </Descriptions.Item>
                 </Descriptions>
               </Card>
+            </>
+          )}
+
+          {testData.status === 'completed' && (
+            <>
+              <Divider orientation="left">问答对列表</Divider>
+              
+              <div className={styles.qaFilter}>
+                <Space>
+                  <Input.Search
+                    placeholder="搜索问题或回答"
+                    allowClear
+                    onSearch={value => setSearchValue(value)}
+                    style={{ width: 300 }}
+                  />
+                  <Select
+                    placeholder="筛选状态"
+                    allowClear
+                    style={{ width: 120 }}
+                    onChange={value => setFilterSuccess(value)}
+                  >
+                    <Select.Option value={true}>成功</Select.Option>
+                    <Select.Option value={false}>失败</Select.Option>
+                  </Select>
+                </Space>
+              </div>
+              
+              <List
+                loading={qaLoading}
+                itemLayout="vertical"
+                dataSource={filteredQAPairs}
+                pagination={pagination}
+                renderItem={(item, index) => (
+                  <List.Item
+                    key={item.id}
+                    extra={
+                      <Space direction="vertical" size="small">
+                        {/* <Tag color={item.success ? "success" : "error"}>
+                          {item.success ? "成功" : "失败"}
+                        </Tag> */}
+                        {item.total_response_time && (
+                          <Text type="secondary">
+                            响应时间: {item.total_response_time.toFixed(2)}秒
+                          </Text>
+                        )}
+                      </Space>
+                    }
+                  >
+                    <List.Item.Meta
+                      title={<Typography.Text strong>{`问题 #${item.sequence_number || ((pagination.current - 1) * pagination.pageSize + index + 1)}`}</Typography.Text>}
+                      description={item.question_content}
+                    />
+                    <div className={styles.answerContainer}>
+                      <Typography.Paragraph 
+                        className={styles.answer}
+                        ellipsis={{ rows: 3, expandable: true, symbol: '展开' }}
+                      >
+                        {item.answer || <Text type="danger">无回答</Text>}
+                      </Typography.Paragraph>
+                    </div>
+                  </List.Item>
+                )}
+              />
             </>
           )}
         </>

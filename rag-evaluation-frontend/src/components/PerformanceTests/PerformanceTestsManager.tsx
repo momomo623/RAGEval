@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Card, Button, Divider, Table, Tag, Space, Progress, 
   Modal, Form, Input, Select, message, Descriptions, Spin,
-  Typography, InputNumber, Alert
+  Typography, InputNumber, Alert, Statistic
 } from 'antd';
 import { 
   PlayCircleOutlined, PlusOutlined, SyncOutlined, 
@@ -97,61 +97,66 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
   };
 
   const handleRunTest = async (test: any) => {
+    if (runningTestId) {
+      message.warning('已有测试正在运行，请等待完成');
+      return;
+    }
+
     try {
-      // 检查RAG配置是否存在
+      setRunningTestId(test.id);
+      setSelectedTestId(test.id);
+      setProgress(null);
+
+      // 检查RAG配置
       const ragConfig = getRAGConfig();
       if (!ragConfig) {
         setShowConfigWarning(true);
-        message.warning("请先配置RAG系统后再运行测试");
+        setRunningTestId(null);
         return;
       }
-      
-      setShowConfigWarning(false);
-      setRunningTestId(test.id);
-      setProgress({
+
+      // 防止total被覆盖的进度状态管理器
+      let progressState = {
         total: 0,
         completed: 0,
         success: 0,
         failed: 0,
         startTime: performance.now()
-      });
+      };
 
-      const questions = await fetchTestQuestions(test);
-      setTestQuestions(questions);
-      
-      if (!questions || questions.length === 0) {
-        message.error("测试中没有问题，无法执行");
-        setRunningTestId(null);
-        return;
-      }
-      
-      setProgress({
-        total: questions.length,
-        completed: 0,
-        success: 0,
-        failed: 0,
-        startTime: performance.now()
-      });
-      
+      // 直接使用新的缓冲区方式执行测试，无需预先获取全部问题
       const success = await executePerformanceTest(
-        // test.id,
         test,
-        questions,
-        // test.concurrency,
+        [], // 传递空数组，让函数使用缓冲区方式
         (currentProgress: TestProgress) => {
-          setProgress(currentProgress);
+          console.log('currentProgress', currentProgress);
+          
+          // 确保total被正确保留
+          if (currentProgress.total > 0) {
+            progressState.total = currentProgress.total;
+          }
+          
+          // 确保其他字段也被更新
+          progressState = {
+            ...progressState,
+            ...currentProgress,
+            total: progressState.total > 0 ? progressState.total : currentProgress.total
+          };
+          
+          console.log('设置到UI的进度状态', progressState);
+          setProgress({...progressState});
         }
       );
-      
+
       if (success) {
-        message.success("性能测试完成");
-        fetchTests();
+        message.success('测试执行完成');
+        fetchTests(); // 刷新测试列表
       } else {
-        message.error("性能测试执行失败");
+        message.error('测试执行失败');
       }
     } catch (error) {
-      console.error("执行性能测试失败:", error);
-      message.error("执行性能测试失败: " + (error instanceof Error ? error.message : String(error)));
+      console.error('运行测试失败:', error);
+      message.error('运行测试失败: ' + (error as any).message);
     } finally {
       setRunningTestId(null);
     }
@@ -204,27 +209,28 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
       
       {runningTestId && progress && (
         <Card className={styles.progressCard}>
-          <Title level={5}>测试进行中</Title>
           <Progress 
-            percent={Math.floor((progress.completed / progress.total) * 100)} 
+            percent={Math.round((progress.completed / (progress.total || 1)) * 100)} 
             status="active"
+            strokeColor={{
+              '0%': '#108ee9',
+              '100%': '#87d068',
+            }}
           />
-          <Descriptions column={2}>
-            <Descriptions.Item label="总问题数">{progress.total}</Descriptions.Item>
-            <Descriptions.Item label="已完成">{progress.completed}</Descriptions.Item>
-            <Descriptions.Item label="成功">{progress.success}</Descriptions.Item>
-            <Descriptions.Item label="失败">{progress.failed}</Descriptions.Item>
-            {progress.averageResponseTime && (
-              <Descriptions.Item label="平均响应时间">
-                {(progress.averageResponseTime / 1000).toFixed(2)}秒
-              </Descriptions.Item>
-            )}
-            {progress.remainingTimeEstimate && (
-              <Descriptions.Item label="预计剩余时间">
-                {(progress.remainingTimeEstimate / 1000).toFixed(0)}秒
-              </Descriptions.Item>
-            )}
-          </Descriptions>
+          <div style={{ marginTop: 12 }}>
+            <Space>
+              <Statistic title="总问题数" value={progress.total || '计算中...'} />
+              <Statistic title="已完成" value={progress.completed} />
+              <Statistic title="成功率" value={`${Math.round((progress.success / (progress.completed || 1)) * 100)}%`} />
+              {progress.averageResponseTime && (
+                <Statistic 
+                  title="平均响应时间" 
+                  value={progress.averageResponseTime.toFixed(2)} 
+                  suffix="秒" 
+                />
+              )}
+            </Space>
+          </div>
         </Card>
       )}
       

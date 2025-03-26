@@ -117,4 +117,9 @@ export const performanceService = {
       throw error;
     }
   },
+  fetchTestDetail: async (id: string, page: number = 1, size: number = 10) => {
+    return api.get<PerformanceTestDetail>(`/v1/performance/${id}/qa-pairs`, {
+      params: { page, size }
+    });
+  }
 }; 

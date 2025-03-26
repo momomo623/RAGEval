@@ -5,6 +5,7 @@ import numpy as np
 from sqlalchemy.orm import Session
 
 from app.models.performance import PerformanceTest
+from app.models.question import Question
 from app.models.rag_answer import RagAnswer
 from app.schemas.performance import PerformanceTestCreate, PerformanceTestUpdate
 from app.schemas.rag_answer import RagAnswerCreate
@@ -21,7 +22,8 @@ class PerformanceService:
     
     def get_by_project(self, db: Session, *, project_id: str) -> List[PerformanceTest]:
         """获取项目的所有性能测试"""
-        return db.query(PerformanceTest).filter(PerformanceTest.project_id == project_id).all()
+        # 时间倒序排列    db.query(PerformanceTest).filter(PerformanceTest.project_id == project_id).all()
+        return  db.query(PerformanceTest).filter(PerformanceTest.project_id == project_id).order_by(PerformanceTest.created_at.desc()).all()
     
     def update(self, db: Session, *, db_obj: PerformanceTest, obj_in: PerformanceTestUpdate) -> PerformanceTest:
         """更新性能测试"""
@@ -199,6 +201,56 @@ class PerformanceService:
             "test": test,
             "rag_answers": rag_answers,
             "total_answers": len(rag_answers)
+        }
+
+    def get_qa_pairs(self, db: Session, *, performance_test_id: str, skip: int = 0, limit: int = 50) -> Dict[str, Any]:
+        """获取性能测试的问答对列表，返回标准分页格式"""
+        # 使用JOIN查询同时获取问题和回答
+        query_base = (
+            db.query(
+                RagAnswer.id,
+                RagAnswer.question_id,
+                RagAnswer.answer,
+                RagAnswer.total_response_time,
+                RagAnswer.first_response_time,
+                RagAnswer.sequence_number,
+                Question.question_text.label("question_content")
+            )
+            .join(Question, RagAnswer.question_id == Question.id)
+            .filter(RagAnswer.performance_test_id == performance_test_id)
+            .order_by(RagAnswer.sequence_number)
+        )
+        
+        # 计算总数
+        total = query_base.count()
+        
+        # 获取当前页数据
+        results = query_base.offset(skip).limit(limit).all()
+        
+        # 将查询结果转换为字典列表
+        items = []
+        for i, row in enumerate(results):
+            items.append({
+                "id": row.id,
+                "question_id": row.question_id,
+                "question_content": row.question_content,
+                "answer": row.answer,
+                "total_response_time": row.total_response_time,
+                "first_response_time": row.first_response_time,
+                "sequence_number": row.sequence_number if row.sequence_number is not None else i + 1 + skip
+            })
+        
+        # 计算页码相关信息
+        page = skip // limit + 1 if limit > 0 else 1
+        pages = (total + limit - 1) // limit if total > 0 else 1
+        
+        # 返回标准分页格式
+        return {
+            "items": items,
+            "total": total,
+            "page": page,
+            "size": limit,
+            "pages": pages
         }
 
     # def get_performance_tests_by_project(self, db: Session, *, project_id: str) -> List[PerformanceTest]:

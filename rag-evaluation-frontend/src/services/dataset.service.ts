@@ -384,5 +384,34 @@ export const datasetService = {
       console.error('批量创建带RAG回答的问题失败:', error);
       throw error;
     }
+  },
+
+  // 在加载问题数据时添加调试信息
+  async fetchDatasetQuestions(datasetId: string, page: number = 1, size: number = 10) {
+    try {
+      const response = await api.get(`/v1/datasets-questions/${datasetId}/questions`, {
+        params: { page, size }
+      });
+      
+      console.log('API返回的问题数据结构:', response);
+      
+      // 检查第一个问题的结构
+      if (response.items && response.items.length > 0) {
+        console.log('第一个问题对象结构:', JSON.stringify(response.items[0], null, 2));
+        
+        // 验证问题文本字段
+        const firstQuestion = response.items[0];
+        const textField = firstQuestion.question_text ? 'question_text' : 
+                           firstQuestion.text ? 'text' : 
+                           firstQuestion.content ? 'content' : 'unknown';
+        
+        console.log(`问题文本存储在 ${textField} 字段中`);
+      }
+      
+      return response;
+    } catch (error) {
+      console.error('获取数据集问题失败:', error);
+      throw error;
+    }
   }
 }; 

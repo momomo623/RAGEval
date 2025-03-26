@@ -1,13 +1,15 @@
 from typing import Any, List, Optional
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
 from sqlalchemy.orm import Session
 
 from app import schemas, models
 from app.api import deps
 from app.api.deps import get_current_user
 from app.models.user import User
+from app.schemas.rag_answer import RAGAnswerWithQuestion
 from app.services.performance_service import performance_service
 from app.services import rag_service
+from app.schemas.common import PaginatedResponse
 
 router = APIRouter()
 
@@ -113,4 +115,29 @@ def fail_performance_test(
 
     return performance_service.fail_performance_test(
         db=db, performance_test_id=performance_test_id, error_details=error_details
+    )
+
+
+@router.get("/{performance_test_id}/qa-pairs", response_model=PaginatedResponse[RAGAnswerWithQuestion])
+def get_performance_test_qa_pairs(
+    performance_test_id: str,
+    db: Session = Depends(deps.get_db),
+    page: int = Query(1, gt=0),
+    size: int = Query(50, ge=1, le=100),
+) -> Any:
+    """
+    获取性能测试的问答对列表，带分页
+    """
+    test = performance_service.get(db, id=performance_test_id)
+    if not test:
+        raise HTTPException(status_code=404, detail="性能测试不存在")
+    
+    # 计算跳过的记录数
+    skip = (page - 1) * size
+    
+    return performance_service.get_qa_pairs(
+        db, 
+        performance_test_id=performance_test_id, 
+        skip=skip, 
+        limit=size
     )

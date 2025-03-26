@@ -82,4 +82,17 @@ class CollectionProgress(BaseModel):
 
 # 批量创建RAG回答的请求模型
 class RagAnswerBatchCreate(BaseModel):
-    items: List[RagAnswerCreate] 
+    items: List[RagAnswerCreate]
+
+class RAGAnswerWithQuestion(BaseModel):
+    id: str
+    question_id: str
+    question_content: str
+    answer: Optional[str] = None
+    total_response_time: Optional[float] = None
+    first_response_time: Optional[float] = None
+    success: bool = False
+    sequence_number: Optional[int] = None
+    
+    class Config:
+        orm_mode = True 

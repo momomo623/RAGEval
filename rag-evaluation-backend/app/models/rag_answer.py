@@ -15,6 +15,8 @@ class RagAnswer(Base):
     question_id = Column(StringUUID, ForeignKey("questions.id", ondelete="CASCADE"), nullable=False)
     answer = Column(Text, nullable=False)
     collection_method = Column(String(20), nullable=False)  # api, manual
+
+    sequence_number = Column(Integer, nullable=True)  # 序号
     
     # 性能相关字段
     first_response_time = Column(Float)  # 首次响应时间(秒)，使用numeric(10,3)
