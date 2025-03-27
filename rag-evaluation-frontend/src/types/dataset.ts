@@ -87,7 +87,7 @@ export interface RagAnswer {
   api_config_id?: string;
   response_time?: number;
   token_count?: number;
-  metadata?: any;
+  dataset_metadata?: any;
   created_at: string;
   updated_at: string;
 }
@@ -100,7 +100,7 @@ export interface CreateRagAnswerRequest {
   api_config_id?: string;
   response_time?: number;
   token_count?: number;
-  metadata?: any;
+  dataset_metadata?: any;
 }
 
 export interface ImportQuestionWithRagRequest {

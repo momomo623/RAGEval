@@ -4,7 +4,7 @@ import { Tabs, Card, PageHeader, message, Button, Spin } from 'antd';
 import { projectService } from '../../services/project.service';
 import { QuestionsManager } from '../../components/Questions/QuestionsManager';
 import { EvaluationsManager } from '../../components/Evaluations/EvaluationsManager';
-import { PerformanceTestsManager } from '../../components/PerformanceTests/PerformanceTestsManager';
+import { PerformanceTestsManager } from '../Projects/PerformanceTests/PerformanceTestsManager';
 
 const { TabPane } = Tabs;
 

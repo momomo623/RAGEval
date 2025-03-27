@@ -342,3 +342,24 @@ class RagService:
         self.db.commit()
         self.db.refresh(db_obj)
         return db_obj 
+    
+    def get_dataset_versions(self, dataset_id: str) -> List[str]:
+        """
+        获取数据集下的所有RAG回答版本
+        """
+        # 通过连接问题表找到属于该数据集的所有RAG回答版本
+        versions = self.db.query(RagAnswer.version).join(
+            Question, RagAnswer.question_id == Question.id
+        ).filter(
+            Question.dataset_id == dataset_id,
+            RagAnswer.version.isnot(None)  # 排除没有版本信息的回答
+        ).distinct().all()
+        
+        # 提取版本字符串并过滤掉None值
+        result = [v[0] for v in versions if v[0] is not None]
+        
+        # 如果没有找到版本，返回默认的"v1"版本
+        if not result:
+            return ["v1"]
+        
+        return result 

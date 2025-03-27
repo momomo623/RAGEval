@@ -1,0 +1,104 @@
+.container {
+  background: #fff;
+  padding: 24px;
+  min-height: 300px;
+  border-radius: 4px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.tableActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.metricCard {
+  text-align: center;
+  height: 100%;
+}
+
+.metricValue {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.metricTitle {
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.progressCard {
+  margin-bottom: 24px;
+  border-left: 4px solid #1890ff;
+}
+
+.detailContainer {
+  margin-top: 16px;
+}
+
+.metrics {
+  margin-top: 24px;
+  margin-bottom: 24px;
+}
+
+.summaryCard {
+  margin-bottom: 24px;
+}
+
+.noData {
+  text-align: center;
+  padding: 48px 0;
+  color: rgba(0, 0, 0, 0.45);
+  font-size: 16px;
+}
+
+.itemContainer {
+  max-width: 100%;
+  margin-top: 8px;
+  padding: 12px;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+  border-left: 3px solid #1890ff;
+}
+
+.answer {
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-bottom: 0 !important;
+}
+
+.evaluationReason {
+  margin-top: 12px;
+  padding: 8px;
+  background-color: #f0f9ff;
+  border-radius: 4px;
+  border-left: 3px solid #52c41a;
+}
+
+.dimensionScores {
+  margin-top: 16px;
+}
+
+.resultRow {
+  background-color: #fafafa;
+  padding: 16px;
+  margin-bottom: 16px;
+  border-radius: 4px;
+}
+
+.scoreTag {
+  margin-left: 8px;
+}
+
+.filterSection {
+  margin-bottom: 20px;
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+} 

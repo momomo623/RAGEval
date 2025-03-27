@@ -8,14 +8,14 @@ import {
   PlayCircleOutlined, PlusOutlined, SyncOutlined, 
   CheckCircleOutlined, CloseCircleOutlined, EyeOutlined
 } from '@ant-design/icons';
-import { performanceService } from '../../services/performance.service';
-import { executePerformanceTest, TestProgress } from '../../services/performanceExecutor';
-import { TimeAgo } from '../common/TimeAgo';
+import { performanceService } from '../../../services/performance.service';
+import { executePerformanceTest, TestProgress } from '../../../services/performanceExecutor';
+import { TimeAgo } from '../../../components/common/TimeAgo';
 import styles from './PerformanceTests.module.css';
 import { CreatePerformanceTestForm } from './CreatePerformanceTestForm';
-import { datasetService } from '../../services/dataset.service';
-import { useConfigContext } from '../../contexts/ConfigContext';
-import ConfigButton from '../../components/ConfigButton';
+import { datasetService } from '../../../services/dataset.service';
+import { useConfigContext } from '../../../contexts/ConfigContext';
+import ConfigButton from '../../../components/ConfigButton';
 import { PerformanceTestDetail } from './PerformanceTestDetail';
 
 const { Title, Text } = Typography;
@@ -238,6 +238,7 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
         loading={loading}
         dataSource={tests}
         rowKey="id"
+        // 内容居中显示
         columns={[
           {
             title: '名称',
@@ -248,11 +249,14 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
             title: '版本',
             dataIndex: 'version',
             key: 'version',
+            // tag 固定长度 内部居中  
+            render: (version) => <Tag color="blue" style={{ minWidth: '40px', textAlign: 'center' }}>{version}</Tag>
           },
           {
             title: '并发数',
             dataIndex: 'concurrency',
             key: 'concurrency',
+            render: (concurrency) => <Tag color="" style={{ minWidth: '40px', textAlign: 'center' }}>{concurrency}</Tag>
           },
           //         "name": "1",
         // "project_id": "74cf7b69-020d-47f1-bcb9-ccd84723697c",
@@ -277,18 +281,39 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
           dataIndex: 'total_questions',
           key: 'total_questions',
         },
-        // 成功率
         {
           title: '成功率',
-          dataIndex: 'success_questions',
-          key: 'success_questions',
+          key: 'success_rate',
+          render: (_: any, record: any) => {
+            if (record.status === 'completed' && record.total_questions > 0) {
+              const successRate = (record.success_questions / record.total_questions * 100).toFixed(2);
+              return <span>{successRate}%</span>;
+            }
+            return '-';
+          },
         },
-        // 平均响应时间
         {
           title: '平均响应时间',
-          dataIndex: 'average_response_time',
-          key: 'average_response_time',
+          key: 'avg_response_time',
+          render: (_, record: any) => {
+            if (record.status === 'completed' && record.summary_metrics?.response_time?.total_time?.avg) {
+              return <span>{record.summary_metrics.response_time.total_time.avg.toFixed(2)} 秒</span>;
+            }
+            return '-';
+          },
         },
+        // 成功率
+        // {
+        //   title: '成功率',
+        //   dataIndex: 'success_questions',
+        //   key: 'success_questions',
+        // },
+        // // 平均响应时间
+        // {
+        //   title: '平均响应时间',
+        //   dataIndex: 'average_response_time',
+        //   key: 'average_response_time',
+        // },
         // 版本
        
 

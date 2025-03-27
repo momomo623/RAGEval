@@ -190,7 +190,8 @@ def read_public_datasets(
     page: int = Query(1, gt=0),
     size: int = Query(12, gt=0, le=100),
     tags: Optional[str] = Query(None, description="标签，多个用逗号分隔"),
-    search: Optional[str] = Query(None, description="搜索关键词")
+    search: Optional[str] = Query(None, description="搜索关键词"),
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     """
     获取公开数据集

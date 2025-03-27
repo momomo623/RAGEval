@@ -15,7 +15,8 @@ import { Dataset } from '../../../types/dataset';
 import styles from './ProjectDetail.module.css';
 import ConfigButton from '../../../components/ConfigButton';
 import { useConfigContext } from '../../../contexts/ConfigContext';
-import { PerformanceTestsManager } from '../../../components/PerformanceTests/PerformanceTestsManager';
+import { PerformanceTestsManager } from '../PerformanceTests/PerformanceTestsManager';
+import { AccuracyTestsManager } from '../AccuracyTests/AccuracyTestsManager';
 
 const { Title, Text, Paragraph } = Typography;
 const { TabPane } = Tabs;
@@ -280,38 +281,9 @@ const ProjectDetailPage: React.FC = () => {
   );
   
   // 评测与结果展示
-  const renderEvaluations = () => (
-    <div className={styles.evaluationsSection}>
-      <div className={styles.sectionHeader}>
-        <Title level={5}>评测记录</Title>
-        <Button 
-          type="primary" 
-          icon={<RocketOutlined />} 
-          onClick={handleStartEvaluation}
-          disabled={datasets.length === 0}
-        >
-          启动新评测
-        </Button>
-      </div>
-      
-      {/* 这里可以添加评测记录的表格 */}
-      <Empty 
-        description="暂无评测记录" 
-        image={Empty.PRESENTED_IMAGE_SIMPLE}
-      >
-        <Space direction="vertical">
-          <Text>请先关联数据集并配置评测参数，然后启动评测</Text>
-          <Button 
-            type="primary" 
-            onClick={handleStartEvaluation}
-            disabled={datasets.length === 0}
-          >
-            启动新评测
-          </Button>
-        </Space>
-      </Empty>
-    </div>
-  );
+  const renderEvaluations = () => {
+    return <AccuracyTestsManager projectId={id!} />;
+  };
   
   return (
     <Layout.Content className={styles.pageContainer}>
@@ -350,10 +322,10 @@ const ProjectDetailPage: React.FC = () => {
         <TabPane tab="数据集" key="datasets">
           {renderDatasets()}
         </TabPane>
-        <TabPane tab="评测" key="evaluations">
+        <TabPane tab="精度评测" key="evaluations">
           {renderEvaluations()}
         </TabPane>
-        <TabPane tab="性能测试" key="performance">
+        <TabPane tab="性能测试（收集RAG回答）" key="performance">
           <PerformanceTestsManager projectId={id!} />
         </TabPane>
         <TabPane tab="报表" key="reports">

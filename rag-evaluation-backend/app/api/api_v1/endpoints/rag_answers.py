@@ -1,4 +1,5 @@
 from typing import Any, List, Optional, Dict
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Body, BackgroundTasks
 from sqlalchemy.orm import Session
@@ -341,4 +342,15 @@ def update_rag_answer(
     db.commit()
     db.refresh(rag_answer)
     
-    return rag_answer 
+    return rag_answer
+
+@router.get("/versions/dataset/{dataset_id}", response_model=List[str])
+def get_dataset_rag_versions(
+    dataset_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取数据集下的所有RAG回答版本"""
+    service = RagService(db)
+    versions = service.get_dataset_versions(dataset_id)
+    return versions 

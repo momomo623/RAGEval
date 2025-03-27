@@ -2,6 +2,7 @@ from sqlalchemy import Column, String, Text, Boolean, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 import uuid
+from sqlalchemy.orm import relationship
 
 from app.db.base import Base
 
@@ -27,6 +28,7 @@ class Project(Base):
     ])
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    accuracy_tests = relationship("AccuracyTest", back_populates="project")
 
 class EvaluationDimension(Base):
     __tablename__ = "evaluation_dimensions"

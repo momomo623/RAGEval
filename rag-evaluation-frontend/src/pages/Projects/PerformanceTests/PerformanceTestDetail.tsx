@@ -8,10 +8,10 @@ import {
   SyncOutlined, FieldTimeOutlined, RocketOutlined,
   FileTextOutlined, ExperimentOutlined
 } from '@ant-design/icons';
-import { TimeAgo } from '../common/TimeAgo';
+import { TimeAgo } from '../../../components/common/TimeAgo';
 import styles from './PerformanceTests.module.css';
-import { performanceService } from '../../services/performance.service';
-import { api } from '../../utils/api';
+import { performanceService } from '../../../services/performance.service';
+import { api } from '../../../utils/api';
 
 const { Title, Text } = Typography;
 
@@ -46,11 +46,17 @@ export const PerformanceTestDetail: React.FC<PerformanceTestDetailProps> = ({
     if (visible && testId) {
       setLoading(true);
       
-      // 直接使用基础API调用，绕过service层
-      api.get(`/v1/performance/${testId}`)
+      // 使用统一的service层调用
+      performanceService.getById(testId)
         .then(response => {
-          console.log("原始API响应:", response);
+          console.log("测试详情API响应:", response);
           setTestData(response);
+          
+          // 在成功获取测试数据后，判断是否需要加载问答对
+          if (response && response.status === 'completed') {
+            console.log("测试已完成，加载问答对列表");
+            fetchQAPairs(testId, 1, pagination.pageSize);
+          }
         })
         .catch(error => {
           console.error("API调用失败:", error);
@@ -60,17 +66,6 @@ export const PerformanceTestDetail: React.FC<PerformanceTestDetailProps> = ({
         });
     }
   }, [visible, testId]);
-
-  useEffect(() => {
-    if (testId && visible) {
-      performanceService.fetchTestDetail(testId, 1, 10);
-      
-      // 如果测试已完成，获取问答对
-      if (testData && testData.status === 'completed') {
-        fetchQAPairs(testId);
-      }
-    }
-  }, [testId, visible]);
 
   const renderStatusTag = (status: string) => {
     let color = 'default';
@@ -211,25 +206,32 @@ export const PerformanceTestDetail: React.FC<PerformanceTestDetailProps> = ({
 
   const fetchQAPairs = async (testId: string, page: number = 1, pageSize: number = 10) => {
     try {
+      console.log(`加载问答对列表: testId=${testId}, page=${page}, pageSize=${pageSize}`);
       setQALoading(true);
-      const response = await performanceService.fetchTestDetail(testId, page, pageSize);
-      console.log("问答对列表:", response);
-      // 使用标准分页格式的响应
-      setQAPairs(response.items || []);
       
-      // 存储分页信息
-      setPagination({
-        current: response.page,
-        pageSize: response.size,
-        total: response.total,
-        showSizeChanger: true,
-        pageSizeOptions: ['5', '10', '20'],
-        onChange: (page, pageSize) => fetchQAPairs(testId, page, pageSize),
-        onShowSizeChange: (current, size) => fetchQAPairs(testId, 1, size)
-      });
+      const response = await performanceService.fetchTestDetail(testId, page, pageSize);
+      console.log("问答对列表API响应:", response);
+      
+      if (response && response.items) {
+        console.log(`成功获取到 ${response.items.length} 条问答对数据`);
+        setQAPairs(response.items);
+        
+        setPagination(prev => ({
+          ...prev,
+          current: response.page,
+          pageSize: response.size,
+          total: response.total,
+          onChange: (page, pageSize) => fetchQAPairs(testId, page, pageSize),
+          onShowSizeChange: (current, size) => fetchQAPairs(testId, 1, size)
+        }));
+      } else {
+        console.warn("API返回的问答对数据格式不正确:", response);
+        setQAPairs([]);
+      }
     } catch (error) {
       console.error('获取问答对列表失败:', error);
       message.error('获取问答对列表失败');
+      setQAPairs([]);
     } finally {
       setQALoading(false);
     }
