@@ -12,6 +12,8 @@ export interface TestProgress {
   startTime?: number;
   currentBatch?: number;
   totalBatches?: number;
+  averageResponseTime?: number;    // 平均响应时间
+  remainingTimeEstimate?: number;  // 剩余时间估计
 }
 
 /**
@@ -22,8 +24,8 @@ function buildPrompt(
   referenceAnswer: string,
   ragAnswer: string,
   promptTemplate: string,
-  scoringMethod: string,
-  dimensions: string[]
+  // scoringMethod: string,
+  // dimensions: string[]
 ): string {
   // 替换提示词模板中的占位符
   let prompt = promptTemplate
@@ -32,24 +34,24 @@ function buildPrompt(
     .replace('{{rag_answer}}', ragAnswer);
 
   // 添加评分方法说明
-  let scoringInstructions = '';
-  switch (scoringMethod) {
-    case 'binary':
-      scoringInstructions = '使用二元评分法：正确(1分)或错误(0分)';
-      break;
-    case 'three_scale':
-      scoringInstructions = '使用三分量表评分法：错误(0分)、部分正确(1分)或完全正确(2分)';
-      break;
-    case 'five_scale':
-      scoringInstructions = '使用五分量表评分法：从1分(完全不正确)到5分(完全正确)';
-      break;
-  }
+  // let scoringInstructions = '';
+  // switch (scoringMethod) {
+  //   case 'binary':
+  //     scoringInstructions = '使用二元评分法：正确(1分)或错误(0分)';
+  //     break;
+  //   case 'three_scale':
+  //     scoringInstructions = '使用三分量表评分法：错误(0分)、部分正确(1分)或完全正确(2分)';
+  //     break;
+  //   case 'five_scale':
+  //     scoringInstructions = '使用五分量表评分法：从1分(完全不正确)到5分(完全正确)';
+  //     break;
+  // }
   
-  prompt = prompt.replace('{{scoring_method}}', scoringInstructions);
+  // prompt = prompt.replace('{{scoring_method}}', scoringInstructions);
   
-  // 添加评测维度说明
-  let dimensionsText = dimensions.join('、');
-  prompt = prompt.replace('{{dimensions}}', dimensionsText);
+  // // 添加评测维度说明
+  // let dimensionsText = dimensions.join('、');
+  // prompt = prompt.replace('{{dimensions}}', dimensionsText);
   
   return prompt;
 }
@@ -59,7 +61,8 @@ function buildPrompt(
  */
 async function evaluateWithLLM(
   prompt: string,
-  modelConfig: any
+  modelConfig: any,
+  getLLMConfig: () => any
 ): Promise<any> {
   const llmConfig = getLLMConfig();
   if (!llmConfig) {
@@ -89,66 +92,142 @@ async function evaluateWithLLM(
 }
 
 /**
+ * 从大模型返回的文本中提取YAML评估结果
+ * @param modelResponse 大模型返回的文本内容，包含思考过程和评估结果
+ * @returns 解析后的评估结果对象
+ */
+function extractEvaluationResult(modelResponse: string): {
+  overall_score: number;
+  dimension_scores: Record<string, number>;
+  evaluation_reason: string;
+  item_metadata:string
+} {
+  try {
+    // 查找分隔符 #### 并获取其之后的内容
+    const parts = modelResponse.split('####');
+    if (parts.length < 2) {
+      console.error('大模型返回内容格式不正确: 未找到分隔符');
+      return { overall_score: 0, dimension_scores: {}, evaluation_reason: '解析错误' };
+    }
+    
+    // 获取YAML部分的文本
+    const yamlText = parts[1].trim();
+    
+    // 提取YAML内容 (去掉\```yaml和\```包装)
+    const yamlMatch = yamlText.match(/```yaml\s*([\s\S]*?)\s*```/);
+    if (!yamlMatch) {
+      console.error('大模型返回内容格式不正确: 未找到YAML代码块');
+      return { overall_score: 0, dimension_scores: {}, evaluation_reason: '解析错误' };
+    }
+    
+    const yamlContent = yamlMatch[1].trim();
+    
+    // 解析YAML内容
+    const lines = yamlContent.split('\n');
+    const result: any = {
+      overall_score: 0,
+      dimension_scores: {},
+      evaluation_reason: '',
+      item_metadata: ''
+    };
+    
+    let inReasonBlock = false;
+    let reasonLines: string[] = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      // 解析总分
+      if (line.startsWith('overall_score:')) {
+        result.overall_score = parseFloat(line.split(':')[1].trim());
+      }
+      // 开始解析各维度分数
+      else if (line.startsWith('dimension_scores:')) {
+        // 维度评分在下面的行中
+        continue;
+      }
+      // 解析各维度分数行
+      else if (line.startsWith('-')) {
+        const dimensionMatch = line.match(/- (.*?):\s*([0-9.]+)/);
+        if (dimensionMatch) {
+          const [, dimension, score] = dimensionMatch;
+          result.dimension_scores[dimension] = parseFloat(score);
+        }
+      }
+      // 开始评估理由块
+      else if (line.startsWith('evaluation_reason:')) {
+        inReasonBlock = true;
+        continue;
+      }
+      // 解析评估理由内容
+      else if (inReasonBlock) {
+        if (line.startsWith('  - ')) {
+          reasonLines.push(line.substring(4));
+        } else {
+          reasonLines.push(line);
+        }
+      }
+    }
+    
+    result.evaluation_reason = reasonLines.join('\n').trim();
+    result.item_metadata = modelResponse;
+    return result;
+  } catch (error) {
+    console.error('解析评估结果出错:', error);
+    return { overall_score: 0, dimension_scores: {}, evaluation_reason: '解析错误: ' + error, item_metadata: '' };
+  }
+}
+
+/**
+ * 应用评估结果到测试项
+ * @param evaluationResult 解析后的评估结果
+ * @param testItem 要更新的测试项
+ */
+function applyEvaluationResults(
+  evaluationResult: {
+    overall_score: number;
+    dimension_scores: Record<string, number>;
+    evaluation_reason: string;
+  },
+  testItem: any
+): any {
+  // 将评估结果应用到测试项
+  return {
+    ...testItem,
+    ai_score: evaluationResult.overall_score,
+    ai_dimension_scores: evaluationResult.dimension_scores,
+    ai_evaluation_reason: evaluationResult.evaluation_reason,
+    ai_evaluation_time: new Date().toISOString(),
+    status: 'ai_completed'
+  };
+}
+
+/**
  * 解析评测结果
  */
 function parseEvaluationResult(
-  result: any,
-  dimensions: string[],
+  response: any,
+  // dimensions: string[],
   scoringMethod: string
-): {
-  overallScore: number;
-  dimensionScores: Record<string, number>;
-  evaluationReason: string;
-} {
-  const content = result.choices[0]?.message?.content || '';
-  
-  // 从文本中提取分数和理由
-  const scorePattern = /(?:总[体分]|整[体体])?评分[：:]\s*(\d+(?:\.\d+)?)/i;
-  const scoreMatch = content.match(scorePattern);
-  let overallScore = 0;
+): { overallScore: number, dimensionScores: Record<string, number>, evaluationReason: string } {
+  const content = response.choices[0].message.content;
 
-  if (scoreMatch && scoreMatch[1]) {
-    overallScore = parseFloat(scoreMatch[1]);
-  }
-  
-  // 如果是二元评分，转换为0或1
-  if (scoringMethod === 'binary') {
-    overallScore = overallScore > 0.5 ? 1 : 0;
-  }
-  
-  // 提取各维度分数
-  const dimensionScores: Record<string, number> = {};
-  dimensions.forEach(dimension => {
-    const dimensionName = dimension.toLowerCase();
-    const dimensionPattern = new RegExp(`${dimensionName}[评分]+[：:]*\\s*(\\d+(?:\\.\\d+)?)`);
-    const match = content.match(dimensionPattern);
-    
-    if (match && match[1]) {
-      dimensionScores[dimension] = parseFloat(match[1]);
-      // 二元评分法转换
-      if (scoringMethod === 'binary') {
-        dimensionScores[dimension] = dimensionScores[dimension] > 0.5 ? 1 : 0;
-      }
-    } else {
-      // 默认值
-      dimensionScores[dimension] = overallScore;
-    }
-  });
-  
-  // 提取评测理由
-  let evaluationReason = content;
-  const reasonPattern = /(?:理由|分析|解释)[：:]\s*([\s\S]+)(?:\n|$)/i;
-  const reasonMatch = content.match(reasonPattern);
-  
-  if (reasonMatch && reasonMatch[1]) {
-    evaluationReason = reasonMatch[1].trim();
-  }
-  
-  return {
-    overallScore,
-    dimensionScores,
-    evaluationReason
-  };
+  console.log("大模型问答", content)
+//   大模型问答 思考1: 学生未提供具体数据  
+// 思考2: 回答与问题无关  
+// 思考3: 事实准确性完全缺失  
+
+// ####
+
+// ```yaml
+// overall_score: 0
+// dimension_scores:
+//   - 事实准确性: 0
+// evaluation_reason: |
+//   - 学生未回答具体数据，完全偏离问题。
+//   - 回答内容与正确答案无任何匹配。
+
+  // return { overallScore, dimensionScores, evaluationReason };
 }
 
 /**
@@ -157,42 +236,48 @@ function parseEvaluationResult(
 async function processEvaluationItem(
   item: any,
   test: any,
-  modelConfig: any
+  modelConfig: any,
+  getLLMConfig: () => any
 ): Promise<any> {
   try {
+    console.log(`处理评测项: ${item.id}`, item);
+    
     const prompt = buildPrompt(
-      item.question_content,
-      item.reference_answer,
-      item.rag_answer_content,
+      item.question_text,
+      item.standard_answer,
+      item.rag_answers[0].answer,
       test.prompt_template,
-      test.scoring_method,
-      test.dimensions
+      // test.scoring_method,
+      // test.dimensions
     );
+    console.log("prompt", prompt)
+    
+    const startTime = performance.now();
     
     // 调用LLM进行评测
-    const llmResponse = await evaluateWithLLM(prompt, modelConfig);
+    const llmResponse = await evaluateWithLLM(prompt, modelConfig, getLLMConfig);
+    
+    const processingTime = performance.now() - startTime;
     
     // 解析评测结果
-    const { overallScore, dimensionScores, evaluationReason } = parseEvaluationResult(
-      llmResponse,
-      test.dimensions,
-      test.scoring_method
-    );
+    const { overall_score, dimension_scores, evaluation_reason, item_metadata } = extractEvaluationResult(llmResponse.choices[0].message.content);
     
     // 构建评测项结果
     return {
       id: item.id,
-      ai_score: overallScore,
-      ai_dimension_scores: dimensionScores,
-      ai_evaluation_reason: evaluationReason,
+      ai_score: overall_score,
+      ai_dimension_scores: dimension_scores,
+      ai_evaluation_reason: evaluation_reason,
       ai_evaluation_time: new Date().toISOString(),
-      ai_raw_response: llmResponse,
+      ai_raw_response: llmResponse.choices[0].message.content,
       status: test.evaluation_type === 'ai' ? 'ai_completed' : 'ai_completed',
+      processing_time: processingTime,
+      item_metadata: item_metadata, // 原始回答
       // 对于纯AI评测，最终结果直接使用AI评测结果
       ...(test.evaluation_type === 'ai' ? {
-        final_score: overallScore,
-        final_dimension_scores: dimensionScores,
-        final_evaluation_reason: evaluationReason,
+        final_score: overall_score,
+        final_dimension_scores: dimension_scores,
+        final_evaluation_reason: evaluation_reason,
         final_evaluation_type: 'ai'
       } : {})
     };
@@ -207,62 +292,130 @@ async function processEvaluationItem(
 }
 
 /**
- * 批量处理评测项
+ * 使用并发限制执行评测
  */
-async function processBatch(
-  items: any[],
+async function executeWithConcurrencyLimit(
   test: any,
-  progressCallback?: (progress: TestProgress) => void,
-  progressState: TestProgress
-): Promise<any[]> {
-  const modelConfig = test.model_config || {};
-  const results = [];
+  questions: any[],
+  modelConfig: any,
+  progressCallback: (progress: TestProgress) => void,
+  getLLMConfig: () => any
+): Promise<void> {
+  const concurrencyLimit = test.batch_settings?.concurrency || 6;
+  const results: any[] = [];
+  const startTime = performance.now();
   
-  // 顺序处理批次中的每个项目
-  for (const item of items) {
+  // 初始化进度对象
+  const progress: TestProgress = {
+    total: questions.length,
+    completed: 0,
+    success: 0,
+    failed: 0,
+    startTime
+  };
+  
+  let activeRequests = 0;
+  let nextQuestionIndex = 0;
+  
+  // 处理单个问题
+  const processQuestion = async (question: any): Promise<void> => {
     try {
-      const result = await processEvaluationItem(item, test, modelConfig);
-      results.push(result);
+      // 处理问题
+      const result = await processEvaluationItem(question, test, modelConfig, getLLMConfig);
+      
+      // 提交评测结果到后端
+      await accuracyService.submitItemResults(test.id, [result]);
       
       // 更新进度
-      progressState.completed += 1;
+      progress.completed++;
       if (result.status === 'failed') {
-        progressState.failed += 1;
+        progress.failed++;
       } else {
-        progressState.success += 1;
+        progress.success++;
       }
       
-      if (progressCallback) {
-        progressCallback({...progressState});
+      // 计算性能指标
+      if (result.processing_time) {
+        const successfulResults = results.filter(r => r.processing_time);
+        const times = successfulResults.map(r => r.processing_time || 0);
+        times.push(result.processing_time);
+        progress.averageResponseTime = times.reduce((a, b) => a + b, 0) / times.length;
+        
+        // 计算剩余时间估计
+        if (progress.total > 0) {
+          const remainingItems = progress.total - progress.completed;
+          const elapsedTime = performance.now() - startTime;
+          const timePerItem = elapsedTime / progress.completed;
+          progress.remainingTimeEstimate = remainingItems * timePerItem;
+        }
       }
+      
+      // 更新进度回调
+      progressCallback(progress);
+      
+      results.push(result);
     } catch (error) {
-      console.error('评测项处理失败:', error);
-      results.push({
-        id: item.id,
-        status: 'failed',
-        error_message: error.message
-      });
+      console.error('处理问题失败:', error);
       
-      progressState.completed += 1;
-      progressState.failed += 1;
-      
-      if (progressCallback) {
-        progressCallback({...progressState});
-      }
+      // 即使失败也需要更新进度
+      progress.completed++;
+      progress.failed++;
+      progressCallback(progress);
     }
-  }
+  };
   
-  return results;
+  return new Promise((resolve, reject) => {
+    // 检查是否还有问题需要处理
+    const checkAndProcessNextQuestion = () => {
+      // 如果所有问题都处理完成，则解析Promise
+      if (nextQuestionIndex >= questions.length && activeRequests === 0) {
+        return resolve();
+      }
+      
+      // 如果还有问题要处理且并发数未达上限，则处理下一个问题
+      while (nextQuestionIndex < questions.length && activeRequests < concurrencyLimit) {
+        const question = questions[nextQuestionIndex++];
+        activeRequests++;
+        
+        processQuestion(question).finally(() => {
+          activeRequests--;
+          // 处理完一个问题后，检查是否有新问题需要处理
+          checkAndProcessNextQuestion();
+        });
+      }
+    };
+    
+    // 开始处理问题
+    checkAndProcessNextQuestion();
+  });
+}
+
+/**
+ * 批量提交评测结果
+ */
+async function submitTestResults(
+  testId: string,
+  results: any[]
+): Promise<void> {
+  if (results.length === 0) return;
+  
+  // 每次最多提交50个结果
+  const BATCH_SIZE = 50;
+  for (let i = 0; i < results.length; i += BATCH_SIZE) {
+    const batch = results.slice(i, i + BATCH_SIZE);
+    await accuracyService.submitItemResults(testId, batch);
+  }
 }
 
 /**
  * 执行精度测试
  */
-export const executeAccuracyTest = async (
+export async function executeAccuracyTest(
   test: any,
-  items: any[],
-  progressCallback?: (progress: TestProgress) => void
-): Promise<boolean> => {
+  questions: any[],
+  onProgressUpdate: (progress: TestProgress) => void,
+  getLLMConfig: () => any
+): Promise<boolean> {
   try {
     console.log('开始执行精度测试:', test);
     
@@ -277,13 +430,11 @@ export const executeAccuracyTest = async (
     
     // 用于保存和更新进度的对象
     const progressState: TestProgress = {
-      total: items.length,
+      total: questions.total,
       completed: 0,
       success: 0,
       failed: 0,
-      startTime: performance.now(),
-      currentBatch: 0,
-      totalBatches: 0
+      startTime: performance.now()
     };
     
     // 开始测试前通知后端
@@ -295,35 +446,20 @@ export const executeAccuracyTest = async (
       throw new Error('精度测试需要LLM配置，请先配置大模型API');
     }
     
-    // 批量处理设置
-    const batchSize = test.batch_settings?.batch_size || 5;
-    const batches = [];
+    // 将评测项准备好
+    const preparedQuestions = questions.map((question, index) => ({
+      ...question,
+      sequence_number: index + 1
+    }));
     
-    // 将项目分成批次
-    for (let i = 0; i < items.length; i += batchSize) {
-      batches.push(items.slice(i, i + batchSize));
-    }
-    
-    progressState.totalBatches = batches.length;
-    
-    if (progressCallback) {
-      progressCallback({...progressState});
-    }
-    
-    // 逐批处理评测项
-    for (let i = 0; i < batches.length; i++) {
-      progressState.currentBatch = i + 1;
-      
-      const batchResults = await processBatch(
-        batches[i],
-        test,
-        progressCallback,
-        progressState
-      );
-      
-      // 将批次结果提交到后端
-      await accuracyService.submitItemResults(test.id, batchResults);
-    }
+    // 启动并发执行
+    await executeWithConcurrencyLimit(
+      test,
+      preparedQuestions,
+      test.model_config_test || {},
+      onProgressUpdate,
+      getLLMConfig
+    );
     
     // 完成测试
     await accuracyService.complete(test.id);
@@ -344,4 +480,4 @@ export const executeAccuracyTest = async (
     
     throw error;
   }
-}; 
+} 

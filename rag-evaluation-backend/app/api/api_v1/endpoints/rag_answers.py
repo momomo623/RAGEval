@@ -344,7 +344,7 @@ def update_rag_answer(
     
     return rag_answer
 
-@router.get("/versions/dataset/{dataset_id}", response_model=List[str])
+@router.get("/versions/dataset/{dataset_id}", response_model=List[Dict[str, Any]])
 def get_dataset_rag_versions(
     dataset_id: uuid.UUID,
     db: Session = Depends(get_db),

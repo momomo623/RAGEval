@@ -3,6 +3,7 @@ import { Form, Input, Select, Button, InputNumber, Card, message, Spin, Switch, 
 import { QuestionCircleOutlined } from '@ant-design/icons';
 import { AccuracyTestCreate, accuracyService } from '../../../services/accuracy.service';
 import { datasetService } from '../../../services/dataset.service';
+import { AccuracyPromptGenerator } from './prompt';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -13,27 +14,6 @@ interface CreateAccuracyTestFormProps {
   onCancel: () => void;
 }
 
-// 默认评测提示词模板
-const DEFAULT_PROMPT_TEMPLATE = `你是一个专业的RAG系统回答质量评估专家。请评估以下RAG系统对问题的回答质量，与参考答案比较。
-
-问题：{{question}}
-
-参考答案：{{reference_answer}}
-
-RAG系统回答：{{rag_answer}}
-
-评分方法：{{scoring_method}}
-
-评估维度：{{dimensions}}
-
-请针对每个评估维度进行评分，并给出总体评分和详细的评估理由。评分格式为：
-总体评分：[分数]
-各维度评分：
-- 维度1：[分数]
-- 维度2：[分数]
-...
-评估理由：[你的详细分析]`;
-
 export const CreateAccuracyTestForm: React.FC<CreateAccuracyTestFormProps> = ({
   projectId,
   onSuccess,
@@ -42,8 +22,8 @@ export const CreateAccuracyTestForm: React.FC<CreateAccuracyTestFormProps> = ({
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [datasets, setDatasets] = useState<any[]>([]);
-  const [evaluationDimensions, setEvaluationDimensions] = useState<string[]>(['accuracy']);
-  const [weights, setWeights] = useState<Record<string, number>>({ accuracy: 1.0 });
+  const [evaluationDimensions, setEvaluationDimensions] = useState<string[]>(['事实准确性']);
+  const [weights, setWeights] = useState<Record<string, number>>({ '事实准确性': 1.0 });
   const [useCustomPrompt, setUseCustomPrompt] = useState(false);
   
   // 添加版本相关状态
@@ -112,9 +92,41 @@ export const CreateAccuracyTestForm: React.FC<CreateAccuracyTestFormProps> = ({
     }
   };
   
+  // 添加一个函数来获取生成的提示词
+  const getPromptTemplate = (values: any) => {
+    // 将表单中的评分方法映射到AccuracyPromptGenerator中的类型
+    const scoringMethodMap: Record<string, 'binary' | 'three_point' | 'five_point'> = {
+      'binary': 'binary',
+      'three_scale': 'three_point',
+      'five_scale': 'five_point'
+    };
+    
+    // 获取映射后的评分方法类型
+    const promptType = scoringMethodMap[values.scoring_method];
+    
+    if (!promptType) {
+      message.error('不支持的评分方法类型');
+      return '';
+    }
+    
+    // 使用AccuracyPromptGenerator生成提示词
+    return AccuracyPromptGenerator.generate(
+      promptType,
+      {
+        question: '{{question}}',
+        reference_answer: '{{reference_answer}}',
+        rag_answer: '{{rag_answer}}',
+        dimensions: evaluationDimensions
+      }
+    );
+  };
+  
   const handleSubmit = async (values: any) => {
     setLoading(true);
     try {
+      // 获取提示词模板
+      const promptTemplate = useCustomPrompt ? values.prompt_template : getPromptTemplate(values);
+      
       // 构建提交数据
       const data: AccuracyTestCreate = {
         project_id: projectId,
@@ -126,9 +138,9 @@ export const CreateAccuracyTestForm: React.FC<CreateAccuracyTestFormProps> = ({
         dimensions: evaluationDimensions,
         weights: weights,
         version: values.version,
-        prompt_template: useCustomPrompt ? values.prompt_template : DEFAULT_PROMPT_TEMPLATE,
-        model_config: {
-          model_name: values.model_name,
+        prompt_template: promptTemplate,
+        model_config_test: {
+          model: values.model,
           temperature: values.temperature,
           max_tokens: values.max_tokens
         }
@@ -145,6 +157,25 @@ export const CreateAccuracyTestForm: React.FC<CreateAccuracyTestFormProps> = ({
     }
   };
   
+  // 在自定义提示词表单项中初始化值
+  useEffect(() => {
+    if (useCustomPrompt && form.getFieldValue('scoring_method')) {
+      // 当切换到自定义提示词时，以生成的提示词为初始值
+      form.setFieldsValue({
+        prompt_template: getPromptTemplate(form.getFieldsValue())
+      });
+    }
+  }, [useCustomPrompt, form]);
+
+  // 当评分方法或评估维度变化时，更新自定义提示词的默认值
+  useEffect(() => {
+    if (useCustomPrompt && form.getFieldValue('scoring_method')) {
+      form.setFieldsValue({
+        prompt_template: getPromptTemplate(form.getFieldsValue())
+      });
+    }
+  }, [form.getFieldValue('scoring_method'), evaluationDimensions]);
+
   return (
     <div style={{ padding: '20px 0' }}>
       <Spin spinning={loading}>
@@ -156,9 +187,9 @@ export const CreateAccuracyTestForm: React.FC<CreateAccuracyTestFormProps> = ({
             name: `精度测试-${new Date().toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric' })}`,
             evaluation_type: 'ai',
             scoring_method: 'five_scale',
-            model_name: 'gpt-4',
-            temperature: 0.2,
-            max_tokens: 1000
+            model: 'deepseek-chat',
+            temperature: 0.1,
+            max_tokens: 800
           }}
         >
           <Form.Item
@@ -186,7 +217,8 @@ export const CreateAccuracyTestForm: React.FC<CreateAccuracyTestFormProps> = ({
               onChange={handleDatasetChange}
             >
               {datasets.map(dataset => (
-                <Option key={dataset.id} value={dataset.id}>{dataset.name}</Option>
+                // question_count是数据集中的问题数量
+                <Option key={dataset.id} value={dataset.id}>{dataset.name}（{dataset.question_count}个问题）</Option>
               ))}
             </Select>
           </Form.Item>
@@ -194,7 +226,7 @@ export const CreateAccuracyTestForm: React.FC<CreateAccuracyTestFormProps> = ({
           <Form.Item
             name="version"
             label="RAG回答版本"
-            rules={[{ required: false, message: '请选择RAG回答版本' }]}
+            rules={[{ required: true, message: '请选择RAG回答版本' }]}
           >
             <Select 
               placeholder="请选择RAG回答版本" 
@@ -202,7 +234,7 @@ export const CreateAccuracyTestForm: React.FC<CreateAccuracyTestFormProps> = ({
               disabled={!form.getFieldValue('dataset_id') || versionLoading}
             >
               {versions.map(version => (
-                <Option key={version} value={version}>{version}</Option>
+                <Option key={version.version} value={version.version}>{version.version} ({version.count}个问题)</Option>
               ))}
             </Select>
           </Form.Item>
@@ -241,24 +273,23 @@ export const CreateAccuracyTestForm: React.FC<CreateAccuracyTestFormProps> = ({
               </Space>
             }
             name="dimensions"
-            initialValue={['accuracy']}
+            initialValue={['事实准确性']}
           >
             <Select
               mode="multiple"
               placeholder="请选择评测维度"
               onChange={handleEvaluationDimensionsChange}
             >
-              <Option value="accuracy">准确性</Option>
-              <Option value="relevance">相关性</Option>
-              <Option value="completeness">完整性</Option>
-              <Option value="coherence">连贯性</Option>
-              <Option value="conciseness">简洁性</Option>
-              <Option value="helpfulness">有用性</Option>
+            {/* 语义匹配度、事实准确性、信息完整性等 */}
+            <Option value="事实准确性">事实准确性</Option>
+            <Option value="语义匹配度">语义匹配度</Option>
+              <Option value="信息完整性">信息完整性</Option>
+
             </Select>
           </Form.Item>
           
           {/* 权重设置 */}
-          <Card title="维度权重设置" size="small" style={{ marginBottom: 24 }}>
+          {/* <Card title="维度权重设置" size="small" style={{ marginBottom: 24 }}>
             {evaluationDimensions.map(dimension => (
               <Form.Item 
                 key={dimension} 
@@ -276,7 +307,7 @@ export const CreateAccuracyTestForm: React.FC<CreateAccuracyTestFormProps> = ({
                 />
               </Form.Item>
             ))}
-          </Card>
+          </Card> */}
           
           {/* 自定义提示词开关 */}
           <Form.Item>
@@ -297,7 +328,6 @@ export const CreateAccuracyTestForm: React.FC<CreateAccuracyTestFormProps> = ({
             <Form.Item
               name="prompt_template"
               label="评测提示词模板"
-              initialValue={DEFAULT_PROMPT_TEMPLATE}
               rules={[{ required: true, message: '请输入提示词模板' }]}
             >
               <TextArea rows={10} placeholder="请输入提示词模板" />
@@ -305,9 +335,9 @@ export const CreateAccuracyTestForm: React.FC<CreateAccuracyTestFormProps> = ({
           )}
           
           {/* 模型配置 */}
-          {/* <Card title="模型配置" size="small" style={{ marginBottom: 24 }}>
+          <Card title="模型配置（本设置将覆盖系统的模型配置）" size="small" style={{ marginBottom: 24 }}>
             <Form.Item
-              name="model_name"
+              name="model"
               label="模型名称"
             >
               <Input placeholder="例如：gpt-4" />
@@ -336,7 +366,7 @@ export const CreateAccuracyTestForm: React.FC<CreateAccuracyTestFormProps> = ({
                 style={{ width: '100%' }}
               />
             </Form.Item>
-          </Card> */}
+          </Card>
           
           <Form.Item>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>

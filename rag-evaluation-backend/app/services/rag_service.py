@@ -4,6 +4,8 @@ import time
 import json
 import uuid
 from typing import List, Dict, Any, Optional, Tuple
+
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.rag_answer import RagAnswer, ApiConfig
@@ -343,23 +345,44 @@ class RagService:
         self.db.refresh(db_obj)
         return db_obj 
     
-    def get_dataset_versions(self, dataset_id: str) -> List[str]:
+    # def get_dataset_versions(self, dataset_id: str) -> List[str]:
+    #     """
+    #     获取数据集下的所有RAG回答版本
+    #     """
+    #     # 通过连接问题表找到属于该数据集的所有RAG回答版本
+    #     versions = self.db.query(RagAnswer.version).join(
+    #         Question, RagAnswer.question_id == Question.id
+    #     ).filter(
+    #         Question.dataset_id == dataset_id,
+    #         RagAnswer.version.isnot(None)  # 排除没有版本信息的回答
+    #     ).distinct().all()
+    #
+    #     # 提取版本字符串并过滤掉None值
+    #     result = [v[0] for v in versions if v[0] is not None]
+    #
+    #     # 如果没有找到版本，返回默认的"v1"版本
+    #     if not result:
+    #         return []
+
+    def get_dataset_versions(self, dataset_id: str) -> List[Dict[str, Any]]:
         """
-        获取数据集下的所有RAG回答版本
+        获取数据集下的所有RAG回答版本，以及每个版本的回答数量
+        返回格式: [{"version": "v1", "count": 10}, {"version": "v2", "count": 5}, ...]
         """
-        # 通过连接问题表找到属于该数据集的所有RAG回答版本
-        versions = self.db.query(RagAnswer.version).join(
+    # 使用分组和计数聚合查询
+        version_counts = self.db.query(
+            RagAnswer.version,
+            func.count(RagAnswer.id).label('count')
+        ).join(
             Question, RagAnswer.question_id == Question.id
         ).filter(
             Question.dataset_id == dataset_id,
             RagAnswer.version.isnot(None)  # 排除没有版本信息的回答
-        ).distinct().all()
+        ).group_by(
+            RagAnswer.version
+        ).all()
+
+        # 转换查询结果为字典列表
+        result = [{"version": v[0], "count": v[1]} for v in version_counts]
         
-        # 提取版本字符串并过滤掉None值
-        result = [v[0] for v in versions if v[0] is not None]
-        
-        # 如果没有找到版本，返回默认的"v1"版本
-        if not result:
-            return ["v1"]
-        
-        return result 
+        return result

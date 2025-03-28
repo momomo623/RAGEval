@@ -13,7 +13,7 @@ class AccuracyTestBase(BaseModel):
     weights: Optional[Dict[str, float]] = None
     prompt_template: Optional[str] = None
     version: Optional[str] = None
-    # model_config: Optional[Dict[str, Any]] = None
+    model_config_test: Optional[Dict[str, Any]] = None
     batch_settings: Optional[Dict[str, Any]] = None
     
     class Config:

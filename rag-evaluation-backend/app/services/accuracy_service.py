@@ -1,6 +1,6 @@
 from typing import List, Dict, Any, Optional, Union, Tuple
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_, or_, desc, asc
+from sqlalchemy import func, and_, or_, desc, asc, case
 import uuid
 import json
 import random
@@ -39,7 +39,7 @@ class AccuracyService:
             weights=data.weights or {dim: 1.0 for dim in data.dimensions},
             prompt_template=data.prompt_template,
             version=data.version,
-            model_config=data.model_config,
+            model_config_test=data.model_config_test,
             batch_settings=data.batch_settings or {"batch_size": 10, "timeout_seconds": 300},
             status="created",
             created_by=user_id
@@ -280,29 +280,43 @@ class AccuracyService:
         
         if test.status != "running":
             raise ValueError(f"测试状态为{test.status}，无法提交结果")
-        
+
         # 批量更新评测项
         for item_data in items:
             item_id = item_data.get("id")
             if not item_id:
                 continue
                 
+            # 修改这里的查询条件：直接使用评测项ID查询
             item = self.db.query(AccuracyTestItem).filter(
-                AccuracyTestItem.id == item_id,
+                # AccuracyTestItem.id == item_id
+                # 没有真正的item_id，而是通过question_id、evaluation_id确定item
+                AccuracyTestItem.question_id == item_id,
                 AccuracyTestItem.evaluation_id == test_id
             ).first()
             
             if not item:
+                print(f"未找到评测项: {item_id}")
                 continue
             
-            # 更新AI评测结果
-            if "ai_result" in item_data and item_data["ai_result"]:
-                ai_result = item_data["ai_result"]
-                item.ai_score = ai_result.get("score")
-                item.ai_dimension_scores = ai_result.get("dimension_scores")
-                item.ai_evaluation_reason = ai_result.get("evaluation_reason")
-                item.ai_raw_response = ai_result.get("raw_response")
-                item.ai_evaluation_time = datetime.utcnow()
+            # 直接从前端传入的数据中获取字段值，不再需要ai_result嵌套结构
+            if "ai_score" in item_data:
+                item.ai_score = item_data.get("ai_score")
+                item.ai_dimension_scores = item_data.get("ai_dimension_scores")
+                item.ai_evaluation_reason = item_data.get("ai_evaluation_reason")
+                item.ai_raw_response = item_data.get("ai_raw_response")
+                
+                # 转换时间字符串为datetime对象
+                if "ai_evaluation_time" in item_data:
+                    try:
+                        from datetime import datetime
+                        ai_eval_time = datetime.fromisoformat(item_data.get("ai_evaluation_time").replace('Z', '+00:00'))
+                        item.ai_evaluation_time = ai_eval_time
+                    except Exception as e:
+                        print(f"解析时间格式失败: {e}")
+                        item.ai_evaluation_time = datetime.utcnow()
+                else:
+                    item.ai_evaluation_time = datetime.utcnow()
                 
                 # 如果是AI评测，或者尚未有人工评测，则将AI结果设为最终结果
                 if test.evaluation_type == "ai" or not item.human_score:
@@ -312,19 +326,29 @@ class AccuracyService:
                     item.final_evaluation_type = "ai"
                 
                 # 更新状态
-                if item.status == "pending":
-                    item.status = "ai_completed"
-                elif item.status == "human_completed":
-                    item.status = "both_completed"
+                if "status" in item_data:
+                    item.status = item_data.get("status")
+                else:
+                    if item.status == "pending":
+                        item.status = "ai_completed"
+                    elif item.status == "human_completed":
+                        item.status = "both_completed"
             
             # 更新人工评测结果
-            if "human_result" in item_data and item_data["human_result"]:
-                human_result = item_data["human_result"]
-                item.human_score = human_result.get("score")
-                item.human_dimension_scores = human_result.get("dimension_scores")
-                item.human_evaluation_reason = human_result.get("evaluation_reason")
-                item.human_evaluator_id = human_result.get("evaluator_id")
-                item.human_evaluation_time = datetime.utcnow()
+            if "human_score" in item_data:
+                item.human_score = item_data.get("human_score")
+                item.human_dimension_scores = item_data.get("human_dimension_scores")
+                item.human_evaluation_reason = item_data.get("human_evaluation_reason")
+                item.human_evaluator_id = item_data.get("human_evaluator_id")
+                
+                if "human_evaluation_time" in item_data:
+                    try:
+                        human_eval_time = datetime.fromisoformat(item_data.get("human_evaluation_time").replace('Z', '+00:00'))
+                        item.human_evaluation_time = human_eval_time
+                    except Exception:
+                        item.human_evaluation_time = datetime.utcnow()
+                else:
+                    item.human_evaluation_time = datetime.utcnow()
                 
                 # 如果是人工评测，或者混合评测且有人工结果，则将人工结果设为最终结果
                 if test.evaluation_type in ["manual", "hybrid"]:
@@ -334,10 +358,13 @@ class AccuracyService:
                     item.final_evaluation_type = "human"
                 
                 # 更新状态
-                if item.status == "pending":
-                    item.status = "human_completed"
-                elif item.status == "ai_completed":
-                    item.status = "both_completed"
+                if "status" in item_data:
+                    item.status = item_data.get("status")
+                else:
+                    if item.status == "pending":
+                        item.status = "human_completed"
+                    elif item.status == "ai_completed":
+                        item.status = "both_completed"
         
         self.db.commit()
         

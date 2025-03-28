@@ -33,11 +33,11 @@ def read_questions(
     search: Optional[str] = None,
     category: Optional[str] = None,
     difficulty: Optional[str] = None,
+    version: Optional[str] = None,  # 新增：用于筛选特定版本的RAG答案
     current_user: User = Depends(get_current_user)
 ) -> Any:
-    print("--------------------------------")    
     """
-    获取数据集的问题列表
+    获取数据集的问题列表，可选择筛选特定版本的RAG答案
     """
     # 检查数据集是否存在
     dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
@@ -79,8 +79,15 @@ def read_questions(
     # 格式化返回数据
     result = []
     for question in questions:
-        # 获取该问题的所有RAG答案
-        rag_answers = db.query(RagAnswer).filter(RagAnswer.question_id == question.id).all()
+        # 构建RAG答案查询
+        rag_answers_query = db.query(RagAnswer).filter(RagAnswer.question_id == question.id)
+        
+        # 如果指定了版本，只查询该版本的答案
+        if version:
+            rag_answers_query = rag_answers_query.filter(RagAnswer.version == version)
+        
+        # 执行查询获取RAG答案
+        rag_answers = rag_answers_query.all()
         
         # 格式化RAG答案数据
         rag_answers_list = []
@@ -114,18 +121,13 @@ def read_questions(
         }
         result.append(question_dict)
     
-    # 计算总页数
-    pages = (total + size - 1) // size if total > 0 else 1
-
-    print(f"result: {result}")
-    
     # 返回符合前端期望的分页格式
     return {
         "items": result,
         "total": total,
         "page": page,
         "size": size,
-        "pages": pages
+        "pages": (total + size - 1) // size if total > 0 else 1
     }
 
 @router.post("/{dataset_id}/questions", response_model=QuestionOut)

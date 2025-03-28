@@ -12,7 +12,7 @@ export interface AccuracyTestCreate {
   weights?: Record<string, number>;
   prompt_template?: string;
   version?: string;
-  model_config?: Record<string, any>;
+  model_config_test?: Record<string, any>;
 }
 
 export interface AccuracyTest {
@@ -26,7 +26,7 @@ export interface AccuracyTest {
   status: 'created' | 'running' | 'completed' | 'failed';
   dimensions: string[];
   weights: Record<string, number>;
-  model_config: Record<string, any>;
+  model_config_test: Record<string, any>;
   prompt_template: string;
   version: string;
   total_questions: number;
@@ -89,6 +89,7 @@ export const accuracyService = {
   }, 
   // 创建精度测试
   create: async (data: AccuracyTestCreate): Promise<AccuracyTest> => {
+    console.log('create accuracy test', data);
     return api.post<AccuracyTest>('/v1/accuracy/add', data);
   },
 
@@ -119,7 +120,7 @@ export const accuracyService = {
 
   // 提交评测项结果
   submitItemResults: async (testId: string, items: any[]): Promise<boolean> => {
-    return api.post<boolean>(`/v1/accuracy/${testId}/items`, { items });
+    return api.post<boolean>(`/v1/accuracy/${testId}/items`, items);
   },
   
   // 创建人工评测任务

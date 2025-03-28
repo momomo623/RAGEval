@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, version } from 'react';
 import { 
   Card, Button, Table, Tag, Space, Modal, message, 
-  Typography, Progress, Alert, Spin, Row, Col, Statistic
+  Typography, Progress, Alert, Spin, Row, Col, Statistic,
+  Tooltip
 } from 'antd';
 import { 
   PlusOutlined, PlayCircleOutlined, EyeOutlined, SyncOutlined,
@@ -62,9 +63,30 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
         message.error('测试没有关联数据集');
         return [];
       }
+      const params = {
+      version : test.version
+      }
+
       
-      const result = await datasetService.getQuestions(datasetId);
-      return result.questions || [];
+      const result = await datasetService.getQuestions(datasetId, params);
+      console.log("版本过滤 - 问答对",result)
+      
+      // 添加数据检查和日志
+      const questions = result;
+      // if (questions.length > 0) {
+      //   console.log('获取到的问题示例:', questions[0]);
+        
+      //   // 检查数据完整性
+      //   const incomplete = questions.filter(q => 
+      //     !q.question_text || !q.standard_answer || !q.id
+      //   );
+        
+      //   if (incomplete.length > 0) {
+      //     console.warn(`有${incomplete.length}个问题数据不完整`);
+      //   }
+      // }
+      
+      return questions;
     } catch (error) {
       console.error('获取测试问题失败:', error);
       message.error('获取测试问题失败');
@@ -74,6 +96,8 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
 
   // 运行测试
   const handleRunTest = async (test: any) => {
+    console.log(1111111,test)
+
     if (runningTestId) {
       message.warning('已有测试正在运行，请等待完成');
       return;
@@ -102,23 +126,24 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
 
       // 获取测试问题
       const questions = await fetchTestQuestions(test);
-      if (!questions.length) {
+      if (!questions.total) {
         message.error('无法获取评测问题');
         setRunningTestId(null);
         return;
       }
 
       setTestQuestions(questions);
-      progressState.total = questions.length;
+      progressState.total = questions.total;
       setProgress(progressState);
 
       // 执行测试
       await executeAccuracyTest(
         test,
-        questions,
+        questions.questions,
         (progress) => {
           setProgress(progress);
-        }
+        },
+        getLLMConfig
       );
 
       message.success('精度测试执行完成');
@@ -208,7 +233,7 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
       <div className={styles.header}>
         <Title level={4}>精度测试</Title>
         <Space>
-          <ConfigButton />
+          {/* <ConfigButton /> */}
           <Button
             type="primary"
             icon={<PlusOutlined />}
@@ -247,8 +272,10 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
           {
             title: '测试名称',
             dataIndex: 'name',
+            width: 200,
             key: 'name',
-            render: (text) => <a>{text}</a>
+            // 鼠标移动显示完整内容
+            render: (text) => <Tooltip title={text}>{text}</Tooltip>
           },
           {
             title: '评测类型',
@@ -256,11 +283,7 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
             key: 'evaluation_type',
             render: (type) => (
               <Tag>
-                {{
-                  'ai': 'AI评测',
-                  'manual': '人工评测',
-                  'hybrid': '混合评测'
-                }[type] || type}
+                {type === 'ai' ? 'AI评测' : type === 'manual' ? '人工评测' : type === 'hybrid' ? '混合评测' : type}
               </Tag>
             )
           },
@@ -270,11 +293,7 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
             key: 'scoring_method',
             render: (method) => (
               <Tag>
-                {{
-                  'binary': '二元评分',
-                  'three_scale': '三分量表',
-                  'five_scale': '五分量表'
-                }[method] || method}
+                {method === 'binary' ? '二元评分' : method === 'three_scale' ? '三分量表' : method === 'five_scale' ? '五分量表' : method}
               </Tag>
             )
           },

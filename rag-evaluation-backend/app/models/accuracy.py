@@ -27,7 +27,7 @@ class AccuracyTest(Base):
     # 评测配置信息
     dimensions = Column(JSONB, nullable=False, default=["accuracy"])
     weights = Column(JSONB, default={"accuracy": 1.0})
-    model_config = Column(JSONB)
+    model_config_test = Column(JSONB)
     prompt_template = Column(Text)
     version = Column(String(50))
     
