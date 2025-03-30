@@ -2,7 +2,7 @@ import React, { useState, useEffect, version } from 'react';
 import { 
   Card, Button, Table, Tag, Space, Modal, message, 
   Typography, Progress, Alert, Spin, Row, Col, Statistic,
-  Tooltip
+  Tooltip, Select, Form
 } from 'antd';
 import { 
   PlusOutlined, PlayCircleOutlined, EyeOutlined, SyncOutlined,
@@ -24,6 +24,9 @@ interface AccuracyTestsManagerProps {
   projectId: string;
 }
 
+// 本地存储的键名
+const CONCURRENCY_STORAGE_KEY = 'accuracy_test_concurrency';
+
 export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ projectId }) => {
   const [tests, setTests] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -35,11 +38,25 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
   const [testQuestions, setTestQuestions] = useState<any[]>([]);
   const { getLLMConfig } = useConfigContext();
   const [showConfigWarning, setShowConfigWarning] = useState(false);
+  // 添加并发数设置状态
+  const [concurrency, setConcurrency] = useState<number>(10);
 
-  // 初始加载测试列表
+  // 初始加载测试列表和并发数设置
   useEffect(() => {
     fetchTests();
+    // 从localStorage加载并发数设置
+    const savedConcurrency = localStorage.getItem(CONCURRENCY_STORAGE_KEY);
+    if (savedConcurrency) {
+      setConcurrency(parseInt(savedConcurrency, 10));
+    }
   }, [projectId]);
+
+  // 保存并发数设置到localStorage
+  const handleConcurrencyChange = (value: number) => {
+    setConcurrency(value);
+    localStorage.setItem(CONCURRENCY_STORAGE_KEY, value.toString());
+    message.success(`并发数已设置为 ${value}`);
+  };
 
   const fetchTests = async () => {
     setLoading(true);
@@ -94,10 +111,8 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
     }
   };
 
-  // 运行测试
+  // 修改运行测试函数，传递并发数
   const handleRunTest = async (test: any) => {
-    console.log(1111111,test)
-
     if (runningTestId) {
       message.warning('已有测试正在运行，请等待完成');
       return;
@@ -124,24 +139,36 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
         startTime: performance.now()
       };
 
-      // 获取测试问题
-      const questions = await fetchTestQuestions(test);
-      if (!questions.total) {
-        message.error('无法获取评测问题');
-        setRunningTestId(null);
-        return;
-      }
-
-      setTestQuestions(questions);
-      progressState.total = questions.total;
+      // 不再预加载所有问题，直接使用缓冲区模式
       setProgress(progressState);
 
-      // 执行测试
+      // 创建测试配置，包含并发设置
+      const testConfig = {
+        ...test,
+        batch_settings: {
+          ...test.batch_settings,
+          concurrency: concurrency // 使用设置的并发数
+        }
+      };
+
+      // 执行测试 - 传递空数组以触发缓冲区模式
       await executeAccuracyTest(
-        test,
-        questions.questions,
+        testConfig, // 使用包含并发设置的配置
+        [], // 空数组触发缓冲区模式
         (progress) => {
-          setProgress(progress);
+          // 确保total被正确保留
+          if (progress.total > 0) {
+            progressState.total = progress.total;
+          }
+          
+          // 确保其他字段也被更新
+          progressState = {
+            ...progressState,
+            ...progress,
+            total: progressState.total > 0 ? progressState.total : progress.total
+          };
+          
+          setProgress({...progressState});
         },
         getLLMConfig
       );
@@ -228,6 +255,34 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
     );
   };
 
+  // 添加并发设置组件
+  const renderConcurrencySettings = () => {
+    return (
+      <Form layout="inline" style={{ marginBottom: 16 }}>
+        <Form.Item label="并发请求数">
+          <Select
+            value={concurrency}
+            onChange={handleConcurrencyChange}
+            style={{ width: 120 }}
+          >
+            <Select.Option value={1}>1</Select.Option>
+            <Select.Option value={2}>2</Select.Option>
+            <Select.Option value={5}>5</Select.Option>
+            <Select.Option value={10}>10</Select.Option>
+            <Select.Option value={15}>15</Select.Option>
+            <Select.Option value={20}>20</Select.Option>
+            <Select.Option value={30}>30</Select.Option>
+          </Select>
+        </Form.Item>
+        <Form.Item>
+          <Tooltip title="设置同时发送到大模型的并发请求数量，数值越大处理速度越快，但可能会增加API调用失败率">
+            <Button type="link">并发说明</Button>
+          </Tooltip>
+        </Form.Item>
+      </Form>
+    );
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.header}>
@@ -243,6 +298,9 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
           </Button>
         </Space>
       </div>
+
+      {/* 添加并发设置 */}
+      {renderConcurrencySettings()}
 
       {showConfigWarning && (
         <Alert

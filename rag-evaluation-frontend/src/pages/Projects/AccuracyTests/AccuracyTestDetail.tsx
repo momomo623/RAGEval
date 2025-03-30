@@ -283,7 +283,7 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
             onChange={handleStatusFilterChange}
             value={itemsFilter.status}
           >
-            <Select.Option value="pending">待评测</Select.Option>
+            {/* <Select.Option value="pending">待评测</Select.Option> */}
             <Select.Option value="ai_completed">AI评测完成</Select.Option>
             <Select.Option value="human_completed">人工评测完成</Select.Option>
             <Select.Option value="both_completed">评测完成</Select.Option>
@@ -404,11 +404,14 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
                 <div className={styles.evaluationReason}>
                   <Typography.Text strong>评测理由: </Typography.Text>
                   <Typography.Paragraph style={{marginTop: 10}}>
-                    {item.final_evaluation_reason.split('\n').map((line: string, index: number) => (
-                      <Typography.Paragraph key={index}>
-                        {line}
-                      </Typography.Paragraph>
-                    ))}
+                    {item.final_evaluation_reason ? 
+                      item.final_evaluation_reason.split('\n').map((line: string, index: number) => (
+                        <Typography.Paragraph key={index}>
+                          {line}
+                        </Typography.Paragraph>
+                      )) : 
+                      '暂无评测理由'
+                    }
                   </Typography.Paragraph>
                 </div>
                 

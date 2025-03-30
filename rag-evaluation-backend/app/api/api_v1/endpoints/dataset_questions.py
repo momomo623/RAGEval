@@ -6,7 +6,7 @@ import urllib.parse
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form, Body
 from sqlalchemy.orm import Session
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, and_
 
 from app.api.deps import get_current_user, get_db
 from app.models.rag_answer import RagAnswer
@@ -33,11 +33,11 @@ def read_questions(
     search: Optional[str] = None,
     category: Optional[str] = None,
     difficulty: Optional[str] = None,
-    version: Optional[str] = None,  # 新增：用于筛选特定版本的RAG答案
+    version: Optional[str] = None,  # 用于筛选特定版本的RAG答案
     current_user: User = Depends(get_current_user)
 ) -> Any:
     """
-    获取数据集的问题列表，可选择筛选特定版本的RAG答案
+    获取数据集的问题列表，如果指定version，只返回有该版本RAG答案的问题
     """
     # 检查数据集是否存在
     dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
@@ -50,8 +50,21 @@ def read_questions(
     
     skip = (page - 1) * size
     
-    # 构建查询
-    query = db.query(Question).filter(Question.dataset_id == dataset_id)
+    # 构建查询 - 需要根据version筛选问题
+    if version:
+        # 关键修改：如果指定了version，只获取有对应版本RAG答案的问题
+        query = db.query(Question).join(
+            RagAnswer, 
+            and_(
+                RagAnswer.question_id == Question.id,
+                RagAnswer.version == version
+            )
+        ).filter(
+            Question.dataset_id == dataset_id
+        ).distinct()  # 使用distinct()避免重复
+    else:
+        # 如果没有指定version，获取所有问题
+        query = db.query(Question).filter(Question.dataset_id == dataset_id)
     
     # 应用搜索过滤
     if search:
@@ -117,7 +130,7 @@ def read_questions(
             "question_metadata": question.question_metadata,
             "created_at": question.created_at,
             "updated_at": question.updated_at,
-            "rag_answers": rag_answers_list  # 新增：包含RAG答案列表
+            "rag_answers": rag_answers_list
         }
         result.append(question_dict)
     
