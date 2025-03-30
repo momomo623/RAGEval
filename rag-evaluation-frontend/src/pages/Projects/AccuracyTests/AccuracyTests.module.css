@@ -65,6 +65,9 @@
   background-color: #f9f9f9;
   border-radius: 4px;
   border-left: 3px solid #1890ff;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 8px;
 }
 
 .answer {
@@ -101,4 +104,71 @@
   display: flex;
   gap: 16px;
   flex-wrap: wrap;
+}
+
+/* 美化滚动条 */
+.itemContainer::-webkit-scrollbar {
+  width: 6px;
+}
+
+.itemContainer::-webkit-scrollbar-thumb {
+  background-color: #d9d9d9;
+  border-radius: 3px;
+}
+
+.itemContainer:hover::-webkit-scrollbar-thumb {
+  background-color: #bfbfbf;
+}
+
+.evaluationItem {
+  margin-bottom: 24px !important;
+  padding: 16px !important;
+  border: 1px solid #f0f0f0 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  background-color: white;
+  transition: all 0.3s;
+}
+
+.evaluationItem:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.evaluationItemHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.questionInfo {
+  flex: 1;
+}
+
+.questionText {
+  margin-top: 8px;
+  font-size: 16px;
+}
+
+.scoreInfo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  min-width: 120px;
+}
+
+.answerCard {
+  height: 100%;
+  background-color: #fafafa;
+  border-radius: 4px;
+  transition: all 0.3s;
+}
+
+.answerCard:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.cardTitle {
+  color: #1890ff;
+  font-weight: 500;
 } 

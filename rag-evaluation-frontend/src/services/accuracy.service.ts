@@ -131,5 +131,25 @@ export const accuracyService = {
   // 获取人工评测任务列表
   getHumanAssignments: async (testId: string): Promise<any[]> => {
     return api.get(`/v1/accuracy/${testId}/human-assignments`);
-  }
+  },
+
+  // 获取精度测试项目列表（支持分页）
+  getTestItems: async (testId: string, params?: { limit?: number, offset?: number, status?: string | null }): Promise<any> => {
+    const queryParams = new URLSearchParams();
+    
+    if (params?.limit) {
+      queryParams.append('limit', params.limit.toString());
+    }
+    
+    if (params?.offset !== undefined) {
+      queryParams.append('offset', params.offset.toString());
+    }
+    
+    if (params?.status) {
+      queryParams.append('status', params.status);
+    }
+    
+    const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+    return api.get<any>(`/v1/accuracy/${testId}/items${queryString}`);
+  },
 }; 

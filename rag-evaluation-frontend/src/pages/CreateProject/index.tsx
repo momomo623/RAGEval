@@ -100,7 +100,7 @@ const CreateProject: React.FC = () => {
 
           <Divider />
 
-          <div className={styles.section}>
+          {/* <div className={styles.section}>
             <Title level={4}>评测配置</Title>
             <Text type="secondary">选择评测维度和方式</Text>
 
@@ -155,7 +155,7 @@ const CreateProject: React.FC = () => {
                 <Option value="1-5">五分量表（1-5分）</Option>
               </Select>
             </Form.Item>
-          </div>
+          </div> */}
 
           <div className={styles.formActions}>
             <Button onClick={() => navigate('/dashboard')}>取消</Button>

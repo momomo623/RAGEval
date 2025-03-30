@@ -246,8 +246,8 @@ export const CreateAccuracyTestForm: React.FC<CreateAccuracyTestFormProps> = ({
           >
             <Select placeholder="请选择评测方式">
               <Option value="ai">AI评测</Option>
-              <Option value="manual">人工评测</Option>
-              <Option value="hybrid">混合评测（先AI后人工）</Option>
+              <Option value="manual">人工评测（开发中）</Option>
+              <Option value="hybrid">混合评测（先AI后人工）（开发中）</Option>
             </Select>
           </Form.Item>
           

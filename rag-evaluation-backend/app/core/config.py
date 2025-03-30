@@ -1,10 +1,19 @@
 import secrets
 from typing import Any, Dict, List, Optional, Union
 import os
+import socket
 
 from pydantic import AnyHttpUrl, field_validator, EmailStr, Field, ConfigDict, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic.networks import PostgresDsn
+
+# 检测是否在Docker容器中运行
+def is_running_in_docker():
+    try:
+        with open('/proc/self/cgroup', 'r') as f:
+            return 'docker' in f.read()
+    except:
+        return False
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "RAG Evaluation System"
@@ -15,7 +24,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8天
     
     # 数据库设置
-    POSTGRES_SERVER: str = "db"
+    POSTGRES_SERVER: str = os.getenv("POSTGRES_SERVER", "localhost")  # 默认是localhost，Docker环境通过环境变量覆盖
     POSTGRES_USER: str = "postgres"
     POSTGRES_PASSWORD: str = "postgres"
     POSTGRES_DB: str = "rag_evaluation"

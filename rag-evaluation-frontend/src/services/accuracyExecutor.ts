@@ -3,6 +3,7 @@ import { useConfigContext } from '../contexts/ConfigContext';
 
 import OpenAI from 'openai';
 import { accuracyService } from './accuracy.service';
+import * as yaml from 'js-yaml';
 
 export interface TestProgress {
   total: number;
@@ -100,14 +101,14 @@ function extractEvaluationResult(modelResponse: string): {
   overall_score: number;
   dimension_scores: Record<string, number>;
   evaluation_reason: string;
-  item_metadata:string
+  item_metadata: string
 } {
   try {
     // 查找分隔符 #### 并获取其之后的内容
     const parts = modelResponse.split('####');
     if (parts.length < 2) {
       console.error('大模型返回内容格式不正确: 未找到分隔符');
-      return { overall_score: 0, dimension_scores: {}, evaluation_reason: '解析错误' };
+      return { overall_score: 0, dimension_scores: {}, evaluation_reason: '解析错误', item_metadata: modelResponse };
     }
     
     // 获取YAML部分的文本
@@ -117,64 +118,66 @@ function extractEvaluationResult(modelResponse: string): {
     const yamlMatch = yamlText.match(/```yaml\s*([\s\S]*?)\s*```/);
     if (!yamlMatch) {
       console.error('大模型返回内容格式不正确: 未找到YAML代码块');
-      return { overall_score: 0, dimension_scores: {}, evaluation_reason: '解析错误' };
+      return { overall_score: 0, dimension_scores: {}, evaluation_reason: '解析错误', item_metadata: modelResponse };
     }
     
     const yamlContent = yamlMatch[1].trim();
     
-    // 解析YAML内容
-    const lines = yamlContent.split('\n');
-    const result: any = {
+    // 使用js-yaml库解析YAML内容
+    const parsedYaml = yaml.load(yamlContent) as any;
+    
+    const result = {
       overall_score: 0,
       dimension_scores: {},
       evaluation_reason: '',
-      item_metadata: ''
+      item_metadata: modelResponse
     };
     
-    let inReasonBlock = false;
-    let reasonLines: string[] = [];
+    // 提取总分
+    if (parsedYaml.overall_score !== undefined) {
+      result.overall_score = Number(parsedYaml.overall_score);
+    }
     
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      
-      // 解析总分
-      if (line.startsWith('overall_score:')) {
-        result.overall_score = parseFloat(line.split(':')[1].trim());
-      }
-      // 开始解析各维度分数
-      else if (line.startsWith('dimension_scores:')) {
-        // 维度评分在下面的行中
-        continue;
-      }
-      // 解析各维度分数行
-      else if (line.startsWith('-')) {
-        const dimensionMatch = line.match(/- (.*?):\s*([0-9.]+)/);
-        if (dimensionMatch) {
-          const [, dimension, score] = dimensionMatch;
-          result.dimension_scores[dimension] = parseFloat(score);
+    // 提取维度评分 - 处理可能的数组格式
+    if (parsedYaml.dimension_scores) {
+      // 如果维度评分是数组形式
+      if (Array.isArray(parsedYaml.dimension_scores)) {
+        for (const item of parsedYaml.dimension_scores) {
+          if (typeof item === 'object') {
+            // 遍历对象中的每个属性
+            for (const [dimension, score] of Object.entries(item)) {
+              result.dimension_scores[dimension] = Number(score);
+            }
+          }
         }
-      }
-      // 开始评估理由块
-      else if (line.startsWith('evaluation_reason:')) {
-        inReasonBlock = true;
-        continue;
-      }
-      // 解析评估理由内容
-      else if (inReasonBlock) {
-        if (line.startsWith('  - ')) {
-          reasonLines.push(line.substring(4));
-        } else {
-          reasonLines.push(line);
+      } 
+      // 如果维度评分是对象形式
+      else if (typeof parsedYaml.dimension_scores === 'object') {
+        for (const [dimension, score] of Object.entries(parsedYaml.dimension_scores)) {
+          result.dimension_scores[dimension] = Number(score);
         }
       }
     }
     
-    result.evaluation_reason = reasonLines.join('\n').trim();
-    result.item_metadata = modelResponse;
+    // 提取评估理由
+    if (parsedYaml.evaluation_reason) {
+      // 处理字符串或数组格式的评估理由
+      if (typeof parsedYaml.evaluation_reason === 'string') {
+        result.evaluation_reason = parsedYaml.evaluation_reason;
+      } else if (Array.isArray(parsedYaml.evaluation_reason)) {
+        result.evaluation_reason = parsedYaml.evaluation_reason.join('\n');
+      }
+    }
+    
     return result;
   } catch (error) {
     console.error('解析评估结果出错:', error);
-    return { overall_score: 0, dimension_scores: {}, evaluation_reason: '解析错误: ' + error, item_metadata: '' };
+    return { 
+      overall_score: 0, 
+      dimension_scores: {}, 
+      evaluation_reason: '解析错误: ' + (error instanceof Error ? error.message : String(error)), 
+      item_metadata: modelResponse
+    };
   }
 }
 

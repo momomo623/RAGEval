@@ -36,6 +36,17 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
   const [activeTab, setActiveTab] = useState('summary');
   const [assignmentsLoading, setAssignmentsLoading] = useState(false);
   const [humanAssignments, setHumanAssignments] = useState<any[]>([]);
+  
+  // 添加分页相关状态
+  const [itemsLoading, setItemsLoading] = useState(false);
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pageSize: 10,
+    total: 0
+  });
+  const [itemsFilter, setItemsFilter] = useState({
+    status: null as string | null
+  });
 
   // 加载测试详情
   useEffect(() => {
@@ -46,6 +57,13 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
       }
     }
   }, [visible, testId]);
+
+  // 分离测试详情和测试项的获取
+  useEffect(() => {
+    if (visible && testId && activeTab === 'items') {
+      fetchTestItems(testId);
+    }
+  }, [visible, testId, activeTab, pagination.current, pagination.pageSize, itemsFilter]);
 
   // 准备CSV导出数据
   useEffect(() => {
@@ -71,15 +89,9 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
       const response = await accuracyService.getDetail(id);
       setTestData(response);
       
-      // 处理评测项列表
-      if (response.items) {
-        const items = response.items.map((item: any, index: number) => ({
-          ...item,
-          sequence_number: item.sequence_number || index + 1
-        }));
-        setTestItems(items);
-      } else {
-        setTestItems([]);
+      // 仅设置测试基本信息，测试项将通过专门的API加载
+      if (activeTab === 'items') {
+        fetchTestItems(id);
       }
     } catch (error) {
       console.error('获取精度测试详情失败:', error);
@@ -87,6 +99,59 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  // 新增：获取测试项目列表（支持分页）
+  const fetchTestItems = async (id: string) => {
+    if (!id) return;
+    
+    setItemsLoading(true);
+    try {
+      const offset = (pagination.current - 1) * pagination.pageSize;
+      const response = await accuracyService.getTestItems(id, {
+        limit: pagination.pageSize,
+        offset: offset,
+        status: itemsFilter.status
+      });
+      
+      // 处理从API获取的测试项
+      const items = response.items.map((item: any, index: number) => ({
+        ...item,
+        sequence_number: item.sequence_number || (offset + index + 1)
+      }));
+      
+      setTestItems(items);
+      setPagination(prev => ({
+        ...prev,
+        total: response.total
+      }));
+    } catch (error) {
+      console.error('获取测试项目列表失败:', error);
+      message.error('获取测试项目列表失败');
+    } finally {
+      setItemsLoading(false);
+    }
+  };
+
+  // 处理分页变化
+  const handlePageChange = (page: number, pageSize?: number) => {
+    setPagination(prev => ({
+      ...prev,
+      current: page,
+      pageSize: pageSize || prev.pageSize
+    }));
+  };
+
+  // 处理筛选状态变化
+  const handleStatusFilterChange = (status: string | null) => {
+    setItemsFilter(prev => ({
+      ...prev,
+      status
+    }));
+    setPagination(prev => ({
+      ...prev,
+      current: 1 // 重置到第一页
+    }));
   };
 
   const fetchHumanAssignments = async (id: string) => {
@@ -100,27 +165,6 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
       setAssignmentsLoading(false);
     }
   };
-
-  // 筛选评测项
-  const filteredItems = testItems.filter(item => {
-    let matchesSearch = true;
-    let matchesScore = true;
-    
-    if (searchValue) {
-      matchesSearch = 
-        item.question_content?.toLowerCase().includes(searchValue.toLowerCase()) ||
-        item.rag_answer_content?.toLowerCase().includes(searchValue.toLowerCase()) ||
-        item.reference_answer?.toLowerCase().includes(searchValue.toLowerCase()) ||
-        item.final_evaluation_reason?.toLowerCase().includes(searchValue.toLowerCase());
-    }
-    
-    if (filterScore) {
-      const score = parseFloat(filterScore);
-      matchesScore = item.final_score === score;
-    }
-    
-    return matchesSearch && matchesScore;
-  });
 
   // 渲染评分标签
   const renderScoreTag = (score: number, method: string) => {
@@ -232,6 +276,19 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
               </>
             )}
           </Select>
+          <Select
+            placeholder="筛选状态"
+            allowClear
+            style={{ width: 150 }}
+            onChange={handleStatusFilterChange}
+            value={itemsFilter.status}
+          >
+            <Select.Option value="pending">待评测</Select.Option>
+            <Select.Option value="ai_completed">AI评测完成</Select.Option>
+            <Select.Option value="human_completed">人工评测完成</Select.Option>
+            <Select.Option value="both_completed">评测完成</Select.Option>
+            <Select.Option value="failed">评测失败</Select.Option>
+          </Select>
           {testItems.length > 0 && (
             <CSVLink 
               data={csvData}
@@ -242,90 +299,135 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
           )}
         </div>
         
-        <List
-          itemLayout="vertical"
-          dataSource={filteredItems}
-          pagination={{
-            pageSize: 10,
-            showSizeChanger: true,
-            pageSizeOptions: ['5', '10', '20', '50']
-          }}
-          renderItem={(item) => (
-            <List.Item
-              key={item.id}
-              extra={
-                <Space direction="vertical" size="small" align="end">
-                  <Space>
-                    <span>最终评分:</span>
-                    {renderScoreTag(item.final_score, testData.scoring_method)}
-                  </Space>
-                  {testData.evaluation_type !== 'manual' && (
-                    <Space>
-                      <span>AI评分:</span>
-                      {renderScoreTag(item.ai_score, testData.scoring_method)}
-                    </Space>
-                  )}
-                  {testData.evaluation_type !== 'ai' && item.human_score !== null && (
-                    <Space>
-                      <span>人工评分:</span>
-                      {renderScoreTag(item.human_score, testData.scoring_method)}
-                    </Space>
-                  )}
-                  <Text type="secondary">
-                    评测方式: {item.final_evaluation_type === 'ai' ? 'AI' : '人工'}
-                  </Text>
-                </Space>
+        <Spin spinning={itemsLoading}>
+          <List
+            itemLayout="vertical"
+            dataSource={testItems.filter(item => {
+              let matchesSearch = true;
+              let matchesScore = true;
+              
+              if (searchValue) {
+                matchesSearch = 
+                  item.question_content?.toLowerCase().includes(searchValue.toLowerCase()) ||
+                  item.rag_answer_content?.toLowerCase().includes(searchValue.toLowerCase()) ||
+                  item.reference_answer?.toLowerCase().includes(searchValue.toLowerCase()) ||
+                  item.final_evaluation_reason?.toLowerCase().includes(searchValue.toLowerCase());
               }
-            >
-              <List.Item.Meta
-                title={
-                  <span>问题 #{item.sequence_number}: {item.question_content}</span>
-                }
-              />
               
-              <Row gutter={[16, 16]}>
-                <Col span={12}>
-                  <Card size="small" title="参考答案" bordered={false}>
-                    <div className={styles.itemContainer}>
-                      <Typography.Text className={styles.answer}>
-                        {item.reference_answer}
-                      </Typography.Text>
-                    </div>
-                  </Card>
-                </Col>
-                <Col span={12}>
-                  <Card size="small" title="RAG回答" bordered={false}>
-                    <div className={styles.itemContainer}>
-                      <Typography.Text className={styles.answer}>
-                        {item.rag_answer_content}
-                      </Typography.Text>
-                    </div>
-                  </Card>
-                </Col>
-              </Row>
+              if (filterScore) {
+                const score = parseFloat(filterScore);
+                matchesScore = item.final_score === score;
+              }
               
-              <div className={styles.evaluationReason}>
-                <Typography.Text strong>评测理由: </Typography.Text>
-                <Typography.Paragraph>
-                  {item.final_evaluation_reason}
-                </Typography.Paragraph>
-              </div>
-              
-              {Object.keys(item.final_dimension_scores || {}).length > 0 && (
-                <div className={styles.dimensionScores}>
-                  <Typography.Text strong>维度评分: </Typography.Text>
-                  <Space wrap>
-                    {Object.entries(item.final_dimension_scores).map(([dimension, score]) => (
-                      <Tag key={dimension} color="blue">
-                        {dimension}: {score}
+              return matchesSearch && matchesScore;
+            })}
+            pagination={{
+              current: pagination.current,
+              pageSize: pagination.pageSize,
+              total: pagination.total,
+              onChange: handlePageChange,
+              showSizeChanger: true,
+              pageSizeOptions: ['5', '10', '20', '50'],
+              showTotal: (total) => `共 ${total} 项`
+            }}
+            renderItem={(item) => (
+              <List.Item className={styles.evaluationItem}>
+                <div className={styles.evaluationItemHeader}>
+                  <div className={styles.questionInfo}>
+                    <Typography.Title level={5}>
+                      问题 #{item.sequence_number}
+                    </Typography.Title>
+                    <Typography.Paragraph strong className={styles.questionText}>
+                      {item.question_content}
+                    </Typography.Paragraph>
+                  </div>
+                  <div className={styles.scoreInfo}>
+                    <Typography.Text style={{color: '#999',marginRight: 7}}  >评测分数 </Typography.Text>
+                    <Space>
+                      <Tag color={getScoreColor(item.final_score, testData.scoring_method)}>
+                        {getScoreLabel(item.final_score, testData.scoring_method)}
                       </Tag>
-                    ))}
-                  </Space>
+                      <Tag color={item.final_evaluation_type === 'ai' ? 'blue' : 'purple'}>
+                        {item.final_evaluation_type === 'ai' ? 'AI评测' : '人工评测'}
+                      </Tag>
+                    </Space>
+                  </div>
                 </div>
-              )}
-            </List.Item>
-          )}
-        />
+                
+                <Divider style={{ margin: '12px 0' }} />
+                
+                <Row gutter={[16, 16]}>
+                  <Col span={12}>
+                    <Card 
+                      size="small" 
+                      title={<span className={styles.cardTitle}>参考答案</span>} 
+                      bordered={true} 
+                      className={styles.answerCard}
+                    >
+                      <div className={styles.itemContainer}>
+                        <Typography.Paragraph
+                          className={styles.answer}
+                          ellipsis={{ 
+                            rows: 5, 
+                            expandable: true, 
+                            symbol: '展开' 
+                          }}
+                        >
+                          {item.reference_answer}
+                        </Typography.Paragraph>
+                      </div>
+                    </Card>
+                  </Col>
+                  <Col span={12}>
+                    <Card 
+                      size="small" 
+                      title={<span className={styles.cardTitle}>RAG回答</span>} 
+                      bordered={true}
+                      className={styles.answerCard}
+                    >
+                      <div className={styles.itemContainer}>
+                        <Typography.Paragraph
+                          className={styles.answer}
+                          ellipsis={{ 
+                            rows: 5, 
+                            expandable: true, 
+                            symbol: '展开' 
+                          }}
+                        >
+                          {item.rag_answer_content}
+                        </Typography.Paragraph>
+                      </div>
+                    </Card>
+                  </Col>
+                </Row>
+                
+                <div className={styles.evaluationReason}>
+                  <Typography.Text strong>评测理由: </Typography.Text>
+                  <Typography.Paragraph style={{marginTop: 10}}>
+                    {item.final_evaluation_reason.split('\n').map((line: string, index: number) => (
+                      <Typography.Paragraph key={index}>
+                        {line}
+                      </Typography.Paragraph>
+                    ))}
+                  </Typography.Paragraph>
+                </div>
+                
+                {Object.keys(item.final_dimension_scores || {}).length > 0 && (
+                  <div className={styles.dimensionScores}>
+                    <Typography.Text strong>维度评分: </Typography.Text>
+                    <Space wrap>
+                      {Object.entries(item.final_dimension_scores).map(([dimension, score]) => (
+                        <Tag key={dimension} color="blue">
+                          {dimension}: {score}
+                        </Tag>
+                      ))}
+                    </Space>
+                  </div>
+                )}
+              </List.Item>
+            )}
+          />
+        </Spin>
       </>
     );
   };
@@ -478,6 +580,32 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
         </Row>
       </>
     );
+  };
+
+  const getScoreColor = (score: number, scoringMethod: string) => {
+    if (scoringMethod === 'binary') {
+      return score > 0 ? '#52c41a' : '#f5222d';
+    } else if (scoringMethod === 'three_scale') {
+      if (score === 2) return '#52c41a'; // 好
+      if (score === 1) return '#faad14'; // 中
+      return '#f5222d'; // 差
+    } else { // five_scale
+      if (score >= 4) return '#52c41a'; // 好
+      if (score >= 3) return '#faad14'; // 中
+      return '#f5222d'; // 差
+    }
+  };
+
+  const getScoreLabel = (score: number, scoringMethod: string) => {
+    if (scoringMethod === 'binary') {
+      return score > 0 ? '正确' : '错误';
+    } else if (scoringMethod === 'three_scale') {
+      if (score === 2) return '完全正确';
+      if (score === 1) return '部分正确';
+      return '错误';
+    } else { // five_scale
+      return `${score}分`;
+    }
   };
 
   return (

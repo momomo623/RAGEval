@@ -284,7 +284,7 @@ const Dashboard: React.FC = () => {
         </div>
         
         <div className={styles.scoreSection}>
-          <Text>总体评分：<Text strong style={{ color: '#52c41a' }}>92分</Text></Text>
+          <Text>总体评分：<Text strong style={{ color: '#52c41a' }}>**分</Text></Text>
           {project.description && (
             <Paragraph ellipsis={{ rows: 2 }} className={styles.projectDescription}>
               {project.description}

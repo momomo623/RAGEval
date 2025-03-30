@@ -122,9 +122,9 @@ class AccuracyService:
         """获取评测项目列表"""
         query = self.db.query(
             AccuracyTestItem,
-            Question.content.label("question_content"),
-            Question.reference_answer.label("reference_answer"),
-            RagAnswer.content.label("rag_answer_content")
+            Question.question_text.label("question_content"),
+            Question.standard_answer.label("reference_answer"),
+            RagAnswer.answer.label("rag_answer_content")
         ).join(
             Question, AccuracyTestItem.question_id == Question.id
         ).join(
