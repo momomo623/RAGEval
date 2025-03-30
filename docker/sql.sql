@@ -1,7 +1,10 @@
--- 删除这一行，因为数据库已经由Docker环境变量创建
+-- 确保放在最前面，在创建任何表之前
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 已注释的数据库创建语句
 -- create database rag_evaluation
 --    with owner postgres;
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 create table public.users
 (
     id            uuid                     default uuid_generate_v4() not null
@@ -853,143 +856,6 @@ create index idx_human_assignments_access_code
 
 create index idx_human_assignments_status
     on public.accuracy_human_assignments (status);
-
-create function public.uuid_nil() returns uuid
-    immutable
-    strict
-    parallel safe
-    language c
-as
-$$
-begin
--- missing source code
-end;
-$$;
-
-alter function public.uuid_nil() owner to postgres;
-
-create function public.uuid_ns_dns() returns uuid
-    immutable
-    strict
-    parallel safe
-    language c
-as
-$$
-begin
--- missing source code
-end;
-$$;
-
-alter function public.uuid_ns_dns() owner to postgres;
-
-create function public.uuid_ns_url() returns uuid
-    immutable
-    strict
-    parallel safe
-    language c
-as
-$$
-begin
--- missing source code
-end;
-$$;
-
-alter function public.uuid_ns_url() owner to postgres;
-
-create function public.uuid_ns_oid() returns uuid
-    immutable
-    strict
-    parallel safe
-    language c
-as
-$$
-begin
--- missing source code
-end;
-$$;
-
-alter function public.uuid_ns_oid() owner to postgres;
-
-create function public.uuid_ns_x500() returns uuid
-    immutable
-    strict
-    parallel safe
-    language c
-as
-$$
-begin
--- missing source code
-end;
-$$;
-
-alter function public.uuid_ns_x500() owner to postgres;
-
-create function public.uuid_generate_v1() returns uuid
-    strict
-    parallel safe
-    language c
-as
-$$
-begin
--- missing source code
-end;
-$$;
-
-alter function public.uuid_generate_v1() owner to postgres;
-
-create function public.uuid_generate_v1mc() returns uuid
-    strict
-    parallel safe
-    language c
-as
-$$
-begin
--- missing source code
-end;
-$$;
-
-alter function public.uuid_generate_v1mc() owner to postgres;
-
-create function public.uuid_generate_v3(namespace uuid, name text) returns uuid
-    immutable
-    strict
-    parallel safe
-    language c
-as
-$$
-begin
--- missing source code
-end;
-$$;
-
-alter function public.uuid_generate_v3(uuid, text) owner to postgres;
-
-create function public.uuid_generate_v4() returns uuid
-    strict
-    parallel safe
-    language c
-as
-$$
-begin
--- missing source code
-end;
-$$;
-
-alter function public.uuid_generate_v4() owner to postgres;
-
-create function public.uuid_generate_v5(namespace uuid, name text) returns uuid
-    immutable
-    strict
-    parallel safe
-    language c
-as
-$$
-begin
--- missing source code
-end;
-$$;
-
-alter function public.uuid_generate_v5(uuid, text) owner to postgres;
 
 create function public.update_updated_at_column() returns trigger
     language plpgsql
