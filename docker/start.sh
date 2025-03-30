@@ -1,2 +1,2 @@
 #!/bin/bash
-docker-compose -p rag-evaluation up -d 
+docker-compose -f docker/docker-compose.yml up -d 

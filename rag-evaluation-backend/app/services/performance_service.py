@@ -1,6 +1,5 @@
 from typing import List, Optional, Dict, Any
 from datetime import datetime
-import uuid
 import numpy as np
 from sqlalchemy.orm import Session
 
@@ -8,8 +7,7 @@ from app.models.performance import PerformanceTest
 from app.models.question import Question
 from app.models.rag_answer import RagAnswer
 from app.schemas.performance import PerformanceTestCreate, PerformanceTestUpdate
-from app.schemas.rag_answer import RagAnswerCreate
-from app.services import dataset_service, question_service
+from app.services import question_service
 
 class PerformanceService:
     def get(self, db: Session, *, id: str) -> Optional[PerformanceTest]:

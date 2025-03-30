@@ -606,7 +606,7 @@ create table public.accuracy_test
                    ((ARRAY ['created'::character varying, 'running'::character varying, 'completed'::character varying, 'failed'::character varying])::text[])),
     dimensions          jsonb                    default '["accuracy"]'::jsonb        not null,
     weights             jsonb                    default '{"accuracy": 1.0}'::jsonb,
-    model_config        jsonb,
+    model_config_test   jsonb,
     prompt_template     text,
     version             varchar(50),
     total_questions     integer                  default 0,
@@ -646,7 +646,7 @@ comment on column public.accuracy_test.dimensions is '评测维度：默认为�
 
 comment on column public.accuracy_test.weights is '各维度权重配置。样例：{"accuracy": 1.0, "relevance": 0.8, "completeness": 0.6}';
 
-comment on column public.accuracy_test.model_config is '模型配置（用于AI评测）。样例：{"model_name": "gpt-4", "temperature": 0.2, "max_tokens": 1000, "top_p": 1.0}';
+comment on column public.accuracy_test.model_config_test is '模型配置（用于AI评测）。样例：{"model_name": "gpt-4", "temperature": 0.2, "max_tokens": 1000, "top_p": 1.0}';
 
 comment on column public.accuracy_test.prompt_template is '评测提示词模板';
 

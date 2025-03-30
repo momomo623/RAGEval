@@ -5,7 +5,7 @@ from app.api.api_v1.api import api_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json"
+    # openapi_url=f"{settings.API_V1_STR}/openapi.json"
 )
 
 # 设置CORS

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user, get_db
 from app.models.user import User
 from app.models.project import Project
-from app.schemas.project import ProjectCreate, ProjectUpdate, ProjectOut, ProjectWithDimensions, ProjectDetail, EvaluationDimension
+from app.schemas.project import ProjectCreate, ProjectUpdate, ProjectOut, EvaluationDimension
 from app.schemas.common import PaginatedResponse
 from app.schemas.dataset import DatasetOut
 
@@ -16,7 +16,6 @@ from app.services.project_service import (
     update_project, 
     delete_project, 
     get_projects_by_user,
-    get_project_with_dimensions,
     update_project_status,
     update_project_dimensions
 )

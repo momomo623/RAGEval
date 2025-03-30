@@ -20,7 +20,6 @@ from app.services.dataset_service import (
     create_dataset,
     get_dataset,
     get_datasets_by_user,
-    get_public_datasets,
     update_dataset,
     delete_dataset,
     get_dataset_with_stats,
