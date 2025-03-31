@@ -380,9 +380,9 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
         // 问题数
         {
           title: '问题数',
-          dataIndex: 'total_questions',
-          key: 'total_questions',
-          render: (total_questions) => <Tag  style={{ minWidth: '40px', textAlign: 'center' }}>{total_questions}</Tag>
+          dataIndex: 'processed_questions',
+          key: 'processed_questions',
+          render: (processed_questions) => <Tag  style={{ minWidth: '40px', textAlign: 'center' }}>{processed_questions}</Tag>
         },
         {
           title: '成功率',
@@ -390,9 +390,8 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
           // 标签 内部居中
           render: (_: any, record: any) => {
             if (record.status === 'completed' && record.total_questions > 0) {
-              const successRate = (record.success_questions / record.total_questions * 100).toFixed(2);
-              return <Tag style={{ minWidth: '40px', textAlign: 'center' }}>
-                {record.success_questions}- {record.total_questions} --
+              const successRate = (record.success_questions / record.processed_questions * 100).toFixed(0);
+              return <Tag color="green" style={{ minWidth: '40px', textAlign: 'center' }}>
                 {successRate}%</Tag>;
             }
             return '-';
