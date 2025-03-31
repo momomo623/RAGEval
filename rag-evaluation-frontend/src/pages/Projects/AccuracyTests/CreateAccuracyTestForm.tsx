@@ -4,6 +4,7 @@ import { QuestionCircleOutlined } from '@ant-design/icons';
 import { AccuracyTestCreate, accuracyService } from '../../../services/accuracy.service';
 import { datasetService } from '../../../services/dataset.service';
 import { AccuracyPromptGenerator } from './prompt';
+import { useConfigContext } from '../../../contexts/ConfigContext';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -26,6 +27,15 @@ export const CreateAccuracyTestForm: React.FC<CreateAccuracyTestFormProps> = ({
   const [weights, setWeights] = useState<Record<string, number>>({ '事实准确性': 1.0 });
   const [useCustomPrompt, setUseCustomPrompt] = useState(false);
   
+  // 添加配置上下文
+  const { getLLMConfig } = useConfigContext();
+  const config = getLLMConfig();
+  // useEffect(() => {
+  //   // 检查LLM配置
+  //   const llmConfig = getLLMConfig();
+  // }, [getLLMConfig]);
+
+      
   // 添加版本相关状态
   const [versions, setVersions] = useState<string[]>([]);
   const [versionLoading, setVersionLoading] = useState(false);
@@ -187,7 +197,7 @@ export const CreateAccuracyTestForm: React.FC<CreateAccuracyTestFormProps> = ({
             name: `精度测试-${new Date().toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric' })}`,
             evaluation_type: 'ai',
             scoring_method: 'five_scale',
-            model: 'deepseek-chat',
+            model: config?.modelName || 'gpt-3.5-turbo',
             temperature: 0.1,
             max_tokens: 800
           }}

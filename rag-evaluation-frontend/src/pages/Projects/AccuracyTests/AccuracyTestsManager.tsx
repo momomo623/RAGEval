@@ -296,10 +296,10 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
             <div className={styles.progressLabel}>已用时间</div>
             <div className={styles.progressValue}>{formatTime(progress.elapsedTime || 0)}</div>
           </div>
-          <div className={styles.progressStat}>
+          {/* <div className={styles.progressStat}>
             <div className={styles.progressLabel}>预计剩余</div>
             <div className={styles.progressValue}>{formatTime(progress.remainingTimeEstimate || 0)}</div>
-          </div>
+          </div> */}
           {progress.currentBatch && progress.totalBatches && (
             <div className={styles.progressStat}>
               <div className={styles.progressLabel}>批次进度</div>

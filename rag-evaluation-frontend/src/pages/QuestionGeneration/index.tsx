@@ -34,6 +34,7 @@ const QuestionGenerationPage: React.FC = () => {
   useEffect(() => {
     // 检查LLM配置
     const llmConfig = getLLMConfig();
+    console.log('llmConfig', llmConfig);
     setIsConfigured(!!llmConfig);
   }, [getLLMConfig]);
   

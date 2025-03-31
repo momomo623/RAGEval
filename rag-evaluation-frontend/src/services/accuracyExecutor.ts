@@ -59,11 +59,13 @@ async function evaluateWithLLM(
 
   // 调用LLM API
   const completion = await openai.chat.completions.create({
-    model: llmConfig.modelName || modelConfig.model_name || 'gpt-4',
+    // 优先使用用户配置的model，而不是model_name
+    model: modelConfig.model || llmConfig.modelName ,
     messages: [
       { role: "system", content: "你是一个专业的RAG回答评估专家，你的任务是评估生成式AI的回答质量。请根据提供的标准答案评价RAG系统的回答质量，分析其准确性、相关性和完整性。" },
       { role: "user", content: prompt }
     ],
+    // 优先使用用户配置的参数
     temperature: modelConfig.temperature || 0.2,
     max_tokens: modelConfig.max_tokens || 1000,
     top_p: modelConfig.top_p || 1
