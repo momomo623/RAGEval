@@ -11,6 +11,7 @@ import { datasetService } from './dataset.service';
 // 替换为新的导入路径
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
 import { Document } from '@langchain/core/documents';
+import OpenAI from 'openai';
 
 // 定义分割策略类型
 export type SplitterType = 'recursive' | 'code' | 'markdown' | 'html' | 'latex';
@@ -37,26 +38,43 @@ export class QuestionGeneratorService {
   
 
   // 默认提示词模板
-  private defaultPromptTemplate = `你是一个专业的问答对生成专家。根据给定的文本，生成高质量的问答对。
-文本内容: "{{text}}"
+  private defaultPromptTemplate = `你是一个专业的问答对生成专家，擅长根据文本生成多样性高、质量优的问答对。
+请根据以下文本生成 {{count}} 个问答对：
 
-请根据上述文本生成{{count}}个问答对，问题难度为{{difficulty}}。
-每个问答对包含以下内容：
-1. 问题：清晰简洁，直接从文本内容出发
-2. 答案：答案应该简明扼要，不要冗长，以最短的文字回答
-3. 难度：easy/medium/hard
-4. 类别：factoid（事实型）/conceptual（概念型）/procedural（程序型）/comparative（比较型）
+文本内容：
+"{{text}}"
 
+### 生成要求：
+1. **问题：** 
+   - 直接从文本内容出发，问题要精准、清晰，不要引入外部信息。
+   - 覆盖不同角度，包括细节、概念、流程、对比等。
+2. **答案：**
+   - 简明扼要，紧扣问题核心，不要超出文本信息。
+3. **难度：**
+   - 覆盖 简单、中等 和 困难 三个难度，难度层次合理分布。
+4. **类别：**
+   - 包括以下类别： 
+     - 事实型：基于文本事实的信息
+     - 概念型：解释或阐述某个概念
+     - 程序型：涉及操作步骤或流程
+     - 比较型：比较不同信息或观点
 
-请以JSON格式输出，格式如下：
+### 输出格式要求：
+- 以 JSON 数组格式返回，格式如下：
+\`\`\`json
 [
   {
     "question": "问题内容",
     "answer": "答案内容",
-    "difficulty": "难度级别",
-    "category": "问题类别",
+    "difficulty": "简单/中等/困难",
+    "category": "事实型/概念型/程序型/比较型"
   }
-]`;
+]
+\`\`\`
+请注意：
+1. 确保问答对具有高质量、多样性，并严格按照指定格式输出。
+2. category 字段必须从以下值中选择之一：事实型、概念型、程序型、比较型。
+`;
 
   constructor() {
     this.resetState();
@@ -212,10 +230,17 @@ export class QuestionGeneratorService {
     params: GenerationParams, 
     datasetId: string,
     llmConfig: any, 
-    onProgress: (progress: ProgressInfo, newQAs?: GeneratedQA[]) => void
+    onProgress: (progress: ProgressInfo, newQAs?: GeneratedQA[]) => void,
+    customPromptTemplate?: string
   ): Promise<GeneratedQA[]> {
     this.datasetId = datasetId;
     this.abortController = new AbortController();
+    
+    // 设置并发数
+    if (params.concurrency && params.concurrency > 0) {
+      this.maxConcurrentRequests = params.concurrency;
+      console.log(`设置并发请求数为: ${this.maxConcurrentRequests}`);
+    }
     
     // 计算总共需要生成的问答对数量
     const selectedChunks = this.chunks.filter(chunk => chunk.selected);
@@ -241,7 +266,7 @@ export class QuestionGeneratorService {
       onProgress({...this.progress});
       
       // 创建当前块的处理Promise
-      const processPromise = this.processChunk(chunk, params, llmConfig)
+      const processPromise = this.processChunk(chunk, params, llmConfig, customPromptTemplate)
         .then(qaPairs => {
           // 更新进度
           this.progress.completedChunks++;
@@ -272,10 +297,19 @@ export class QuestionGeneratorService {
       
       // 如果达到最大并发数，等待其中一个完成
       if (activePromises.length >= this.maxConcurrentRequests) {
-        await Promise.race(activePromises).then(() => {
-          // 移除已完成的Promise，这里不能用isFulfilled，改用Promise.race的结果
-          activePromises = activePromises.filter(p => !p.isFulfilled && !p.isResolved);
-        });
+        let completedPromiseIndex: number | null = null;
+        
+        await Promise.race(activePromises)
+          .then(() => {
+            // 一旦有Promise完成，我们只需要从列表中移除它
+            // 简化处理：移除第一个已完成的Promise
+            completedPromiseIndex = 0;
+          });
+        
+        // 移除一个已完成的Promise
+        if (completedPromiseIndex !== null) {
+          activePromises.splice(completedPromiseIndex, 1);
+        }
       }
     }
     
@@ -293,11 +327,12 @@ export class QuestionGeneratorService {
   private async processChunk(
     chunk: TextChunk, 
     params: GenerationParams, 
-    llmConfig: any
+    llmConfig: any,
+    customPromptTemplate?: string
   ): Promise<GeneratedQA[]> {
     try {
-      // 构建提示词
-      const prompt = this.buildPrompt(chunk.content, params);
+      // 构建提示词，传入自定义模板
+      const prompt = this.buildPrompt(chunk.content, params, customPromptTemplate);
       
       // 调用LLM API
       const response = await this.callLLMAPI(prompt, params, llmConfig);
@@ -313,55 +348,103 @@ export class QuestionGeneratorService {
   }
 
   // 构建提示词
-  private buildPrompt(text: string, params: GenerationParams): string {
-    let prompt = this.defaultPromptTemplate;
+  private buildPrompt(text: string, params: GenerationParams, customTemplate?: string): string {
+    let prompt = customTemplate || this.defaultPromptTemplate;
     
     // 替换占位符
-    prompt = prompt.replace('{{text}}', text);
-    prompt = prompt.replace('{{count}}', params.count.toString());
-    prompt = prompt.replace('{{difficulty}}', params.difficulty);
+    prompt = prompt.replace(/\{\{text\}\}/g, text);
+    prompt = prompt.replace(/\{\{count\}\}/g, params.count.toString());
+    
+    // 如果是使用默认模板，还需处理其他替换
+    if (!customTemplate) {
+      prompt = prompt.replace(/\{\{difficulty\}\}/g, params.difficulty);
+      
+      // 添加对问题类型的处理
+      if (params.questionTypes && params.questionTypes.length > 0) {
+        // 构建类别描述（使用中文类别）
+        const categoryMap: Record<string, string> = {
+          'factoid': '事实型：基于文本事实的信息',
+          'conceptual': '概念型：解释或阐述某个概念',
+          'procedural': '程序型：涉及操作步骤或流程',
+          'comparative': '比较型：比较不同信息或观点'
+        };
+        
+        // 根据用户选择的类型过滤
+        const selectedCategories = params.questionTypes
+          .map(type => categoryMap[type])
+          .filter(Boolean);
+        
+        // 如果用户有选择类型，替换模板中的类别部分
+        if (selectedCategories.length > 0) {
+          // 使用正则表达式替换类别部分
+          prompt = prompt.replace(
+            /4\. \*\*类别：\*\*\s*- 包括以下类别：\s*([\s\S]*?)(?=\n\n|\n###)/m,
+            `4. **类别：**\n   - 仅包括以下用户选择的类别：\n     - ${selectedCategories.join('\n     - ')}`
+          );
+          
+          // 修改输出格式要求中的category说明
+          const categoryValueMap: Record<string, string> = {
+            'factoid': '事实型',
+            'conceptual': '概念型',
+            'procedural': '程序型',
+            'comparative': '比较型'
+          };
+          
+          const categoryValues = params.questionTypes
+            .map(type => categoryValueMap[type])
+            .filter(Boolean)
+            .join('/');
+          
+          // 替换输出格式中的category部分
+          prompt = prompt.replace(
+            /"category": "事实型\/概念型\/程序型\/比较型"/,
+            `"category": "${categoryValues}"`
+          );
+          
+          // 更新注意事项中的category说明
+          const categoryMapping = params.questionTypes
+            .map(type => `${categoryValueMap[type]}`)
+            .join('、');
+          
+          prompt = prompt.replace(
+            /2\. category 字段必须从以下值中选择之一：事实型、概念型、程序型、比较型。/,
+            `2. category 字段必须从以下值中选择之一：${categoryMapping}。`
+          );
+        }
+      }
+    }
     
     return prompt;
   }
 
   // 调用LLM API
   private async callLLMAPI(prompt: string, params: GenerationParams, llmConfig: any): Promise<string> {
-    const payload: LLMRequestPayload = {
-      model: llmConfig.modelName,
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a helpful assistant specialized in generating high-quality question-answer pairs.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      temperature: 0.7,
-      max_tokens: 2000
-    };
-
-    const headers = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${llmConfig.apiKey}`
-    };
-
     try {
-      const response = await fetch(`${llmConfig.baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload),
-        signal: this.abortController?.signal
+      // 创建OpenAI客户端
+      const openai = new OpenAI({
+        apiKey: llmConfig.apiKey,
+        baseURL: llmConfig.baseUrl,
+        dangerouslyAllowBrowser: true // 在浏览器中使用
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`API调用失败: ${response.status} ${errorText}`);
-      }
+      // 调用LLM API
+      const completion = await openai.chat.completions.create({
+        model: llmConfig.modelName,
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a helpful assistant specialized in generating high-quality question-answer pairs.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.2,
+        max_tokens: params.maxTokens || 1000
+      });
 
-      const data = await response.json();
-      return data.choices[0].message.content;
+      return completion.choices[0].message.content;
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
         throw new Error('请求已取消');
@@ -666,6 +749,16 @@ export class QuestionGeneratorService {
   // 添加获取块源文件的方法
   public getChunkSourceFile(chunkId: string): string | undefined {
     return this.fileSourceMap.get(chunkId);
+  }
+
+  // 添加公共方法用于预览提示词
+  public previewPrompt(text: string, params: GenerationParams, customTemplate?: string): string {
+    return this.buildPrompt(text, params, customTemplate);
+  }
+
+  // 添加获取默认提示词模板的方法
+  public getDefaultPromptTemplate(): string {
+    return this.defaultPromptTemplate;
   }
 }
 

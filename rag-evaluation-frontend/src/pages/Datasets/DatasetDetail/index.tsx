@@ -70,6 +70,7 @@ const DatasetDetailPage: React.FC = () => {
   const [editingRagAnswer, setEditingRagAnswer] = useState<any>(null);
   const [currentQuestionId, setCurrentQuestionId] = useState<string>('');
   const [ragAnswerForm] = Form.useForm();
+  const [activeTabKey, setActiveTabKey] = useState<string>('questions');
   
   useEffect(() => {
     if (id) {
@@ -113,6 +114,11 @@ const DatasetDetailPage: React.FC = () => {
   };
   
   const fetchQuestions = async (datasetId: string, params?: any) => {
+    if (!datasetId) {
+      console.error('获取问题列表失败: 数据集ID未提供');
+      return;
+    }
+    
     setQuestionsLoading(true);
     try {
       console.log('正在获取问题列表，参数:', params);
@@ -120,7 +126,6 @@ const DatasetDetailPage: React.FC = () => {
       console.log('获取到的问题数据:', response);
       
       setQuestions(response.questions || []);
-
       setTotal(response.total || 0);
     } catch (error) {
       console.error('获取问题列表失败:', error);
@@ -852,6 +857,21 @@ const DatasetDetailPage: React.FC = () => {
     }
   };
   
+  const handleTabChange = (key: string) => {
+    setActiveTabKey(key);
+    
+    // 当切换到问题列表标签页时，重新加载问题数据
+    if (key === 'questions' && id) {
+      fetchQuestions(id, {
+        page: currentPage,
+        size: pageSize,
+        search: searchText,
+        category: categoryFilter,
+        difficulty: difficultyFilter
+      });
+    }
+  };
+  
   if (loading) {
     return (
       <div className={styles.loadingContainer}>
@@ -940,7 +960,7 @@ const DatasetDetailPage: React.FC = () => {
               ) : (
                 /* 非所有者只能查看和复制 */
                 <>
-                  {dataset.is_public && (
+                  {/* {dataset.is_public && (
                     <Button 
                       type="primary"
                       icon={<CopyOutlined />} 
@@ -948,7 +968,7 @@ const DatasetDetailPage: React.FC = () => {
                     >
                       复制到我的数据集
                     </Button>
-                  )}
+                  )} */}
                   <Button 
                     icon={<DownloadOutlined />} 
                     onClick={handleExport}
@@ -977,7 +997,7 @@ const DatasetDetailPage: React.FC = () => {
       </div>
       
       <Card className={styles.contentCard}>
-        <Tabs defaultActiveKey="questions">
+        <Tabs defaultActiveKey="questions" activeKey={activeTabKey} onChange={handleTabChange}>
           <TabPane tab="问题列表" key="questions">
             <div className={styles.tableHeader}>
               <div className={styles.tableActions}>
@@ -1092,7 +1112,7 @@ const DatasetDetailPage: React.FC = () => {
 
           {/* AI生成问答对 */}
           <TabPane tab="AI生成问答对" key="generate-qa">
-            {dataset && id && <QuestionGenerationContent datasetId={id} />}
+            {dataset && id && <QuestionGenerationContent datasetId={id} onGenerationComplete={fetchQuestions} />}
           </TabPane>
 
         </Tabs>
@@ -1150,13 +1170,13 @@ const DatasetDetailPage: React.FC = () => {
                   <Form.Item
                     name="category"
                     label="分类"
-                    initialValue="general"
+                    initialValue="事实型"
                   >
                     <Select>
-                      <Option value="factoid">事实型</Option>
-                      <Option value="conceptual">概念型</Option>
-                      <Option value="procedural">程序型</Option>
-                      <Option value="comparative">比较型</Option>
+                      <Option value="事实型">事实型</Option>
+                      <Option value="概念型">概念型</Option>
+                      <Option value="程序型">程序型</Option>
+                      <Option value="比较型">比较型</Option>
                     </Select>
                   </Form.Item>
                 </Col>

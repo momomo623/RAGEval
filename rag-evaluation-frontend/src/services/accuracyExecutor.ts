@@ -15,6 +15,8 @@ export interface TestProgress {
   totalBatches?: number;
   averageResponseTime?: number;    // 平均响应时间
   remainingTimeEstimate?: number;  // 剩余时间估计
+  real_total?: number;
+  elapsedTime?: number; // 新增：已花费的时间（毫秒）
 }
 
 /**
@@ -290,19 +292,101 @@ async function executeWithConcurrencyLimit(
         const successfulResults = results.filter(r => r.processing_time);
         const times = successfulResults.map(r => r.processing_time || 0);
         times.push(result.processing_time);
-        progress.averageResponseTime = times.reduce((a, b) => a + b, 0) / times.length;
         
-        // 计算剩余时间估计
-        if (progress.total > 0) {
-          const remainingItems = progress.total - progress.completed;
-          const elapsedTime = performance.now() - startTime;
-          const timePerItem = elapsedTime / progress.completed;
-          progress.remainingTimeEstimate = remainingItems * timePerItem;
+        // 转换为秒，确保单位一致
+        const timesInSeconds = times.map(time => typeof time === 'number' ? time / 1000 : 0);
+        
+        // 计算平均值
+        progress.averageResponseTime = timesInSeconds.reduce((a, b) => a + b, 0) / timesInSeconds.length;
+        
+        // 计算剩余时间估计 - 改进计算逻辑
+        if (progress.total > 0 && progress.completed > 0) {
+          const elapsedTimeMs = performance.now() - startTime;
+          
+          // 确保已用时间计算正确
+          progress.elapsedTime = elapsedTimeMs;
+          
+          // 获取已完成项目的平均处理时间(每项耗时)
+          const avgTimePerItem = elapsedTimeMs / progress.completed;
+          
+          // 记录上一次的剩余项目数量，用于检测突变
+          const prevRemainingItems = progress.remainingTimeEstimate ? 
+            Math.ceil(progress.remainingTimeEstimate / Math.max(avgTimePerItem, 1000)) : 
+            (progress.total - progress.completed);
+          
+          // 计算当前剩余项目数量
+          const currentRemainingItems = progress.total - progress.completed;
+          
+          // 检测剩余项目数是否有突变(>20%的变化)
+          const isAnomalousChange = prevRemainingItems > 0 && 
+            Math.abs(currentRemainingItems - prevRemainingItems) / prevRemainingItems > 0.2;
+            
+          // 使用平滑后的剩余项目数，防止因为total突变导致预计时间跳变
+          let smoothedRemainingItems = currentRemainingItems;
+          if (isAnomalousChange && progress.remainingTimeEstimate) {
+            // 如果检测到异常变化，使用加权平均更新剩余项目数
+            smoothedRemainingItems = Math.round(0.8 * prevRemainingItems + 0.2 * currentRemainingItems);
+            console.log('检测到剩余项目数异常变化', {
+              prev: prevRemainingItems,
+              current: currentRemainingItems,
+              smoothed: smoothedRemainingItems
+            });
+          }
+          
+          // 使用平滑后的剩余项目数计算预估时间
+          let rawEstimatedTimeRemaining = smoothedRemainingItems * avgTimePerItem;
+          
+          // 安全边界：确保剩余时间不会突然变得太小
+          if (smoothedRemainingItems > 0 && rawEstimatedTimeRemaining < 30000) {
+            rawEstimatedTimeRemaining = Math.max(30000, smoothedRemainingItems * Math.max(avgTimePerItem, 5000));
+          }
+          
+          // 更强的平滑处理，减少波动
+          let estimatedTimeRemaining = rawEstimatedTimeRemaining;
+          if (progress.remainingTimeEstimate) {
+            // 根据剩余比例动态调整平滑系数
+            // 当完成度接近100%时，减少当前估计的权重，保持更稳定
+            const completionRatio = progress.completed / progress.total;
+            const currentEstimateWeight = Math.max(0.1, 0.4 - completionRatio * 0.3); // 权重范围从0.4降到0.1
+            const prevEstimateWeight = 1 - currentEstimateWeight;
+            
+            estimatedTimeRemaining = (prevEstimateWeight * progress.remainingTimeEstimate) + 
+                                     (currentEstimateWeight * rawEstimatedTimeRemaining);
+            
+            // 额外的波动控制：限制单次估计变化不超过30%
+            const maxChange = 0.3 * progress.remainingTimeEstimate;
+            if (Math.abs(estimatedTimeRemaining - progress.remainingTimeEstimate) > maxChange) {
+              // 限制变化幅度
+              const direction = estimatedTimeRemaining > progress.remainingTimeEstimate ? 1 : -1;
+              estimatedTimeRemaining = progress.remainingTimeEstimate + (direction * maxChange);
+            }
+          }
+          
+          // 更新估计的剩余时间
+          progress.remainingTimeEstimate = estimatedTimeRemaining;
+          
+          // 添加详细调试日志
+          console.log(`改进版精度测试时间计算:`, {
+            progress: Math.round(progress.completed / progress.total * 100) + '%',
+            elapsedMs: elapsedTimeMs,
+            avgTimePerItem,
+            rawRemaining: currentRemainingItems,
+            smoothedRemaining: smoothedRemainingItems, 
+            rawEstimateMs: rawEstimatedTimeRemaining,
+            finalEstimateMs: estimatedTimeRemaining,
+            changeLimit: progress.remainingTimeEstimate ? 'applied' : 'n/a'
+          });
         }
       }
       
+      // 计算已花费时间
+      progress.elapsedTime = performance.now() - startTime;
+      
       // 更新进度回调
-      progressCallback(progress);
+      if (progressCallback) {
+        console.log('精度评测执行器报告进度:', progress);
+        progressCallback({...progress});
+      }
       
       results.push(result);
     } catch (error) {
@@ -381,9 +465,44 @@ class AccuracyQuestionBufferManager {
     this.pageSize = Math.max(50, concurrency * 3); // 每页至少加载并发数的3倍
   }
   
-  // 初始化加载
-  async initialize(): Promise<void> {
-    await this.loadMoreQuestions();
+  // 修改初始化方法，预先获取总问题数
+  async initialize(): Promise<number> {
+    if (!this.datasetId) {
+      console.error('缺少数据集ID，无法初始化精度评测');
+      return 0;
+    }
+    
+    try {
+      // 只请求一个问题，主要目的是获取总数
+      const params: any = {
+        page: 1,
+        size: 1 // 只获取一条记录，减少数据传输
+      };
+      
+      if (this.version) {
+        params.version = this.version;
+      }
+      
+      // 获取问题数据以获取总数
+      const response = await datasetService.getQuestions(this.datasetId, params);
+      
+      // 获取总问题数
+      const totalCount = response.total || 0;
+      console.log(`精度评测初始化：获取到数据集总问题数: ${totalCount}`);
+      
+      // 通知总数
+      if (this.onAllQuestionsLoaded && totalCount > 0) {
+        this.onAllQuestionsLoaded(totalCount);
+      }
+      
+      // 加载第一批真实数据
+      await this.loadMoreQuestions();
+      
+      return totalCount;
+    } catch (error) {
+      console.error('初始化获取精度评测问题总数失败:', error);
+      return 0;
+    }
   }
   
   // 获取下一个可用的问题
@@ -552,6 +671,10 @@ class AccuracyQuestionBufferManager {
     this.loading = false;
     this.totalLoaded = 0;
   }
+
+  public getConcurrency(): number {
+    return this.concurrency;
+  }
 }
 
 /**
@@ -566,9 +689,9 @@ async function executeWithBufferedAccuracyTest(
   const results: any[] = [];
   const startTime = performance.now();
   
-  // 初始化进度对象
+  // 初始化进度对象，使用已经获取的实际问题总数
   const progress: TestProgress = {
-    total: 0,  // 将动态更新
+    total: questionBuffer.getTotalLoaded() || test.questionCount || 0,  // 使用已知总数
     completed: 0,
     success: 0,
     failed: 0,
@@ -578,6 +701,22 @@ async function executeWithBufferedAccuracyTest(
   let processedQuestionCount = 0;
   let activeRequests = 0;  // 跟踪活动请求数量
   let allQuestionsProcessed = false;  // 标记是否所有问题都已处理
+  
+  // 设置问题缓冲区加载完成后的回调，维持real_total的稳定性
+  questionBuffer.onAllQuestionsLoaded = (totalCount: number) => {
+    console.log(`已确认精度评测实际问题总数: ${totalCount}`);
+    
+    // 只设置real_total，不再修改total
+    if (!progress.real_total || totalCount > progress.real_total) {
+      console.log(`更新精度评测真实总数: ${progress.real_total || 0} -> ${totalCount}`);
+      progress.real_total = totalCount;
+      
+      // 注意：这里不再自动更新total，保持其稳定性
+      if (progressCallback) {
+        progressCallback({...progress});
+      }
+    }
+  };
   
   // 处理单个问题的函数
   const processQuestion = async (question: any): Promise<void> => {
@@ -617,27 +756,105 @@ async function executeWithBufferedAccuracyTest(
         const successfulResults = results.filter(r => r.processing_time);
         const times = successfulResults.map(r => r.processing_time || 0);
         times.push(result.processing_time);
-        progress.averageResponseTime = times.reduce((a, b) => a + b, 0) / times.length;
         
-        // 计算剩余时间估计
-        if (progress.total > 0) {
-          const remainingItems = progress.total - progress.completed;
-          const elapsedTime = performance.now() - startTime;
-          const timePerItem = elapsedTime / progress.completed;
-          progress.remainingTimeEstimate = remainingItems * timePerItem;
+        // 转换为秒，确保单位一致
+        const timesInSeconds = times.map(time => typeof time === 'number' ? time / 1000 : 0);
+        
+        // 计算平均值
+        progress.averageResponseTime = timesInSeconds.reduce((a, b) => a + b, 0) / timesInSeconds.length;
+        
+        // 计算剩余时间估计 - 改进计算逻辑
+        if (progress.real_total && progress.completed > 0) {
+          const elapsedTimeMs = performance.now() - startTime;
+          progress.elapsedTime = elapsedTimeMs;
+          
+          // 计算实际处理速率(每秒完成的问题数)，考虑并发
+          const questionsPerSecond = progress.completed / (elapsedTimeMs / 1000);
+          
+          // 获取实际并发数
+          const actualConcurrency = test.batch_settings?.concurrency || questionBuffer.getConcurrency() || 1;
+          
+          // 剩余问题数
+          const remainingItems = progress.real_total - progress.completed;
+          
+          // 计算剩余时间 - 考虑并发处理的影响
+          // 理论上，处理速率应该和并发数成正比，但由于系统开销和资源竞争，实际增长会趋于平缓
+          // 使用下面的公式估算处理剩余问题所需的时间
+          let rawEstimatedTimeRemaining = (remainingItems / questionsPerSecond) * 1000;
+          
+          // 对于刚开始的情况，基于已有平均响应时间和并发数计算
+          if (progress.averageResponseTime && progress.completed < 5) {
+            // 如果刚开始评测，使用平均响应时间和并发数来估算
+            const estimatedTimePerBatch = progress.averageResponseTime * 1000; // 毫秒
+            const batchesRemaining = Math.ceil(remainingItems / actualConcurrency);
+            const alternateEstimate = estimatedTimePerBatch * batchesRemaining;
+            
+            // 在处理初期，更信任基于响应时间的估计
+            rawEstimatedTimeRemaining = alternateEstimate;
+            
+            console.log('初期基于响应时间的估计:', {
+              averageResponseTime: progress.averageResponseTime,
+              concurrency: actualConcurrency,
+              batchesRemaining,
+              alternateEstimate
+            });
+          }
+          
+          // 安全边界和平滑处理，避免估计值过大或过小的波动
+          if (progress.remainingTimeEstimate) {
+            // 动态调整平滑系数 - 随着进度增加，更信任当前测量值
+            const completionRatio = progress.completed / progress.real_total;
+            const currentEstimateWeight = Math.min(0.7, 0.3 + completionRatio * 0.5); // 权重从0.3增加到0.7
+            
+            // 应用加权平均
+            const prevEstimateWeight = 1 - currentEstimateWeight;
+            let smoothedEstimate = (prevEstimateWeight * progress.remainingTimeEstimate) + 
+                                   (currentEstimateWeight * rawEstimatedTimeRemaining);
+            
+            // 限制单次变化幅度 - 允许的变化百分比随完成进度增加
+            const maxChangePercent = 0.1 + (completionRatio * 0.3); // 从10%增加到40%
+            const maxChange = maxChangePercent * progress.remainingTimeEstimate;
+            
+            if (Math.abs(smoothedEstimate - progress.remainingTimeEstimate) > maxChange) {
+              // 限制变化幅度
+              const direction = smoothedEstimate > progress.remainingTimeEstimate ? 1 : -1;
+              smoothedEstimate = progress.remainingTimeEstimate + (direction * maxChange);
+            }
+            
+            // 确保剩余少量问题时，预估时间不会太长
+            if (remainingItems < actualConcurrency * 3 && smoothedEstimate > 60000) {
+              smoothedEstimate = Math.min(smoothedEstimate, 60000); // 最多显示1分钟
+            }
+            
+            // 更新估计值
+            progress.remainingTimeEstimate = smoothedEstimate;
+          } else {
+            // 第一次估计，直接使用原始计算值
+            progress.remainingTimeEstimate = rawEstimatedTimeRemaining;
+          }
+          
+          // 详细日志
+          console.log(`并发优化的精度测试时间计算:`, {
+            progress: Math.round(progress.completed / progress.real_total * 100) + '%',
+            elapsedMs: elapsedTimeMs,
+            questionsPerSecond,
+            concurrency: actualConcurrency,
+            completed: progress.completed,
+            remaining: remainingItems,
+            rawEstimateMs: rawEstimatedTimeRemaining,
+            finalEstimateMs: progress.remainingTimeEstimate
+          });
         }
       }
       
-      // 更新测试进度，保持total不变
+      // 计算已花费时间
+      progress.elapsedTime = performance.now() - startTime;
+      
+      // 更新测试进度 - 修改这部分
       if (progressCallback) {
-        const progressToReport = {
-          ...progress,
-          // 只有在total为0时才更新total为当前加载总数
-          total: progress.total || questionBuffer.getTotalLoaded() + (questionBuffer.hasMore() ? 50 : 0)
-        };
-        
-        console.log('精度评测执行器报告进度:', progressToReport);
-        progressCallback(progressToReport);
+        // 不要创建新的进度对象，使用现有对象，确保total不被覆盖
+        console.log('精度评测执行器报告进度:', progress);
+        progressCallback({...progress});
       }
       
       results.push(result);
@@ -802,18 +1019,19 @@ export async function executeAccuracyTest(
         }
       );
       
-      // 初始化缓冲区并验证至少有一个问题
-      await questionBuffer.initialize();
+      // 初始化缓冲区，获取总问题数
+      const totalQuestions = await questionBuffer.initialize();
+      
+      // 立即更新进度对象，设置固定的real_total和初始total
+      updateProgress({ 
+        total: totalQuestions,
+        real_total: totalQuestions  // 这是唯一一次设置real_total的地方
+      });
       
       // 确保缓冲区至少加载了一个问题，否则抛出错误
       if (questionBuffer.getRemainingCount() === 0 && !questionBuffer.hasMore()) {
         throw new Error(`未能从数据集 ${test.dataset_id} 加载任何精度评测问题`);
       }
-      
-      console.log(`初始加载了 ${questionBuffer.getRemainingCount()} 个精度评测问题，开始执行测试`);
-      
-      // 设置初始总数为已加载的问题数
-      updateProgress({ total: questionBuffer.getRemainingCount() });
       
       // 执行带缓冲区的测试
       await executeWithBufferedAccuracyTest(

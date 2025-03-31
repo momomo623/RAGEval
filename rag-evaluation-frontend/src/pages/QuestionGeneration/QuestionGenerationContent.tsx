@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Upload, Spin, Form, InputNumber, Select, Radio, Divider, message, Table, Progress, Alert, Checkbox, Slider, Modal, Tooltip } from 'antd';
-import { UploadOutlined, FileTextOutlined, CheckCircleOutlined, CloseCircleOutlined, ReloadOutlined, FullscreenOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Card, Button, Upload, Spin, Form, InputNumber, Select, Radio, Divider, message, Table, Progress, Alert, Checkbox, Slider, Modal, Tooltip, Input } from 'antd';
+import { UploadOutlined, FileTextOutlined, CheckCircleOutlined, CloseCircleOutlined, ReloadOutlined, FullscreenOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useConfigContext } from '../../contexts/ConfigContext';
 import { questionGeneratorService, SplitterType } from '../../services/QuestionGeneratorService';
@@ -12,6 +12,7 @@ const { Column } = Table;
 
 interface QuestionGenerationContentProps {
   datasetId: string;
+  onGenerationComplete?: () => void;
 }
 
 // 新增类型，用于保存文件内容
@@ -20,7 +21,7 @@ interface FileContent {
   content: string;
 }
 
-const QuestionGenerationContent: React.FC<QuestionGenerationContentProps> = ({ datasetId }) => {
+const QuestionGenerationContent: React.FC<QuestionGenerationContentProps> = ({ datasetId, onGenerationComplete }) => {
   const navigate = useNavigate();
   const { getLLMConfig } = useConfigContext();
   const [form] = Form.useForm();
@@ -56,11 +57,26 @@ const QuestionGenerationContent: React.FC<QuestionGenerationContentProps> = ({ d
   // 添加选择行状态
   const [selectedQAKeys, setSelectedQAKeys] = useState<React.Key[]>([]);
   
+  // 添加提示词预览功能
+  const [promptTemplate, setPromptTemplate] = useState<string>('');
+  const [promptModalVisible, setPromptModalVisible] = useState(false);
+  
+  // 在组件的状态部分添加自定义提示词模板的状态
+  const [customPromptTemplate, setCustomPromptTemplate] = useState<string>('');
+  const [useCustomPrompt, setUseCustomPrompt] = useState(false);
+  
   useEffect(() => {
     // 检查LLM配置
     const llmConfig = getLLMConfig();
     setIsConfigured(!!llmConfig);
   }, [getLLMConfig]);
+  
+  // 在组件初始化时，获取默认提示词模板
+  useEffect(() => {
+    // 获取默认提示词模板
+    const defaultTemplate = questionGeneratorService.getDefaultPromptTemplate();
+    setCustomPromptTemplate(defaultTemplate);
+  }, []);
   
   const handleFileUpload = async (info: any) => {
     let fileList = [...info.fileList];
@@ -165,6 +181,41 @@ const QuestionGenerationContent: React.FC<QuestionGenerationContentProps> = ({ d
     );
   };
   
+  // 添加处理提示词更改的函数
+  const handlePromptChange = (value: string) => {
+    setCustomPromptTemplate(value);
+  };
+  
+  // 修改预览提示词的函数，使其使用自定义提示词
+  const previewPrompt = () => {
+    if (chunks.filter(c => c.selected).length === 0) {
+      message.warning('请至少选择一个文本块');
+      return;
+    }
+
+    const values = form.getFieldsValue();
+    const params: GenerationParams = {
+      count: values.count,
+      difficulty: values.difficulty,
+      questionTypes: values.questionTypes,
+      maxTokens: values.maxTokens
+    };
+
+    // 获取第一个选中的文本块作为示例
+    const sampleChunk = chunks.find(c => c.selected);
+    if (sampleChunk) {
+      // 使用服务中的buildPrompt方法获取实际的提示词，传入自定义模板
+      const promptPreview = questionGeneratorService.previewPrompt(
+        sampleChunk.content,
+        params,
+        useCustomPrompt ? customPromptTemplate : undefined
+      );
+      setPromptTemplate(promptPreview);
+      setPromptModalVisible(true);
+    }
+  };
+  
+  // 修改生成问答对的函数，传递并发数
   const handleGenerateQA = async () => {
     try {
       await form.validateFields();
@@ -185,14 +236,15 @@ const QuestionGenerationContent: React.FC<QuestionGenerationContentProps> = ({ d
         count: values.count,
         difficulty: values.difficulty,
         questionTypes: values.questionTypes,
-        maxTokens: values.maxTokens
+        maxTokens: values.maxTokens,
+        concurrency: values.concurrency // 添加并发数
       };
       
       setIsGenerating(true);
       setCurrentTab('generate');
       setGeneratedQAs([]);
       
-      // 开始生成问答对
+      // 开始生成问答对，传入自定义提示词和并发数
       await questionGeneratorService.generateQAPairs(
         params,
         datasetId,
@@ -208,7 +260,8 @@ const QuestionGenerationContent: React.FC<QuestionGenerationContentProps> = ({ d
             setCurrentTab('results');
             setIsGenerating(false);
           }
-        }
+        },
+        useCustomPrompt ? customPromptTemplate : undefined
       );
     } catch (error) {
       message.error(`生成问答对失败: ${(error as Error).message}`);
@@ -223,6 +276,9 @@ const QuestionGenerationContent: React.FC<QuestionGenerationContentProps> = ({ d
   
   const handleFinish = () => {
     message.success('问答对已保存到数据集');
+    if (onGenerationComplete) {
+      onGenerationComplete();
+    }
     navigate(`/datasets/${datasetId}`);
   };
   
@@ -271,6 +327,58 @@ const QuestionGenerationContent: React.FC<QuestionGenerationContentProps> = ({ d
       }
     });
   };
+  
+  // 在表单下方添加提示词模板编辑区域
+  const renderPromptTemplateEditor = () => (
+    <div className={styles.promptTemplateEditor}>
+      <Divider>提示词模板设置</Divider>
+      <div className={styles.promptTemplateHeader}>
+        <Checkbox 
+          checked={useCustomPrompt} 
+          onChange={(e) => setUseCustomPrompt(e.target.checked)}
+        >
+          使用自定义提示词模板
+        </Checkbox>
+        {useCustomPrompt && (
+          <Button 
+            size="small" 
+            onClick={() => {
+              const defaultTemplate = questionGeneratorService.getDefaultPromptTemplate();
+              setCustomPromptTemplate(defaultTemplate);
+            }}
+          >
+            恢复默认
+          </Button>
+        )}
+      </div>
+      {useCustomPrompt && (
+        <div className={styles.promptTemplateContent}>
+          <Alert 
+            message="提示词模板说明" 
+            description={
+              <>
+                <p>在模板中可以使用以下占位符：</p>
+                <ul>
+                  <li><code>{'{{text}}'}</code> - 文本块内容</li>
+                  <li><code>{'{{count}}'}</code> - 每块生成的问题数量</li>
+                </ul>
+                <p>修改提示词模板可能会影响解析，请确保输出格式保持一致。</p>
+              </>
+            }
+            type="info" 
+            showIcon 
+            style={{ marginBottom: 16 }}
+          />
+          <Input.TextArea
+            value={customPromptTemplate}
+            onChange={(e) => handlePromptChange(e.target.value)}
+            autoSize={{ minRows: 6, maxRows: 12 }}
+            disabled={!useCustomPrompt}
+          />
+        </div>
+      )}
+    </div>
+  );
   
   const renderUploadContent = () => (
     <Card title="上传文件" className={styles.card}>
@@ -450,7 +558,7 @@ const QuestionGenerationContent: React.FC<QuestionGenerationContentProps> = ({ d
             <InputNumber min={1} max={10} />
           </Form.Item>
           
-          <Form.Item
+          {/* <Form.Item
             name="difficulty"
             label="问题难度"
             rules={[{ required: true }]}
@@ -461,7 +569,7 @@ const QuestionGenerationContent: React.FC<QuestionGenerationContentProps> = ({ d
               <Option value="hard">困难</Option>
               <Option value="mixed">混合</Option>
             </Select>
-          </Form.Item>
+          </Form.Item> */}
           
           <Form.Item
             name="questionTypes"
@@ -483,12 +591,30 @@ const QuestionGenerationContent: React.FC<QuestionGenerationContentProps> = ({ d
           >
             <InputNumber min={50} max={1000} />
           </Form.Item>
+          
+          <Form.Item
+            name="concurrency"
+            label="并发请求数"
+            rules={[{ required: true }]}
+            initialValue={3}
+            tooltip="同时处理的文本块数量，较高的值可能加快生成速度但会增加API调用的频率"
+          >
+            <InputNumber min={1} max={10} style={{ width: '100%' }} />
+          </Form.Item>
         </div>
       </Form>
+      
+      {renderPromptTemplateEditor()}
       
       <div className={styles.actionBar}>
         <Button onClick={() => setCurrentTab('upload')}>
           返回上传
+        </Button>
+        <Button
+          onClick={previewPrompt}
+          icon={<EyeOutlined />}
+        >
+          预览提示词
         </Button>
         <Button
           type="primary"
@@ -684,38 +810,35 @@ const QuestionGenerationContent: React.FC<QuestionGenerationContentProps> = ({ d
               </Tooltip>
             )}
           />
-<Column 
-          title="难度" 
-          dataIndex="difficulty" 
-          key="difficulty" 
-          width={100}
-          render={(text) => {
-            const difficultyMap = {
-              'easy': '简单',
-              'medium': '中等',
-              'hard': '困难'
-            };
-            return (difficultyMap as any)[text] || text;
-          }}
-        />
-        <Column 
-          title="类别" 
-          dataIndex="category" 
-          key="category" 
-          width={100}
-          render={(text) => {
-            const categoryMap = {
-              'factoid': '事实型',
-              'conceptual': '概念型',
-              'procedural': '程序型',
-              'comparative': '比较型'
-            };
-            return (categoryMap as any)[text] || text;
-          }}
-        />
-
-          {/* <Column title="难度" dataIndex="difficulty" key="difficulty" width={100} />
-          <Column title="类别" dataIndex="category" key="category" width={100} /> */}
+          <Column 
+            title="难度" 
+            dataIndex="difficulty" 
+            key="difficulty" 
+            width={100}
+            render={(text) => {
+              const difficultyMap = {
+                'easy': '简单',
+                'medium': '中等',
+                'hard': '困难'
+              };
+              return (difficultyMap as any)[text] || text;
+            }}
+          />
+          <Column 
+            title="类别" 
+            dataIndex="category" 
+            key="category" 
+            width={100}
+            render={(text) => {
+              const categoryMap = {
+                'factoid': '事实型',
+                'conceptual': '概念型',
+                'procedural': '程序型',
+                'comparative': '比较型'
+              };
+              return (categoryMap as any)[text] || text;
+            }}
+          />
           <Column title="来源文件" dataIndex="sourceFileName" key="sourceFileName" width={180} ellipsis />
         </Table>
       </div>
@@ -737,6 +860,23 @@ const QuestionGenerationContent: React.FC<QuestionGenerationContentProps> = ({ d
       {currentTab === 'chunks' && renderChunksContent()}
       {currentTab === 'generate' && renderGenerationContent()}
       {currentTab === 'results' && renderResultsContent()}
+      
+      {/* 添加提示词预览模态窗口 */}
+      <Modal
+        title="提示词预览"
+        open={promptModalVisible}
+        onCancel={() => setPromptModalVisible(false)}
+        footer={[
+          <Button key="back" onClick={() => setPromptModalVisible(false)}>
+            关闭
+          </Button>
+        ]}
+        width={800}
+      >
+        <div className={styles.promptPreview}>
+          <pre>{promptTemplate}</pre>
+        </div>
+      </Modal>
     </div>
   );
 };

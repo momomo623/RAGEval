@@ -194,7 +194,7 @@ const CreateDatasetPage: React.FC = () => {
 
           <Divider />
 
-          <div className={styles.section}>
+          {/* <div className={styles.section}>
             <Title level={4}>数据导入选项</Title>
             <Text type="secondary">选择如何添加问答数据</Text>
 
@@ -225,7 +225,7 @@ const CreateDatasetPage: React.FC = () => {
                 </Space>
               </Radio.Group>
             </div>
-          </div>
+          </div> */}
 
           <div className={styles.formActions}>
             <Button onClick={() => navigate('/datasets')}>取消</Button>

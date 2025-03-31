@@ -114,7 +114,7 @@ const DatasetsPage: React.FC = () => {
   };
 
   const handleFilterTagChange = (value: string) => {
-    const tags = value === 'all' ? undefined : value;
+    const tags = value ? value : undefined;
     setFilterTags(tags);
     setCurrentPage(1);
   };
@@ -156,9 +156,12 @@ const DatasetsPage: React.FC = () => {
             overlay={menu} 
             trigger={['click']} 
             placement="bottomRight"
-            onClick={(e) => e.stopPropagation()}
           >
-            <Button type="text" icon={<EllipsisOutlined />} />
+            <Button 
+              type="text" 
+              icon={<EllipsisOutlined />} 
+              onClick={(e) => e.stopPropagation()}
+            />
           </Dropdown>
         </div>
 
@@ -213,7 +216,7 @@ const DatasetsPage: React.FC = () => {
         <div className={styles.leftFilters}>
           <Select 
             defaultValue="all" 
-            style={{ width: 120 }} 
+            style={{ width: 130 }} 
             onChange={handleFilterTypeChange}
           >
             <Option value="all">所有数据集</Option>
@@ -221,17 +224,23 @@ const DatasetsPage: React.FC = () => {
             <Option value="public">公开数据集</Option>
             <Option value="private">私有数据集</Option>
           </Select>
-          <Select 
-            defaultValue="all" 
-            style={{ width: 120 }} 
-            onChange={handleFilterTagChange}
-          >
-            <Option value="all">所有标签</Option>
-            <Option value="product">产品</Option>
-            <Option value="technical">技术</Option>
-            <Option value="user">用户</Option>
-            <Option value="api">API</Option>
-          </Select>
+          <Input
+            placeholder="输入标签搜索"
+            allowClear
+            style={{ width: 130 }}
+            onChange={(e) => {
+              const value = e.target.value;
+              const tags = value ? value : undefined;
+              setFilterTags(tags);
+              setCurrentPage(1);
+            }}
+            onPressEnter={(e) => {
+              const value = (e.target as HTMLInputElement).value;
+              const tags = value ? value : undefined;
+              setFilterTags(tags);
+              setCurrentPage(1);
+            }}
+          />
         </div>
         <Input.Search
           placeholder="搜索数据集"

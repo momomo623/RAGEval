@@ -39,6 +39,6 @@ sdist/
 /.vscode/
 
 # 添加以下内容到.gitignore文件
-rag-evaluation-frontend/nginx/cert/
-rag-evaluation-frontend/nginx/default_cert.conf
+docker/nginx/cert/
+docker/nginx/default_cert.conf
 docker_https/

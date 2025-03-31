@@ -41,6 +41,13 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
   // 添加并发数设置状态
   const [concurrency, setConcurrency] = useState<number>(10);
 
+  const [isConfigured, setIsConfigured] = useState(false);
+  useEffect(() => {
+    // 检查LLM配置
+    const llmConfig = getLLMConfig();
+    setIsConfigured(!!llmConfig);
+  }, [getLLMConfig]);
+
   // 初始加载测试列表和并发数设置
   useEffect(() => {
     fetchTests();
@@ -123,6 +130,7 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
       const llmConfig = getLLMConfig();
       if (!llmConfig) {
         setShowConfigWarning(true);
+        message.warning('未配置大模型API，请先配置大模型API才能使用精度评测功能');
         return;
       }
 
@@ -157,9 +165,10 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
         [], // 空数组触发缓冲区模式
         (progress) => {
           // 确保total被正确保留
-          if (progress.total > 0) {
-            progressState.total = progress.total;
-          }
+          // if (progress.total > 0) {
+          //   progressState.total = progress.total;
+          //   console.log("11111111122222222进度状态",progressState)
+          // }
           
           // 确保其他字段也被更新
           progressState = {
@@ -167,6 +176,7 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
             ...progress,
             total: progressState.total > 0 ? progressState.total : progress.total
           };
+
           
           setProgress({...progressState});
         },
@@ -189,68 +199,116 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
     setDetailVisible(true);
   };
 
-  // 渲染测试进度
+  // 修复格式化时间的辅助函数
+  const formatTime = (milliseconds: number): string => {
+    if (!milliseconds || isNaN(milliseconds)) return '计算中...';
+    
+    // 确保毫秒值是一个有效的数字
+    const ms = Math.abs(Math.floor(milliseconds));
+    
+    // 转换为秒
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    
+    // 格式化为时:分:秒
+    const formattedHours = hours.toString().padStart(2, '0');
+    const formattedMinutes = (minutes % 60).toString().padStart(2, '0');
+    const formattedSeconds = (seconds % 60).toString().padStart(2, '0');
+
+    
+    if (hours > 0) {
+      return `${formattedHours}:${formattedMinutes}:${formattedSeconds}`;
+    } else {
+      return `${formattedMinutes}:${formattedSeconds}`;
+    }
+  };
+
+  // 修改渲染测试进度函数，使其风格与性能测试一致
   const renderProgress = () => {
     if (!progress || !runningTestId) return null;
 
     const test = tests.find(test => test.id === runningTestId);
     if (!test) return null;
 
-    const elapsedSeconds = progress.startTime 
-      ? Math.floor((performance.now() - progress.startTime) / 1000) 
-      : 0;
-
-    const formatTime = (seconds: number) => {
-      const mins = Math.floor(seconds / 60);
-      const secs = seconds % 60;
-      return `${mins}:${secs.toString().padStart(2, '0')}`;
-    };
-
     return (
-      <Card 
-        className={styles.progressCard}
-        title={`正在执行测试: ${test.name}`} 
-        extra={<Text type="secondary">已用时间: {formatTime(elapsedSeconds)}</Text>}
-      >
-        <Row gutter={16}>
-          <Col span={16}>
-            <Progress 
-              percent={progress.total ? Math.floor((progress.completed / progress.total) * 100) : 0} 
-              status={runningTestId ? "active" : "normal"}
-            />
-            <div style={{ marginTop: 8 }}>
-              <Space>
-                <Text>
-                  进度: {progress.completed}/{progress.total} 
-                  {progress.currentBatch && progress.totalBatches ? 
-                    ` (批次 ${progress.currentBatch}/${progress.totalBatches})` : ''}
-                </Text>
-                <Text type="success">成功: {progress.success}</Text>
-                <Text type="danger">失败: {progress.failed}</Text>
-              </Space>
+      <Card className={styles.progressCard}>
+        <div className={styles.progressHeader}>
+          <div>
+            <Typography.Title level={5}>正在执行精度测试</Typography.Title>
+            <Typography.Text type="secondary">
+              {test.name || ""}
+            </Typography.Text>
+          </div>
+          {/* 可选的停止按钮
+          <Button 
+            danger 
+            onClick={handleStopTest}
+          >
+            停止测试
+          </Button>
+          */}
+        </div>
+        
+        <Progress 
+          percent={progress.total ? Math.floor((progress.completed / progress.total) * 100) : 0} 
+          status="active"
+          strokeColor={{
+            '0%': '#108ee9',
+            '100%': '#87d068',
+          }}
+        />
+        
+        <div className={styles.progressDetails}>
+          <div className={styles.progressStat}>
+            <div className={styles.progressLabel}>总问题数</div>
+            <div className={styles.progressValue}>{progress.total || '计算中...'}</div>
+          </div>
+          {/* <div className={styles.progressStat}>
+            <div className={styles.progressLabel}>已完成</div>
+            <div className={styles.progressValue}>{progress.completed}</div>
+          </div> */}
+          <div className={styles.progressStat}>
+            <div className={styles.progressLabel}>成功</div>
+            <div className={styles.progressValue}>{progress.success}</div>
+          </div>
+          <div className={styles.progressStat}>
+            <div className={styles.progressLabel}>失败</div>
+            <div className={styles.progressValue}>{progress.failed}</div>
+          </div>
+          <div className={styles.progressStat}>
+            <div className={styles.progressLabel}>成功率</div>
+            <div className={styles.progressValue} style={{color: '#3f8600'}}>
+              {progress.completed ? Math.round((progress.success / progress.completed) * 100) : 0}%
             </div>
-          </Col>
-          <Col span={8}>
-            <Row gutter={[16, 16]}>
-              <Col span={12}>
-                <Statistic 
-                  title="成功率" 
-                  value={progress.completed ? Math.round((progress.success / progress.completed) * 100) : 0} 
-                  suffix="%" 
-                  valueStyle={{ color: '#3f8600' }}
-                />
-              </Col>
-              <Col span={12}>
-                <Statistic 
-                  title="失败率" 
-                  value={progress.completed ? Math.round((progress.failed / progress.completed) * 100) : 0} 
-                  suffix="%"
-                  valueStyle={{ color: '#cf1322' }}
-                />
-              </Col>
-            </Row>
-          </Col>
-        </Row>
+          </div>
+          <div className={styles.progressStat}>
+            <div className={styles.progressLabel}>平均响应时间</div>
+            <div className={styles.progressValue}>
+              {progress.averageResponseTime 
+                ? (progress.averageResponseTime < 100 
+                    ? progress.averageResponseTime.toFixed(2) + ' 秒' 
+                    : (progress.averageResponseTime / 60).toFixed(2) + ' 分钟')
+                : '计算中...'}
+            </div>
+          </div>
+          <div className={styles.progressStat}>
+            <div className={styles.progressLabel}>已用时间</div>
+            <div className={styles.progressValue}>{formatTime(progress.elapsedTime || 0)}</div>
+          </div>
+          <div className={styles.progressStat}>
+            <div className={styles.progressLabel}>预计剩余</div>
+            <div className={styles.progressValue}>{formatTime(progress.remainingTimeEstimate || 0)}</div>
+          </div>
+          {progress.currentBatch && progress.totalBatches && (
+            <div className={styles.progressStat}>
+              <div className={styles.progressLabel}>批次进度</div>
+              <div className={styles.progressValue}>
+                {progress.currentBatch}/{progress.totalBatches}
+              </div>
+            </div>
+          )}
+        </div>
       </Card>
     );
   };
@@ -272,6 +330,8 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
             <Select.Option value={15}>15</Select.Option>
             <Select.Option value={20}>20</Select.Option>
             <Select.Option value={30}>30</Select.Option>
+            <Select.Option value={50}>50</Select.Option>
+            <Select.Option value={100}>100</Select.Option>
           </Select>
         </Form.Item>
         <Form.Item>
@@ -297,7 +357,17 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
             新建测试
           </Button>
         </Space>
+
       </div>
+      {!isConfigured && (
+          <Alert
+            message="未配置大模型API"
+            description="请先配置大模型API才能使用精度评测功能"
+            type="warning"
+            showIcon
+            style={{ marginBottom: 16 }}
+          />
+        )}
 
       {/* 添加并发设置 */}
       {renderConcurrencySettings()}
@@ -359,6 +429,7 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
             title: '问题数',
             dataIndex: 'total_questions',
             key: 'total_questions',
+            render: (total_questions) => <Tag style={{ minWidth: '40px', textAlign: 'center' }}>{total_questions}</Tag>
           },
           {
             title: '整体得分',
@@ -366,7 +437,7 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
             key: 'overall_score',
             render: (summary) => {
               if (!summary || !summary.overall_score) return '-';
-              return <span>{summary.overall_score.toFixed(2)}</span>;
+              return <Tag color="blue" style={{ minWidth: '40px', textAlign: 'center' }}>{summary.overall_score.toFixed(2)}</Tag>;
             }
           },
           {

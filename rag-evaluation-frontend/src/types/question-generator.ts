@@ -9,7 +9,8 @@ export interface GenerationParams {
   count: number; // 每个块生成的问答对数量
   difficulty: 'easy' | 'medium' | 'hard' | 'mixed';
   questionTypes: ('factoid' | 'conceptual' | 'procedural' | 'comparative')[];
-  maxTokens: number; // 回答的最大token数
+  maxTokens?: number; // 回答的最大token数
+  concurrency?: number; // 添加并发数字段
 }
 
 export interface GeneratedQA {

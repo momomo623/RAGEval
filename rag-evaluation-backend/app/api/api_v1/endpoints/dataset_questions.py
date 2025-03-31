@@ -637,7 +637,7 @@ def export_questions(
             "标准答案": q.standard_answer,
             "分类": q.category,
             "难度": q.difficulty,
-            "类型": q.type,
+            # "类型": q.type,
             "标签": tags_str,
         })
     

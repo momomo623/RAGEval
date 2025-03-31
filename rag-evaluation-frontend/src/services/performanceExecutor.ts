@@ -12,6 +12,8 @@ export interface TestProgress {
   averageResponseTime?: number;
   remainingTimeEstimate?: number;
   startTime?: number;
+  real_total?: number;
+  elapsedTime?: number; // 新增：已花费的时间（毫秒）
 }
 
 // 单个测试结果数据结构
@@ -176,13 +178,29 @@ const executeWithBufferedQuestions = async (
   const results: TestResult[] = [];
   const startTime = performance.now();
   
-  // 初始化进度对象
+  // 初始化进度对象 - 此时使用从初始化函数获取的总数
   const progress: TestProgress = {
-    total: 0,  // 将动态更新
+    total: test.questionCount || 0,  // 使用测试设置的问题数或默认为0
     completed: 0,
     success: 0,
     failed: 0,
-    startTime
+    startTime: performance.now()
+  };
+  
+  // 设置问题缓冲区加载完成后的回调，更新real_total
+  questionBuffer.onAllQuestionsLoaded = (totalCount: number) => {
+    console.log(`已确认实际问题总数: ${totalCount}`);
+    
+    // 只有当获取到的总数大于当前设置的总数时才更新
+    if (totalCount > progress.total) {
+      console.log(`更新总问题数: ${progress.total} -> ${totalCount}`);
+      progress.real_total = totalCount;
+      progress.total = totalCount;
+      
+      if (progressCallback) {
+        progressCallback({...progress});
+      }
+    }
   };
   
   let processedQuestionCount = 0;
@@ -236,13 +254,34 @@ const executeWithBufferedQuestions = async (
         totalTimes.push(result.totalResponseTime);
         progress.averageResponseTime = totalTimes.reduce((a, b) => a + b, 0) / totalTimes.length;
         
-        if (progress.total > 0) {
+        // 修改时间预估计算方式
+        if (progress.total > 0 && progress.completed > 0) {
+          const elapsedTimeMs = performance.now() - startTime;
+          
+          // 确保已用时间计算正确
+          progress.elapsedTime = elapsedTimeMs;
+          
+          // 更准确地计算平均每项所需时间和剩余时间
+          const avgTimePerItem = elapsedTimeMs / progress.completed;
           const remainingItems = progress.total - progress.completed;
-          const elapsedTime = performance.now() - startTime;
-          const timePerItem = elapsedTime / progress.completed;
-          progress.remainingTimeEstimate = remainingItems * timePerItem;
+          
+          // 更科学的预估，考虑已处理项目的实际耗时
+          progress.remainingTimeEstimate = remainingItems * avgTimePerItem;
+          
+          // 调试输出，帮助诊断
+          console.log(`时间诊断:`, {
+            startTime,
+            now: performance.now(),
+            elapsedMs: elapsedTimeMs,
+            avgTimePerItem,
+            remainingItems,
+            estimatedRemainingMs: progress.remainingTimeEstimate
+          });
         }
       }
+      
+      // 计算已花费时间
+      progress.elapsedTime = performance.now() - startTime;
       
       // 更新测试进度，保持total不变
       if (progressCallback) {
@@ -348,7 +387,8 @@ export const executePerformanceTest = async (
       completed: 0,
       success: 0,
       failed: 0,
-      startTime: performance.now()
+      startTime: performance.now(),
+      real_total: 0
     };
     
     // 创建更新进度的内部函数
@@ -397,8 +437,23 @@ export const executePerformanceTest = async (
         }
       );
       
-      // 初始化缓冲区并验证至少有一个问题
-      await questionBuffer.initialize();
+      // 先初始化，获取总问题数
+      const totalQuestions = await questionBuffer.initialize();
+      
+      // 初始化进度对象，使用获取到的真实总数
+      const progress: TestProgress = {
+        total: totalQuestions,  // 使用真实总数初始化
+        real_total: totalQuestions,
+        completed: 0,
+        success: 0,
+        failed: 0,
+        startTime: performance.now()
+      };
+      
+      // 更新进度回调
+      if (progressCallback) {
+        progressCallback({...progress});
+      }
       
       // 确保缓冲区至少加载了一个问题，否则抛出错误
       if (questionBuffer.getRemainingCount() === 0 && !questionBuffer.hasMore()) {
@@ -463,9 +518,36 @@ class QuestionBufferManager {
     this.pageSize = Math.max(50, concurrency * 2); // 每页至少加载并发数的2倍
   }
   
-  // 初始化加载
-  async initialize(): Promise<void> {
-    await this.loadMoreQuestions();
+  // 添加初始化方法，在开始加载问题前获取总数
+  public async initialize(): Promise<number> {
+    if (!this.datasetId) {
+      console.error('缺少数据集ID，无法初始化');
+      return 0;
+    }
+    
+    try {
+      // 只请求第一页但设置pageSize=1，目的是只获取总数而不加载太多数据
+      const response = await api.get(`/api/v1/datasets-questions/${this.datasetId}/questions`, {
+        params: {
+          page: 1,
+          size: 1  // 只获取一条记录，减少数据传输
+        }
+      });
+      
+      // 获取总问题数
+      const totalCount = response.total || 0;
+      console.log(`初始化：获取到数据集总问题数: ${totalCount}`);
+      
+      // 通知总数
+      if (this.onAllQuestionsLoaded && totalCount > 0) {
+        this.onAllQuestionsLoaded(totalCount);
+      }
+      
+      return totalCount;
+    } catch (error) {
+      console.error('初始化获取问题总数失败:', error);
+      return 0;
+    }
   }
   
   // 获取下一个可用的问题
@@ -504,7 +586,6 @@ class QuestionBufferManager {
       }
       
       // 调整API路径，确保使用正确的端点格式
-      // 注意: 根据浏览器中显示的正确URL调整
       const response = await api.get(`/api/v1/datasets-questions/${this.datasetId}/questions`, {
         params: {
           page: this.currentPage,
@@ -519,7 +600,15 @@ class QuestionBufferManager {
       let newQuestions = [];
       if (response && response.items) {
         // 根据响应结构提取问题列表
-          newQuestions = response.items;
+        newQuestions = response.items;
+      }
+      
+      // 如果响应中包含total字段，更新real_total
+      if (response && response.total !== undefined) {
+        // 通知执行器更新实际问题总数
+        if (this.onAllQuestionsLoaded) {
+          this.onAllQuestionsLoaded(response.total);
+        }
       }
       
       console.log(`获取到 ${newQuestions.length} 个新问题, 样例:`, newQuestions[0]);
@@ -541,7 +630,7 @@ class QuestionBufferManager {
       
       // 如果已加载所有数据，通知调用者
       if (!this.hasMoreData && this.onAllQuestionsLoaded) {
-        const totalQuestions = this.questions.length;
+        const totalQuestions = response.total || this.questions.length;
         console.log(`已加载所有问题，总数: ${totalQuestions}`);
         this.onAllQuestionsLoaded(totalQuestions);
       }

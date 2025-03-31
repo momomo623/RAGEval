@@ -38,6 +38,15 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
   const { getRAGConfig } = useConfigContext();
   const [showConfigWarning, setShowConfigWarning] = useState(false);
   const [detailVisible, setDetailVisible] = useState(false);
+  const [isConfigured, setIsConfigured] = useState(false);
+  const [stoppingTest, setStoppingTest] = useState(false);
+
+  useEffect(() => {
+    // 检查LLM配置
+    const llmConfig = getRAGConfig();
+    setIsConfigured(!!llmConfig);
+  }, [getRAGConfig]);
+
 
   useEffect(() => {
     fetchTests();
@@ -112,6 +121,7 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
       if (!ragConfig) {
         setShowConfigWarning(true);
         setRunningTestId(null);
+        message.warning('未配置RAG系统，请先配置RAG系统才能使用性能测试功能');
         return;
       }
 
@@ -129,12 +139,12 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
         test,
         [], // 传递空数组，让函数使用缓冲区方式
         (currentProgress: TestProgress) => {
-          console.log('currentProgress', currentProgress);
           
           // 确保total被正确保留
           if (currentProgress.total > 0) {
             progressState.total = currentProgress.total;
           }
+          
           
           // 确保其他字段也被更新
           progressState = {
@@ -181,6 +191,46 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
     setView('detail');
   };
 
+  const formatTime = (milliseconds: number): string => {
+    if (!milliseconds || isNaN(milliseconds)) return '计算中...';
+    
+    // 确保毫秒值是一个有效的数字
+    const ms = Math.abs(Math.floor(milliseconds));
+    
+    // 转换为秒
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    
+    // 格式化为时:分:秒
+    const formattedHours = hours.toString().padStart(2, '0');
+    const formattedMinutes = (minutes % 60).toString().padStart(2, '0');
+    const formattedSeconds = (seconds % 60).toString().padStart(2, '0');
+    
+    if (hours > 0) {
+      return `${formattedHours}:${formattedMinutes}:${formattedSeconds}`;
+    } else {
+      return `${formattedMinutes}:${formattedSeconds}`;
+    }
+  };
+
+  const handleStopTest = async () => {
+    if (!runningTestId) return;
+    
+    try {
+      setStoppingTest(true);
+      await performanceService.cancel(runningTestId);
+      message.success('已停止测试');
+      fetchTests(); // 刷新测试列表以更新状态
+    } catch (error) {
+      console.error('停止测试失败:', error);
+      message.error('停止测试失败');
+    } finally {
+      setStoppingTest(false);
+      setRunningTestId(null);
+    }
+  };
+
   return (
     <div className={styles.container}>
       {showConfigWarning && (
@@ -206,9 +256,34 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
           新建测试
         </Button>
       </div>
+      {!isConfigured && (
+        <Alert
+          message="RAG系统接口未配置"
+          description="性能测试需要RAG系统接口配置才能运行，请先完成配置"
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+        />
+      )}
+      
       
       {runningTestId && progress && (
         <Card className={styles.progressCard}>
+          <div className={styles.progressHeader}>
+            <div>
+              <Typography.Title level={5}>正在执行性能测试</Typography.Title>
+              <Typography.Text type="secondary">
+                {tests.find(t => t.id === runningTestId)?.name || ""}
+              </Typography.Text>
+            </div>
+            {/* <Button 
+              danger 
+              onClick={handleStopTest}
+            >
+              停止测试
+            </Button> */}
+          </div>
+          
           <Progress 
             percent={Math.round((progress.completed / (progress.total || 1)) * 100)} 
             status="active"
@@ -217,19 +292,46 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
               '100%': '#87d068',
             }}
           />
-          <div style={{ marginTop: 12 }}>
-            <Space>
-              <Statistic title="总问题数" value={progress.total || '计算中...'} />
-              <Statistic title="已完成" value={progress.completed} />
-              <Statistic title="成功率" value={`${Math.round((progress.success / (progress.completed || 1)) * 100)}%`} />
-              {progress.averageResponseTime && (
-                <Statistic 
+          
+          <div className={styles.progressDetails}>
+            <div className={styles.progressStat}>
+              <div className={styles.progressLabel}>总问题数</div>
+              <div className={styles.progressValue}>{progress.total || '计算中...'}</div>
+            </div>
+          
+            <div className={styles.progressStat}>
+              <div className={styles.progressLabel}>成功</div>
+              <div className={styles.progressValue}>{progress.success}</div>
+            </div>
+            <div className={styles.progressStat}>
+              <div className={styles.progressLabel}>失败</div>
+              <div className={styles.progressValue}>{progress.failed}</div>
+            </div>
+            
+            <div className={styles.progressStat}>
+              <div className={styles.progressLabel}>平均响应时间</div>
+              <div className={styles.progressValue}>
+              {progress.averageResponseTime ? (
+                progress.averageResponseTime.toFixed(2) + ' 秒'
+              ) : (
+                '计算中...'
+              )}
+              </div>
+            </div>
+            <div className={styles.progressStat}>
+              <div className={styles.progressLabel}>已用时间</div>
+              <div className={styles.progressValue}>{formatTime(progress.elapsedTime || 0)}</div>
+            </div>
+            <div className={styles.progressStat}>
+              <div className={styles.progressLabel}>预计剩余</div>
+              <div className={styles.progressValue}>{formatTime(progress.remainingTimeEstimate || 0)}</div>
+            </div>
+            {/* <Statistic 
                   title="平均响应时间" 
                   value={progress.averageResponseTime.toFixed(2)} 
                   suffix="秒" 
-                />
-              )}
-            </Space>
+                /> */}
+            
           </div>
         </Card>
       )}
@@ -280,14 +382,18 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
           title: '问题数',
           dataIndex: 'total_questions',
           key: 'total_questions',
+          render: (total_questions) => <Tag  style={{ minWidth: '40px', textAlign: 'center' }}>{total_questions}</Tag>
         },
         {
           title: '成功率',
           key: 'success_rate',
+          // 标签 内部居中
           render: (_: any, record: any) => {
             if (record.status === 'completed' && record.total_questions > 0) {
               const successRate = (record.success_questions / record.total_questions * 100).toFixed(2);
-              return <span>{successRate}%</span>;
+              return <Tag style={{ minWidth: '40px', textAlign: 'center' }}>
+                {record.success_questions}- {record.total_questions} --
+                {successRate}%</Tag>;
             }
             return '-';
           },
@@ -297,7 +403,7 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
           key: 'avg_response_time',
           render: (_, record: any) => {
             if (record.status === 'completed' && record.summary_metrics?.response_time?.total_time?.avg) {
-              return <span>{record.summary_metrics.response_time.total_time.avg.toFixed(2)} 秒</span>;
+              return <Tag color="blue" style={{ minWidth: '40px', textAlign: 'center' }}>{record.summary_metrics.response_time.total_time.avg.toFixed(2)} 秒</Tag>;
             }
             return '-';
           },
