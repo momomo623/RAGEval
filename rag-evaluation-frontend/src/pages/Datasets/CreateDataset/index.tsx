@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Layout, Typography, Form, Input, Switch, Select, Button, Card, 
   Radio, Space, message, Divider, Tag, Tooltip
@@ -24,7 +24,16 @@ const CreateDatasetPage: React.FC = () => {
   
   const navigate = useNavigate();
 
+  // 使用 Form.useWatch 正确监听表单值变化
+  // const isPublic = Form.useWatch('is_public', form);
+  
+  // 监听公开状态变化
+  // useEffect(() => {
+  //   console.log('公开状态变化:', isPublic);
+  // }, [isPublic]);
+
   const handleSubmit = async (values: any) => {
+
     setLoading(true);
     try {
       const datasetData: CreateDatasetRequest = {
@@ -100,6 +109,11 @@ const CreateDatasetPage: React.FC = () => {
           initialValues={{
             is_public: false
           }}
+          // onValuesChange={(changedValues) => {
+          //   if ('is_public' in changedValues) {
+          //     console.log('公开状态改变为:', changedValues.is_public);
+          //   }
+          // }}
         >
           <div className={styles.section}>
             <Title level={4}>基本信息</Title>
@@ -164,17 +178,18 @@ const CreateDatasetPage: React.FC = () => {
               <Text type="secondary">添加标签可以帮助更好地分类和查找数据集</Text>
             </Form.Item>
 
+
             <Form.Item
               name="is_public"
               label="公开性"
               valuePropName="checked"
               className={styles.formItem}
             >
-              <Space direction="vertical" className={styles.switchContainer}>
-                <Switch checkedChildren="公开" unCheckedChildren="私有" />
-                <Text type="secondary">公开的数据集可以被其他用户查看和使用</Text>
-              </Space>
+              <Switch checkedChildren="公开" unCheckedChildren="私有" />
             </Form.Item>
+            <div className={styles.formItemHint}>
+              <Text type="secondary">公开的数据集可以被其他用户查看和使用</Text>
+            </div>
           </div>
 
           <Divider />

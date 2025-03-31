@@ -8,6 +8,7 @@ Desktop.ini
 /.idea/*
 *.iml
 /out/
+rag-evaluation-backend/.idea/*
 
 # Python
 *.pyc
@@ -36,3 +37,8 @@ sdist/
 *.swp
 *~
 /.vscode/
+
+# 添加以下内容到.gitignore文件
+rag-evaluation-frontend/nginx/cert/
+rag-evaluation-frontend/nginx/default_cert.conf
+docker_https/
