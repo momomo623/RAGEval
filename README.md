@@ -5,10 +5,13 @@
 [![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.68%2B-blue.svg)](https://fastapi.tiangolo.com/)
 
-> 本项目使用Trae来创建，在此感谢Trae提供的帮助。
+> 本项目开发过程中深度使用Trae，在此感谢Trae提供的帮助。
 > Trae国内版下载：https://sourl.co/CPViZT｜Trae海外版体验：https://sourl.co/GeVt9r
 
 
+> 测试网址：https://rag-eval.chongwenz.cn
+> 
+>测试账号：t1@qq.com / 1
 
 已完成：
 - ✅ 项目管理。创建项目，选择数据集，进行性能测试（收集RAG系统回答）、精度测试（基本完成）、评估报告（未完成）。

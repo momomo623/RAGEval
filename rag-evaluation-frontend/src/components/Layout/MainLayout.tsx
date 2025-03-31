@@ -89,12 +89,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       label: '数据集',
       onClick: () => navigate('/datasets')
     },
-    {
-      key: '/settings',
-      icon: <SettingOutlined />,
-      label: '设置',
-      onClick: () => navigate('/user/settings')
-    }
+    // {
+    //   key: '/settings',
+    //   icon: <SettingOutlined />,
+    //   label: '设置',
+    //   onClick: () => navigate('/user/settings')
+    // }
   ];
 
   // 显示用户名 - 如果有name则显示name，否则显示email，如果都没有就显示"用户"
