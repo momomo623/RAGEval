@@ -197,7 +197,7 @@ export const CreateAccuracyTestForm: React.FC<CreateAccuracyTestFormProps> = ({
             name: `精度测试-${new Date().toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric' })}`,
             evaluation_type: 'ai',
             scoring_method: 'five_scale',
-            model: config?.modelName || 'gpt-3.5-turbo',
+            model: config?.modelName || 'deepseek-r1',
             temperature: 0.1,
             max_tokens: 800
           }}

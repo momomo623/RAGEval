@@ -5,9 +5,6 @@
 [![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.68%2B-blue.svg)](https://fastapi.tiangolo.com/)
 
-> 本项目开发过程中深度使用Trae，在此感谢Trae提供的帮助。
-> Trae国内版下载：https://sourl.co/CPViZT｜Trae海外版体验：https://sourl.co/GeVt9r
-
 
 > 测试网址：https://rag-eval.chongwenz.cn
 > 
@@ -66,6 +63,7 @@
 - Python 3.9+
 - PostgreSQL 12+
 - Redis 6+
+- nodejs 18
 
 
 ### Docker启动

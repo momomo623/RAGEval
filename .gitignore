@@ -23,6 +23,8 @@ env/
 *.egg
 sdist/
 
+rag-evaluation-backend/app/core/config.py
+
 # React
 /node_modules
 /build

@@ -1,7 +1,7 @@
 import { message } from 'antd';
 import { authService } from '../services/auth.service';
 
-// 获取环境变量中的API基础URL
+// 获取环境变量中的BASE_URL
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 interface RequestOptions extends RequestInit {

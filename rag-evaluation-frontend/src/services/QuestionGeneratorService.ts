@@ -16,6 +16,18 @@ import OpenAI from 'openai';
 // 定义分割策略类型
 export type SplitterType = 'recursive' | 'code' | 'markdown' | 'html' | 'latex';
 
+// 失败记录的详细信息类型
+export interface FailedRequestRecord {
+  id: string;
+  chunkId: string;
+  sourceFileName: string;
+  timestamp: string;
+  promptText: string; // 请求提示词
+  errorMessage: string; // 错误信息
+  rawResponse?: string; // 大模型原始响应（如果有）
+  chunkContent?: string; // 失败的文本块内容
+}
+
 export class QuestionGeneratorService {
   private chunks: TextChunk[] = [];
   private generatedQAs: GeneratedQA[] = [];
@@ -33,8 +45,11 @@ export class QuestionGeneratorService {
   private fileSourceMap: Map<string, string> = new Map(); // 用于存储分块ID和源文件名的映射
   private defaultChunkSize = 1000;
   private splitterType: SplitterType = 'recursive';
+  
+  // 失败记录列表
+  private failedRequests: FailedRequestRecord[] = [];
 
-// 5. 原文依据:原文依据应该来源于原文，并不超过10个字
+// TODO 5. 原文依据:原文依据应该来源于原文，并不超过10个字
   
 
   // 默认提示词模板
@@ -46,8 +61,8 @@ export class QuestionGeneratorService {
 
 ### 生成要求：
 1. **问题：** 
-   - 直接从文本内容出发，问题要精准、清晰，不要引入外部信息。
-   - 覆盖不同角度，包括细节、概念、流程、对比等。
+   - 问题要精准、清晰，直接基于文本内容，避免使用“本文”、“文中”、“文章中”等字眼。
+   - 模拟用户提问的方式，问题应自然流畅，覆盖不同角度，包括细节、概念、流程、对比等。
 2. **答案：**
    - 简明扼要，紧扣问题核心，不要超出文本信息。
 3. **难度：**
@@ -96,6 +111,13 @@ export class QuestionGeneratorService {
     this.abortController = new AbortController();
     this.processingPromises = [];
     this.fileSourceMap = new Map();
+    // 重置失败记录
+    this.failedRequests = [];
+  }
+  
+  // 获取失败记录列表
+  public getFailedRequests(): FailedRequestRecord[] {
+    return this.failedRequests;
   }
 
   // 处理和分析上传的文件
@@ -290,7 +312,26 @@ export class QuestionGeneratorService {
           console.error('处理分块时出错:', error);
           this.progress.error = `处理分块时出错: ${error.message}`;
           this.progress.completedChunks++;
-          onProgress({...this.progress});
+          onProgress({...this.progress});  
+          // // 创建失败的问答对记录（简化版本，只用于表格显示）
+          // const sourceFileName = this.fileSourceMap.get(chunk.id) || '未知文件';
+          // const failedQA: GeneratedQA = {
+          //   id: uuidv4(),
+          //   question: '生成失败',
+          //   answer: '生成失败',
+          //   difficulty: 'medium',
+          //   category: 'factoid',
+          //   sourceChunkId: chunk.id,
+          //   sourceFileName: sourceFileName,
+          //   status: 'failed',
+          //   errorReason: error.message
+          // };
+          
+          // // 将失败记录添加到结果中
+          // this.generatedQAs.push(failedQA);
+          
+          // // 回调，传递进度和新生成的问答对（包括失败记录）
+          // onProgress({...this.progress}, [failedQA]);
         });
       
       activePromises.push(processPromise);
@@ -330,10 +371,10 @@ export class QuestionGeneratorService {
     llmConfig: any,
     customPromptTemplate?: string
   ): Promise<GeneratedQA[]> {
+    // 构建提示词，传入自定义模板
+    const prompt = this.buildPrompt(chunk.content, params, customPromptTemplate);
+
     try {
-      // 构建提示词，传入自定义模板
-      const prompt = this.buildPrompt(chunk.content, params, customPromptTemplate);
-      
       // 调用LLM API
       const response = await this.callLLMAPI(prompt, params, llmConfig);
       
@@ -343,6 +384,30 @@ export class QuestionGeneratorService {
       return qaPairs;
     } catch (error) {
       console.error(`处理分块 ${chunk.id} 失败:`, error);
+      console.error('处理分块失败:', error);
+
+      
+      // 记录失败详情
+      const sourceFileName = this.fileSourceMap.get(chunk.id) || '未知文件';
+      
+      // 创建失败记录
+      const failedRecord: FailedRequestRecord = {
+        id: uuidv4(),
+        chunkId: chunk.id,
+        sourceFileName,
+        timestamp: new Date().toISOString(),
+        promptText: prompt,
+        errorMessage: error.message,
+        chunkContent: chunk.content,
+        rawResponse: error.rawResponse || '',
+        
+      };
+
+      console.log('失败记录:', failedRecord);
+      
+      // 添加到失败记录列表
+      this.failedRequests.push(failedRecord);
+      
       throw error;
     }
   }
@@ -427,8 +492,8 @@ export class QuestionGeneratorService {
         dangerouslyAllowBrowser: true // 在浏览器中使用
       });
 
-      // 调用LLM API
-      const completion = await openai.chat.completions.create({
+      // 准备请求体
+      const requestBody = {
         model: llmConfig.modelName,
         messages: [
           {
@@ -442,14 +507,42 @@ export class QuestionGeneratorService {
         ],
         temperature: 0.2,
         max_tokens: params.maxTokens || 1000
-      });
+      };
+
+      // 调用LLM API
+      const completion = await openai.chat.completions.create(requestBody);
 
       return completion.choices[0].message.content;
-    } catch (error) {
+    } catch (error: any) {
+      // 增强错误处理，保存更多错误信息
       if (error instanceof Error && error.name === 'AbortError') {
         throw new Error('请求已取消');
       }
-      throw error;
+      
+      // 捕获更多错误信息
+      const enhancedError: any = new Error(`API调用失败: ${error.message}`);
+      enhancedError.status = error.status || error.statusCode;
+      enhancedError.statusText = error.statusText;
+      enhancedError.headers = error.headers;
+      enhancedError.requestBody = {
+        model: llmConfig.modelName,
+        messages: [...requestBody.messages],
+        temperature: requestBody.temperature,
+        max_tokens: requestBody.max_tokens
+      };
+      
+      // 如果有原始响应体，添加到错误对象
+      if (error.response) {
+        try {
+          enhancedError.responseBody = typeof error.response === 'string' 
+            ? JSON.parse(error.response) 
+            : error.response;
+        } catch {
+          enhancedError.responseBody = error.response;
+        }
+      }
+      
+      throw enhancedError;
     }
   }
 
@@ -482,7 +575,14 @@ export class QuestionGeneratorService {
       return qaPairs;
     } catch (error) {
       console.error('解析LLM响应失败:', error, 'Response:', response);
-      throw new Error(`解析响应失败: ${(error as Error).message}`);
+      const errorInfo = {
+        // 原始响应
+        rawResponse: response,
+        // 错误信息
+        message: '解析响应失败: ' + (error as Error).message
+      };
+      
+      throw errorInfo;
     }
   }
 
@@ -553,7 +653,11 @@ export class QuestionGeneratorService {
     try {
       // 根据文件名判断文件类型，用于代码分割器
       const fileExtension = fileName.split('.').pop()?.toLowerCase() || '';
-      let codeLanguage: string | undefined;
+      
+      // 定义支持的语言类型，与 RecursiveCharacterTextSplitter.fromLanguage 匹配
+      type SupportedLanguage = 'markdown' | 'html' | 'latex' | 'go' | 'ruby' | 'js' | 'python' | 'java' | 'cpp' | 'php' | 'proto' | 'rst' | 'rust' | 'scala' | 'swift' | 'sol';
+      
+      let codeLanguage: SupportedLanguage | undefined;
       
       // 根据文件扩展名映射到代码语言
       switch (fileExtension) {

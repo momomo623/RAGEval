@@ -21,6 +21,12 @@ export interface GeneratedQA {
   category: string;
   sourceChunkId: string;
   sourceFileName: string;
+  // 新增失败状态字段
+  status?: 'success' | 'failed';
+  // 失败的原因
+  errorReason?: string;
+  // 大模型的原始响应
+  rawResponse?: string;
 }
 
 export interface ProgressInfo {

@@ -257,9 +257,9 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ visible, onClose }) => {
         if (error.message.includes('Unauthorized')) {
           errorMessage = 'API密钥无效或未授权';
         } else if (error.message.includes('timeout')) {
-          errorMessage = '连接超时，请检查网络或API基础URL';
+          errorMessage = '连接超时，请检查网络或BASE_URL';
         } else if (error.message.includes('not found')) {
-          errorMessage = '模型名称不存在或API基础URL错误';
+          errorMessage = '模型名称不存在或BASE_URL错误';
         } else {
           errorMessage = `连接失败: ${error.message}`;
         }
@@ -367,21 +367,38 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ visible, onClose }) => {
             initialValues={{
               baseUrl: 'https://api.openai.com/v1',
               apiKey: '',
-              modelName: 'gpt-3.5-turbo',
+              modelName: 'deepseek-r1',
               additionalParams: '{\n  "temperature": 0.7\n}'
             }}
           >
             <Form.Item
               name="baseUrl"
-              label="API基础URL"
-              rules={[{ required: true, message: '请输入API基础URL' }]}
+              label={
+                <span>
+                  BASE_URL
+                  <Tooltip title="OpenAI API的基础URL">
+                    <QuestionCircleOutlined className={styles.infoIcon} />
+                  </Tooltip>
+                </span>
+              }
+              rules={[{ required: true, message: '请输入BASE_URL' }]}
             >
+
               <Input placeholder="https://api.openai.com/v1" />
+
             </Form.Item>
+
 
             <Form.Item
               name="apiKey"
-              label="API密钥"
+              label={
+                <span>
+                  API_KEY
+                  <Tooltip title="您的OpenAI API密钥">
+                    <QuestionCircleOutlined className={styles.infoIcon} />
+                  </Tooltip>
+                </span>
+              }
               rules={[{ required: true, message: '请输入API密钥' }]}
             >
               <Input.Password placeholder="sk-..." />
