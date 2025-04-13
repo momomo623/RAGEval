@@ -365,6 +365,7 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
             description="请先配置大模型API才能使用精度评测功能"
             type="warning"
             showIcon
+            action={<ConfigButton text="立即配置" type="primary" size="small" />}
             style={{ marginBottom: 16 }}
           />
         )}

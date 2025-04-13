@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Upload, Spin, Form, InputNumber, Select, Radio, Divider, message, Table, Progress, Alert, Checkbox, Slider, Modal, Tooltip, Input, Badge, Space, Collapse, Typography, Empty } from 'antd';
-import { UploadOutlined, FileTextOutlined, CheckCircleOutlined, CloseCircleOutlined, ReloadOutlined, FullscreenOutlined, DeleteOutlined, EyeOutlined, WarningOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { Card, Button, Upload, Spin, Form, InputNumber, Select, Radio, Divider, message, Table, Progress, Alert, Checkbox, Slider, Modal, Tooltip, Input, Badge, Space, Collapse, Typography, Empty, Row, Col } from 'antd';
+import { UploadOutlined, FileTextOutlined, CheckCircleOutlined, CloseCircleOutlined, ReloadOutlined, FullscreenOutlined, DeleteOutlined, EyeOutlined, WarningOutlined, InfoCircleOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useConfigContext } from '../../contexts/ConfigContext';
 import { questionGeneratorService, SplitterType, FailedRequestRecord } from '../../services/QuestionGeneratorService';
@@ -340,7 +340,7 @@ const QuestionGenerationContent: React.FC<QuestionGenerationContentProps> = ({ d
   // 在表单下方添加提示词模板编辑区域
   const renderPromptTemplateEditor = () => (
     <div className={styles.promptTemplateEditor}>
-      <Divider>提示词模板设置</Divider>
+      {/* <Divider>提示词模板设置</Divider> */}
       <div className={styles.promptTemplateHeader}>
         <Checkbox
           checked={useCustomPrompt}
@@ -398,12 +398,15 @@ const QuestionGenerationContent: React.FC<QuestionGenerationContentProps> = ({ d
             description={
               <div className={styles.alertContent}>
                 <p className={styles.alertText}>请先配置大模型API才能使用问答对生成功能</p>
-                <ConfigButton 
+                {/* <ConfigButton 
                   text="系统配置" 
                   type="default" 
                   className={styles.configButton} 
-                />
+                /> */}
               </div>
+            }
+            action={
+              <ConfigButton text="立即配置" type="primary" size="small" />
             }
             type="warning"
             showIcon
@@ -568,61 +571,103 @@ const QuestionGenerationContent: React.FC<QuestionGenerationContentProps> = ({ d
           maxTokens: 1000
         }}
       >
-        <div className={styles.formGrid}>
-          <Form.Item
-            name="count"
-            label="每块问题数量"
-            rules={[{ required: true }]}
-          >
-            <InputNumber min={1} max={10} />
-          </Form.Item>
+        <div className={styles.formContainer}>
+          <Row gutter={[24, 0]}>
+            <Col xs={24} sm={12} md={8} lg={8}>
+              <Card className={styles.settingCard} bordered={false}>
+                <Form.Item
+                  name="count"
+                  label={
+                    <span className={styles.labelWithIcon}>
+                      每块问题数量
+                      <Tooltip title="每块文本生成的问题数量，较高的值可能增加生成时间但能生成更多问题">
+                        <QuestionCircleOutlined className={styles.infoIcon} />
+                      </Tooltip>
+                    </span>
+                  }
+                  rules={[{ required: true }]}
+                >
+                  <InputNumber min={1} max={10} style={{ width: '100%' }} />
+                </Form.Item>
+              </Card>
+            </Col>
 
-          {/* <Form.Item
-            name="difficulty"
-            label="问题难度"
-            rules={[{ required: true }]}
-          >
-            <Select>
-              <Option value="easy">简单</Option>
-              <Option value="medium">中等</Option>
-              <Option value="hard">困难</Option>
-              <Option value="mixed">混合</Option>
-            </Select>
-          </Form.Item> */}
+            <Col xs={24} sm={12} md={8} lg={8}>
+              <Card className={styles.settingCard} bordered={false}>
+                <Form.Item
+                  name="maxTokens"
+                  label={
+                    <span className={styles.labelWithIcon}>
+                      Max Tokens
+                      <Tooltip title="大模型最多回答的token数，太小可能导致LLM回答不完整，出现解析错误">
+                        <QuestionCircleOutlined className={styles.infoIcon} />
+                      </Tooltip>
+                    </span>
+                  }
+                  rules={[{ required: true }]}
+                >
+                  <InputNumber min={100} max={5000} style={{ width: '100%' }} />
+                </Form.Item>
+              </Card>
+            </Col>
 
-          <Form.Item
-            name="questionTypes"
-            label="问题类型"
-            rules={[{ required: true }]}
-          >
-            <Select mode="multiple">
-              <Option value="factoid">事实型</Option>
-              <Option value="conceptual">概念型</Option>
-              <Option value="procedural">程序型</Option>
-              <Option value="comparative">比较型</Option>
-            </Select>
-          </Form.Item>
+            <Col xs={24} sm={12} md={8} lg={8}>
+              <Card className={styles.settingCard} bordered={false}>
+                <Form.Item
+                  name="concurrency"
+                  label={
+                    <span className={styles.labelWithIcon}>
+                      并发请求数
+                      <Tooltip title="同时处理的文本块数量，较高的值可能加快生成速度但会增加API调用的频率">
+                        <QuestionCircleOutlined className={styles.infoIcon} />
+                      </Tooltip>
+                    </span>
+                  }
+                  rules={[{ required: true }]}
+                  initialValue={3}
+                >
+                  <InputNumber min={1} max={40} style={{ width: '100%' }} />
+                </Form.Item>
+              </Card>
+            </Col>
 
-          <Form.Item
-            name="maxTokens"
-            label="回答最大长度(字符)"
-            rules={[{ required: true }]}
-          >
-            <InputNumber min={50} max={1000} />
-          </Form.Item>
+            <Col span={24}>
+              <Card className={styles.settingCard} bordered={false}>
+                <Form.Item
+                  name="questionTypes"
+                  label="问题类型"
+                  rules={[{ required: true }]}
+                >
+                  <Select mode="multiple" placeholder="请选择问题类型" style={{ width: '100%' }}>
+                    <Option value="factoid">事实型</Option>
+                    <Option value="conceptual">概念型</Option>
+                    <Option value="procedural">程序型</Option>
+                    <Option value="comparative">比较型</Option>
+                  </Select>
+                </Form.Item>
+              </Card>
+            </Col>
 
-          <Form.Item
-            name="concurrency"
-            label="并发请求数"
-            rules={[{ required: true }]}
-            initialValue={3}
-            tooltip="同时处理的文本块数量，较高的值可能加快生成速度但会增加API调用的频率"
-          >
-            <InputNumber min={1} max={10} style={{ width: '100%' }} />
-          </Form.Item>
+            {/* Commented out difficulty selection can be uncommented if needed later */}
+            {/* <Col xs={24} sm={12} md={8} lg={8}>
+              <Card className={styles.settingCard} bordered={false}>
+                <Form.Item
+                  name="difficulty"
+                  label="问题难度"
+                  rules={[{ required: true }]}
+                >
+                  <Select style={{ width: '100%' }}>
+                    <Option value="easy">简单</Option>
+                    <Option value="medium">中等</Option>
+                    <Option value="hard">困难</Option>
+                    <Option value="mixed">混合</Option>
+                  </Select>
+                </Form.Item>
+              </Card>
+            </Col> */}
+          </Row>
         </div>
       </Form>
-
       {renderPromptTemplateEditor()}
 
       <div className={styles.actionBar}>

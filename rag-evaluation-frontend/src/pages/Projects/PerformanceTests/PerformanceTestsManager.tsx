@@ -260,6 +260,9 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
         <Alert
           message="RAG系统接口未配置"
           description="性能测试需要RAG系统接口配置才能运行，请先完成配置"
+          action={
+            <ConfigButton text="立即配置" type="primary" size="small" />
+          }
           type="warning"
           showIcon
           style={{ marginBottom: 16 }}
