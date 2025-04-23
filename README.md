@@ -6,9 +6,11 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.68%2B-blue.svg)](https://fastapi.tiangolo.com/)
 
 
-> 测试网址：https://rag-eval.chongwenz.cn
+> (测试网址)(https://rag-eval.chongwenz.cn)：`https://rag-eval.chongwenz.cn`
 > 
->测试账号：t1@qq.com / 1
+>测试账号：`t1@qq.com` / `1`
+
+[快速介绍视频](https://www.bilibili.com/video/BV1XLZtYUEgW/?vd_source=45f48aae0c1bdd4da1e70a2f6913ab60#reply114260122277236)
 
 已完成：
 - ✅ 项目管理。创建项目，选择数据集，进行性能测试（收集RAG系统回答）、精度测试（基本完成）、评估报告（未完成）。
