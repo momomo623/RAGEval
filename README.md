@@ -6,7 +6,7 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.68%2B-blue.svg)](https://fastapi.tiangolo.com/)
 
 
-> (测试网址)(https://rag-eval.chongwenz.cn)：`https://rag-eval.chongwenz.cn`
+> [测试网址](https://rag-eval.chongwenz.cn)：`https://rag-eval.chongwenz.cn`
 > 
 >测试账号：`t1@qq.com` / `1`
 
