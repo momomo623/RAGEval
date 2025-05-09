@@ -14,7 +14,7 @@ rag-evaluation-backend/.idea/*
 *.pyc
 *.pyo
 *.log
-**/__pycache__/
+
 dist/
 build/
 /venv/
