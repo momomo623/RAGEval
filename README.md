@@ -1,4 +1,9 @@
 # 灵鉴 RAG评测系统 | RAGEval 
+
+<div align="center">
+  <img src="images/logo.png" alt="灵鉴 RAG评测系统 Logo" width="200px"/>
+</div>
+
 ✨ 开箱即用的RAG系统自动化评估工具 | One-stop RAG Evaluation Solution
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
