@@ -3,6 +3,7 @@ from typing import Any, List, Optional
 from fastapi import APIRouter, Body, Depends, HTTPException
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import func
 from pydantic import EmailStr
 import uuid
 
@@ -102,7 +103,7 @@ def update_current_user_info(
         else:
             setattr(current_user, field, value)
     
-    current_user.updated_at = db.func.now()  # 更新时间戳
+    current_user.updated_at = func.now()  # 更新时间戳
     db.add(current_user)
     db.commit()
     db.refresh(current_user)
@@ -163,7 +164,7 @@ def update_user_by_id(
     for field, value in update_data.items():
         setattr(user, field, value)
     
-    user.updated_at = db.func.now()  # 更新时间戳
+    user.updated_at = func.now()  # 更新时间戳
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -268,7 +269,7 @@ def update_api_key(
     for field, value in update_data.items():
         setattr(api_key, field, value)
     
-    api_key.updated_at = db.func.now()  # 更新时间戳
+    api_key.updated_at = func.now()  # 更新时间戳
     db.add(api_key)
     db.commit()
     db.refresh(api_key)

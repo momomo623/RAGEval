@@ -177,4 +177,13 @@ class AuthService {
   }
 }
 
-export const authService = new AuthService(); 
+export const authService = new AuthService();
+
+/**
+ * 修改当前用户密码
+ * @param password 新密码
+ * @returns Promise<any>
+ */
+export async function updateCurrentUserPassword(password: string) {
+  return api.put('/users/me', { password });
+} 

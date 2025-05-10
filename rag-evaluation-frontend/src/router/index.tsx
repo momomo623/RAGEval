@@ -10,6 +10,7 @@ import SelectDatasetsPage from '../pages/Projects/SelectDatasets';
 import MainLayout from '../components/Layout/MainLayout';
 import { authService } from '../services/auth.service';
 import ProjectDetailPage from '../pages/Projects/ProjectDetail';
+import Settings from '../pages/Settings';
 
 // 受保护的路由组件（使用布局）
 const ProtectedRoute = ({ children }: { children: React.ReactElement }) => {
@@ -99,6 +100,16 @@ const AppRouter = () => {
           element={
             <ProtectedRoute>
               <SelectDatasetsPage />
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* 设置相关路由 */}
+        <Route 
+          path="/user/settings" 
+          element={
+            <ProtectedRoute>
+              <Settings />
             </ProtectedRoute>
           } 
         />
