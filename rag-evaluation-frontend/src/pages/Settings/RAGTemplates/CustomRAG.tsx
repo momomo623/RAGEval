@@ -1,0 +1,117 @@
+import React from 'react';
+import { Modal, Form, Input, Button, message } from 'antd';
+import { labelWithTip } from '../utils';
+import JsonEditorField from '../../../utils/JsonEditorField';
+import { handleTestAndSaveGeneric } from './rag-request';
+
+const CustomRAG: React.FC<{
+  open: boolean;
+  onCancel: () => void;
+  onSave: (values: any) => void;
+  initialValues: any;
+}> = ({ open, onCancel, onSave, initialValues }) => {
+  const [form] = Form.useForm();
+  const [loading, setLoading] = React.useState(false);
+
+  const handleOk = async () => {
+    const values = await form.validateFields();
+    onSave(values);
+  };
+
+  const handleTestAndSave = () =>
+    handleTestAndSaveGeneric({ form, setLoading, onSave, key: 'custom' });
+
+  return (
+    <Modal
+      open={open}
+      title="自定义RAG系统配置"
+      onCancel={onCancel}
+      onOk={handleOk}
+      destroyOnClose
+      width={720}
+      okText="保存"
+      footer={[
+        <Button key="test" type="primary" loading={loading} onClick={handleTestAndSave}>测试并保存</Button>,
+        <Button key="cancel" onClick={onCancel}>取消</Button>,
+      ]}
+    >
+      <Form
+        form={form}
+        layout="vertical"
+        initialValues={initialValues || {}}
+      >
+        <Form.Item name="name" label={labelWithTip('配置名称', '自定义本配置的名称')} rules={[{ required: true, message: '请输入配置名称' }]}> 
+          <Input placeholder="自定义RAG系统" />
+        </Form.Item>
+        <Form.Item name="url" label={labelWithTip('API接口地址', 'RAG系统的API接口地址')} rules={[{ required: true, message: '请输入API接口地址' }]}> 
+          <Input placeholder="https://your-rag-api.com" />
+        </Form.Item>
+        <Form.Item
+          name="requestHeaders"
+          label={labelWithTip('请求头', '配置HTTP请求头，包括认证信息')}
+          rules={[
+            { required: true, message: '请输入请求头' },
+            {
+              validator: (_, value) => {
+                try {
+                  JSON.parse(value);
+                  return Promise.resolve();
+                } catch {
+                  return Promise.reject('请输入有效的JSON格式');
+                }
+              }
+            }
+          ]}
+          valuePropName="value"
+          getValueFromEvent={v => v}
+        >
+          <JsonEditorField placeholder='{"Content-Type": "application/json"}' height={120} />
+        </Form.Item>
+        <Form.Item
+          name="requestTemplate"
+          label={labelWithTip('请求模板', '使用{{question}}作为问题占位符')}
+          rules={[
+            { required: true, message: '请输入请求模板' },
+            {
+              validator: (_, value) => {
+                try {
+                  JSON.parse(value);
+                  return Promise.resolve();
+                } catch {
+                  return Promise.reject('请输入有效的JSON格式');
+                }
+              }
+            }
+          ]}
+          valuePropName="value"
+          getValueFromEvent={v => v}
+        >
+          <JsonEditorField placeholder='{"query": "{{question}}"}' height={120} />
+        </Form.Item>
+        <Form.Item
+          name="responsePath"
+          label={labelWithTip('响应数据路径', '从响应JSON中提取回答的路径')}
+          rules={[{ required: true, message: '请输入响应路径' }]}
+        >
+          <Input placeholder="answer" />
+        </Form.Item>
+        <Form.Item
+          name="streamEventField"
+          label={labelWithTip('事件类型字段', '有些RAG系统会流式返回多种类型的数据（如图表、文本），这里填写类型的字段名称，如：event。如没有，则留空。')}
+          rules={[]}
+        >
+          <Input placeholder="event（可选）" />
+        </Form.Item>
+        <Form.Item
+          name="streamEventValue"
+          label={labelWithTip('事件类型值', '文本类型字段对应的值，如：message/text_chunk')}
+          rules={[]}
+        >
+          <Input placeholder="message（可选）" />
+        </Form.Item>
+      </Form>
+    </Modal>
+  );
+};
+
+export default CustomRAG; 

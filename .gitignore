@@ -45,3 +45,7 @@ rag-evaluation-backend/app/core/config.py
 docker/nginx/cert/
 docker/nginx/default_cert.conf
 docker_https/
+
+.cursorrules
+
+.cursor

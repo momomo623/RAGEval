@@ -1,8 +1,24 @@
 export const RAG_TEMPLATES = [
   {
+    key: 'custom',
+    name: '自定义RAG系统',
+    desc: '自定义RAG系统配置',
+    logo: '/logo.png',
+    defaultConfig: {
+      name: '',
+      url: '',
+      requestHeaders: '{"Content-Type": "application/json"}',
+      requestTemplate: '{"query": "{{question}}"}',
+      responsePath: 'answer',
+      streamEventField: '',
+      streamEventValue: '',
+      type: 'custom'
+    }
+  },
+  {
     key: 'dify_chatflow',
-    name: 'Dify-CHATFLOW模式',
-    desc: 'Dify对话流模式，适用于标准RAG对话API',
+    name: 'Dify-Chatflow',
+    desc: '支持记忆的复杂多轮对话工作流',
     logo: '/llm_logo/dify_logo.png',
     defaultConfig: {
       name: '',
@@ -18,8 +34,8 @@ export const RAG_TEMPLATES = [
   },
   {
     key: 'dify_flow',
-    name: 'Dify-工作流模式',
-    desc: 'Dify工作流模式，适用于自定义流程API',
+    name: 'Dify-工作流',
+    desc: '面向单轮自动化任务的编排工作流',
     logo: '/llm_logo/dify_logo.png',
     defaultConfig: {
       name: '',
@@ -33,20 +49,5 @@ export const RAG_TEMPLATES = [
       streamEventValue: 'text_chunk',
     }
   },
-  {
-    key: 'custom',
-    name: '自定义RAG系统',
-    desc: '自定义RAG系统配置',
-    logo: '/llm_logo/ragflow_logo.png',
-    defaultConfig: {
-      name: '',
-      url: '',
-      requestHeaders: '{"Content-Type": "application/json"}',
-      requestTemplate: '{"query": "{{question}}"}',
-      responsePath: 'answer',
-      streamEventField: '',
-      streamEventValue: '',
-      type: 'custom'
-    }
-  }
+
 ]; 

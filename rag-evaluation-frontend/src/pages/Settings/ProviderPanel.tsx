@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Modal, Form, Input, Select, Space, message, Popconfirm, Divider, Typography, Row, Col, Tooltip } from 'antd';
-import { PlusOutlined, DeleteOutlined, SettingOutlined, InfoCircleOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined, SettingOutlined, InfoCircleOutlined, QuestionCircleOutlined, DownOutlined, RightOutlined } from '@ant-design/icons';
 import ReactJson from 'react-json-view';
 import { RAG_TEMPLATES } from './RAGTemplates';
 import DifyChatflow from './RAGTemplates/Dify-CHATFLOW';
 import DifyFlow from './RAGTemplates/Dify-FLOW';
+import CustomRAG from './RAGTemplates/CustomRAG';
 import { labelWithTip } from './utils';
 
 const { Title } = Typography;
@@ -13,8 +14,8 @@ const { Title } = Typography;
 const MODEL_TEMPLATES = [
   {
     key: 'openai',
-    name: 'OpenAI接口规范',
-    desc: '',
+    name: '通用大模型',
+    desc: 'OpenAI API接口规范',
     logo: '/llm_logo/openai_logo.png',
     defaultConfig: {
       name: '',
@@ -31,7 +32,7 @@ const LOCAL_RAG_KEY = 'rag_eval_rag_configs';
 
 const cardStyle: React.CSSProperties = {
   textAlign: 'center',
-  minHeight: 140,
+  minHeight: 200,
   borderRadius: 10,
   boxShadow: '0 2px 8px #f0f1f2',
   transition: 'box-shadow 0.2s',
@@ -40,8 +41,7 @@ const cardStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   padding: 16,
-  height: '100%',
-  marginRight: 200,
+  marginRight: 20,
 };
 const logoStyle: React.CSSProperties = {
   width: 32,
@@ -107,6 +107,9 @@ const RagConfigModal = ({
   }
   if (template.key === 'dify_flow') {
     return <DifyFlow open={open} onCancel={onCancel} onSave={onSave} initialValues={editValue} />;
+  }
+  if (template.key === 'custom') {
+    return <CustomRAG open={open} onCancel={onCancel} onSave={onSave} initialValues={editValue} />;
   }
   // 其他RAG模板可在此扩展
   return null;
@@ -193,11 +196,12 @@ const ProviderPanel: React.FC = () => {
   const [ragConfigs, setRagConfigs] = useState<any[]>([]);
   // 控制弹窗
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalType, setModalType] = useState<'model'|'rag'>('model');
-  const [editIndex, setEditIndex] = useState<number|null>(null);
+  const [modalType, setModalType] = useState<'model' | 'rag'>('model');
+  const [editIndex, setEditIndex] = useState<number | null>(null);
   const [form] = Form.useForm();
   const [currentTemplate, setCurrentTemplate] = useState<any>(null);
   const [currentEditValue, setCurrentEditValue] = useState<any>({});
+  const [marketOpen, setMarketOpen] = useState(true); // 控制配置市场展开/收起
 
   // 加载本地配置
   useEffect(() => {
@@ -243,16 +247,35 @@ const ProviderPanel: React.FC = () => {
 
   // 修改 handleAddRag/handleEditRag 只控制弹窗开关和传递模板/初始值
   const handleAddRag = (template: any) => {
+    console.log("template", template);
+
     setModalType('rag');
     setCurrentTemplate(template);
     setEditIndex(null);
-    setCurrentEditValue(template.defaultConfig);
+    // 针对dify_chatflow和dify_flow设置默认url
+    let defaultConfig = template.defaultConfig;
+    if (template.key === 'dify_chatflow') {
+      defaultConfig = {
+        ...defaultConfig,
+        url: 'https://localhost/v1/chat-messages',
+      };
+    }
+    else if (template.key === 'dify_flow') {
+      defaultConfig = {
+        ...defaultConfig,
+        url: 'http://localhost/v1/workflows/run',
+      };
+    }
+    setCurrentEditValue(defaultConfig);
     setModalOpen(true);
   };
   const handleEditRag = (idx: number) => {
     setModalType('rag');
     const rag = ragConfigs[idx];
     const template = RAG_TEMPLATES.find(t => t.key === rag.type) || RAG_TEMPLATES[0];
+    console.log("修改 template ", template);
+    console.log("修改 rag ", rag);
+
     setCurrentTemplate(template);
     setEditIndex(idx);
     setCurrentEditValue(rag);
@@ -326,16 +349,20 @@ const ProviderPanel: React.FC = () => {
   };
 
   return (
-    <div>
+    <div style={{ width: '100%' }}>
       <Title level={4}>模型提供商</Title>
-      <div style={{ marginBottom: 16, color: '#888' }}>在此设置模型参数和API KEY。</div>
+      <div style={{ marginBottom: 16, color: '#888' }}>在此设置模型参数和API KEY。
+        大模型配置用于【AI生成问答对】、【AI精度评测】。
+        
+
+      </div>
       {/* 已添加模型和RAG系统（合并展示） */}
-      <Divider orientation="left">已添加配置</Divider>
+      {/* <Divider orientation="left"></Divider> */}
       <div style={{ marginBottom: 12 }}>
         <div style={{ fontWeight: 600, fontSize: 15, margin: '12px 0 8px 0', color: '#3b3b3b' }}>大模型配置</div>
         {modelConfigs.length === 0 ? <div style={{ color: '#aaa', marginBottom: 16 }}>暂无已添加模型</div> :
           modelConfigs.map((item, idx) => (
-            <Card key={idx} style={{ marginBottom: 10, borderRadius: 10 }} bodyStyle={{ padding: 0 }}>
+            <Card key={idx} style={{ marginBottom: 10, borderRadius: 10 ,background:"#f6f7f9",border:0}} bodyStyle={{ padding: 0,paddingRight:20 }}>
               <Row align="middle" justify="start" style={{ minHeight: 64 }}>
                 <Col flex="64px" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
                   <img src={MODEL_TEMPLATES[0].logo} alt="logo" style={{ width: 40, height: 40, objectFit: 'contain', borderRadius: 8 }} />
@@ -381,35 +408,60 @@ const ProviderPanel: React.FC = () => {
             );
           })}
       </div>
-      {/* 待添加模型 */}
-      <Divider orientation="left">待添加的模型</Divider>
-      <Row gutter={[24, 24]} justify="start" align="top" style={{ marginBottom: 24 }}>
-        {MODEL_TEMPLATES.map((tpl, idx) => (
-          <Col key={tpl.key} xs={24} sm={12} md={8} lg={6} xl={6} style={{ display: 'flex' }}>
-            <Card hoverable style={cardStyle} bodyStyle={{ padding: 0, width: '100%' } }>
-              <img src={tpl.logo} alt={tpl.name} style={logoStyle} />
-              <div style={{ fontWeight: 500, fontSize: 15, marginBottom: 2 }}>{tpl.name}</div>
-              {tpl.desc && <div style={{ fontSize: 12, color: '#888', minHeight: 18 }}>{tpl.desc}</div>}
-              <Button type="link" icon={<PlusOutlined />} onClick={handleAddModel} style={{ marginTop: 6 }}>添加模型</Button>
-            </Card>
-          </Col>
-        ))}
-      </Row>
-     
-      {/* 待添加RAG系统 */}
-      <Divider orientation="left">待添加的RAG系统</Divider>
-      <Row gutter={[24, 24]} justify="start" align="top" style={{ marginBottom: 24 }}>
-        {RAG_TEMPLATES.map((tpl, idx) => (
-          <Col key={tpl.key} xs={24} sm={12} md={8} lg={6} xl={6} style={{ display: 'flex' }}>
-            <Card hoverable style={cardStyle} bodyStyle={{ padding: 0, width: '100%' } }>
-              <img src={tpl.logo} alt={tpl.name} style={logoStyle} />
-              <div style={{ fontWeight: 500, fontSize: 15, marginBottom: 2 }}>{tpl.name}</div>
-              {tpl.desc && <div style={{ fontSize: 12, color: '#888', minHeight: 18 }}>{tpl.desc}</div>}
-              <Button type="link" icon={<PlusOutlined />} onClick={() => handleAddRag(tpl)} style={{ marginTop: 6 }}>添加RAG系统</Button>
-            </Card>
-          </Col>
-        ))}
-      </Row>
+      {/* 配置市场（可收起/展开） */}
+      <div style={{ marginBottom: 24 }}>
+        <div
+          style={{ cursor: 'pointer', fontWeight: 600, fontSize: 18, padding: '10px 0 10px 2px', borderBottom: marketOpen ? '1px solid #f0f0f0' : 'none', display: 'flex', alignItems: 'center' }}
+          onClick={() => setMarketOpen(v => !v)}
+        >
+          {marketOpen ? <DownOutlined style={{ marginRight: 8 }} /> : <RightOutlined style={{ marginRight: 8 }} />}
+          配置市场
+        </div>
+        {marketOpen && (
+          <div style={{ padding: '8px 0 0 0' }}>
+            <div style={{ fontWeight: 500, fontSize: 15, margin: '0 0 12px 2px', color: '#3b3b3b' }}>模型配置</div>
+            <Row gutter={[24, 24]} justify="start" align="top" style={{ marginBottom: 24 }}>
+              {MODEL_TEMPLATES.map((tpl, idx) => (
+                <Col key={tpl.key} xs={24} sm={12} md={8} lg={8} xl={8} style={{ display: 'flex' }}>
+                  <Card hoverable style={{ ...cardStyle, padding: 0, width: '100%', minHeight: 180 }} bodyStyle={{ padding: 0, width: '100%' }}>
+                    <div style={{ display: 'flex', padding: 16, alignItems: 'flex-start' }}>
+                      <img src={tpl.logo} alt={tpl.name} style={{ width: 40, height: 40, borderRadius: 8, background: '#f5f6fa', boxShadow: '0 1px 4px #e0e0e0' }} />
+                      <div style={{ marginLeft: 20 }}>
+                        <div style={{ fontWeight: 600, fontSize: 17, lineHeight: '22px' }}>{tpl.name}</div>
+                        <div style={{ fontSize: 13, color: '#888', marginTop: 2, textAlign: 'left' }}>{tpl.key}</div>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 13, color: '#888', minHeight: 18, padding: '0 16px 8px 16px', textAlign: 'left' }}>{tpl.desc}</div>
+                    <div style={{ padding: '0 16px 16px 16px', textAlign: 'left' }}>
+                      <Button type="link" icon={<PlusOutlined />} onClick={() => handleAddModel()} style={{ marginTop: 6, padding: 0 }}>添加模型</Button>
+                    </div>
+                  </Card>
+                </Col>
+              ))}
+            </Row>
+            <div style={{ fontWeight: 500, fontSize: 15, margin: '0 0 12px 2px', color: '#3b3b3b' }}>RAG系统系统</div>
+            <Row gutter={[24, 24]} justify="start" align="top" style={{ marginBottom: 8 }}>
+              {RAG_TEMPLATES.map((tpl, idx) => (
+                <Col key={tpl.key} xs={24} sm={12} md={8} lg={8} xl={8} style={{ display: 'flex' }}>
+                  <Card hoverable style={{ ...cardStyle, padding: 0, width: '100%', minHeight: 180 }} bodyStyle={{ padding: 0, width: '100%' }}>
+                    <div style={{ display: 'flex', padding: 16, alignItems: 'flex-start' }}>
+                      <img src={tpl.logo} alt={tpl.name} style={{ width: 40, height: 40, borderRadius: 8, background: '#f5f6fa', boxShadow: '0 1px 4px #e0e0e0' }} />
+                      <div style={{ marginLeft: 20 }}>
+                        <div style={{ fontWeight: 600, fontSize: 17, lineHeight: '22px' }}>{tpl.name}</div>
+                        <div style={{ fontSize: 13, color: '#888', marginTop: 2, textAlign: 'left' }}>{tpl.key}</div>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 13, color: '#888', minHeight: 18, padding: '0 16px 8px 16px', textAlign: 'left' }}>{tpl.desc}</div>
+                    <div style={{ padding: '0 16px 16px 16px', textAlign: 'left' }}>
+                      <Button type="link" icon={<PlusOutlined />} onClick={() => handleAddRag(tpl)} style={{ marginTop: 6, padding: 0 }}>添加RAG系统</Button>
+                    </div>
+                  </Card>
+                </Col>
+              ))}
+            </Row>
+          </div>
+        )}
+      </div>
       {/* 配置弹窗 */}
       {modalType === 'model' ? (
         <ModelConfigModal
