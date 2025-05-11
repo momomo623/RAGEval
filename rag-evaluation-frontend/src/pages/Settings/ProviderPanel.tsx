@@ -7,6 +7,7 @@ import DifyChatflow from './RAGTemplates/Dify-CHATFLOW';
 import DifyFlow from './RAGTemplates/Dify-FLOW';
 import CustomRAG from './RAGTemplates/CustomRAG';
 import { labelWithTip } from './utils';
+import ModelConfigModal from './LLMTemplates/ModelConfigModal';
 
 const { Title } = Typography;
 
@@ -113,80 +114,6 @@ const RagConfigModal = ({
   }
   // 其他RAG模板可在此扩展
   return null;
-};
-
-// 新增 ModelConfigModal 组件
-const ModelConfigModal: React.FC<{
-  open: boolean;
-  onCancel: () => void;
-  onSave: (values: any) => void;
-  initialValues: any;
-}> = ({ open, onCancel, onSave, initialValues }) => {
-  const [form] = Form.useForm();
-  const handleOk = async () => {
-    const values = await form.validateFields();
-    onSave(values);
-  };
-  return (
-    <Modal
-      open={open}
-      title="大模型配置"
-      onCancel={onCancel}
-      onOk={handleOk}
-      destroyOnClose
-      width={480}
-      okText="保存"
-    >
-      <Form
-        form={form}
-        layout="vertical"
-        initialValues={initialValues || {}}
-      >
-        <Form.Item
-          name="name"
-          label={labelWithTip('配置名称', '自定义本配置的名称，便于区分多个模型账号')}
-          rules={[{ required: true, message: '请输入配置名称' }]}
-        >
-          <Input placeholder="如：OpenAI主账号" />
-        </Form.Item>
-        <Form.Item
-          name="baseUrl"
-          label={labelWithTip('BASE_URL', 'OpenAI API的基础URL，如 https://api.openai.com/v1')}
-          rules={[{ required: true, message: '请输入BASE_URL' }]}
-        >
-          <Input placeholder="https://api.openai.com/v1" />
-        </Form.Item>
-        <Form.Item
-          name="apiKey"
-          label={labelWithTip('API_KEY', 'OpenAI或兼容API的密钥')}
-          rules={[{ required: true, message: '请输入API_KEY' }]}
-        >
-          <Input.Password placeholder="sk-..." />
-        </Form.Item>
-        <Form.Item
-          name="modelName"
-          label={labelWithTip('模型名称', '如gpt-4、deepseek等，具体见API文档')}
-          rules={[{ required: true, message: '请输入模型名称' }]}
-        >
-          <Input placeholder="gpt-4" />
-        </Form.Item>
-        <Form.Item
-          name="additionalParams"
-          label={labelWithTip('高级参数(JSON)', '如temperature、max_tokens等，需为合法JSON格式')}
-          rules={[{
-            validator: (_, value) => {
-              if (!value) return Promise.resolve();
-              try { JSON.parse(value); return Promise.resolve(); } catch { return Promise.reject('请输入有效的JSON格式'); }
-            }
-          }]}
-          valuePropName="value"
-          getValueFromEvent={v => v}
-        >
-          <JsonEditorField placeholder='{"temperature": 0.1}' height={120} />
-        </Form.Item>
-      </Form>
-    </Modal>
-  );
 };
 
 const ProviderPanel: React.FC = () => {
@@ -439,7 +366,7 @@ const ProviderPanel: React.FC = () => {
                 </Col>
               ))}
             </Row>
-            <div style={{ fontWeight: 500, fontSize: 15, margin: '0 0 12px 2px', color: '#3b3b3b' }}>RAG系统系统</div>
+            <div style={{ fontWeight: 500, fontSize: 15, margin: '0 0 12px 2px', color: '#3b3b3b' }}>RAG系统配置</div>
             <Row gutter={[24, 24]} justify="start" align="top" style={{ marginBottom: 8 }}>
               {RAG_TEMPLATES.map((tpl, idx) => (
                 <Col key={tpl.key} xs={24} sm={12} md={8} lg={8} xl={8} style={{ display: 'flex' }}>
