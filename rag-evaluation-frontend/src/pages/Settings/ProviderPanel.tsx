@@ -23,7 +23,9 @@ const MODEL_TEMPLATES = [
       baseUrl: '',
       apiKey: '',
       modelName: '',
-      additionalParams: '{"temperature": 0.1}'
+      additionalParams: `{
+  "temperature": 0.1
+}`,
     }
   }
 ];

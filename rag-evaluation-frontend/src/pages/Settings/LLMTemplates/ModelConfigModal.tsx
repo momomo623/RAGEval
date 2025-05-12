@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Modal, Form, Input, Button, message } from 'antd';
-import JsonEditorField from '../../../utils/JsonEditorField';
+import JsonEditorField from '@components/JsonEditorField';
 import { labelWithTip } from '../utils';
 import { requestLLM, ChatCompletionMessageParam } from './llm-request';
 
@@ -12,6 +12,13 @@ const ModelConfigModal: React.FC<{
 }> = ({ open, onCancel, onSave, initialValues }) => {
   const [form] = Form.useForm();
   const [loading, setLoading] = React.useState(false);
+
+  useEffect(() => {
+    if (open) {
+      form.resetFields();
+      form.setFieldsValue(initialValues || {});
+    }
+  }, [open, initialValues, form]);
 
   // 使用 requestLLM 进行测试
   const handleTestAndSave = async () => {
@@ -74,7 +81,6 @@ const ModelConfigModal: React.FC<{
       <Form
         form={form}
         layout="vertical"
-        initialValues={initialValues || {}}
       >
         <Form.Item
           name="name"
@@ -116,7 +122,7 @@ const ModelConfigModal: React.FC<{
           valuePropName="value"
           getValueFromEvent={v => v}
         >
-          <JsonEditorField placeholder='{"temperature": 0.1}' height={120} />
+          <JsonEditorField placeholder='{"temperature": 0.1}' height='auto' />
         </Form.Item>
       </Form>
     </Modal>

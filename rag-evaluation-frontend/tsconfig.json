@@ -16,7 +16,21 @@
     "noFallthroughCasesInSwitch": false,
     "checkJs": false,
     "noImplicitAny": false,
-    "strictNullChecks": false
+    "strictNullChecks": false,
+    "baseUrl": "src",
+    "paths": {
+      "@components/*": ["components/*"],
+      "@utils/*": ["utils/*"],
+      "@services/*": ["services/*"],
+      "@pages/*": ["pages/*"],
+      "@hooks/*": ["hooks/*"],
+      "@assets/*": ["assets/*"],
+      "@styles/*": ["styles/*"],
+      "@types/*": ["types/*"],
+      "@router/*": ["router/*"],
+      "@config/*": ["config/*"],
+      "@context/*": ["context/*"]
+    }
   },
   "include": ["src"],
   // "references": [{ "path": "./tsconfig.node.json" }]

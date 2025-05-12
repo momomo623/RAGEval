@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Modal, Form, Input, Button, message } from 'antd';
 import { labelWithTip } from '../utils';
-import JsonEditorField from '../../../utils/JsonEditorField';
+import JsonEditorField from '@components/JsonEditorField';
 import { handleTestAndSaveGeneric } from './rag-request';
 
 const CustomRAG: React.FC<{
@@ -12,6 +12,13 @@ const CustomRAG: React.FC<{
 }> = ({ open, onCancel, onSave, initialValues }) => {
   const [form] = Form.useForm();
   const [loading, setLoading] = React.useState(false);
+
+  useEffect(() => {
+    if (open) {
+      form.resetFields();
+      form.setFieldsValue(initialValues || {});
+    }
+  }, [open, initialValues, form]);
 
   const handleOk = async () => {
     const values = await form.validateFields();
@@ -38,7 +45,6 @@ const CustomRAG: React.FC<{
       <Form
         form={form}
         layout="vertical"
-        initialValues={initialValues || {}}
       >
         <Form.Item name="name" label={labelWithTip('配置名称', '自定义本配置的名称')} rules={[{ required: true, message: '请输入配置名称' }]}> 
           <Input placeholder="自定义RAG系统" />
@@ -65,7 +71,7 @@ const CustomRAG: React.FC<{
           valuePropName="value"
           getValueFromEvent={v => v}
         >
-          <JsonEditorField placeholder='{"Content-Type": "application/json"}' height={120} />
+          <JsonEditorField placeholder='{"Content-Type": "application/json"}' height='auto' />
         </Form.Item>
         <Form.Item
           name="requestTemplate"
@@ -86,7 +92,7 @@ const CustomRAG: React.FC<{
           valuePropName="value"
           getValueFromEvent={v => v}
         >
-          <JsonEditorField placeholder='{"query": "{{question}}"}' height={120} />
+          <JsonEditorField placeholder='{"query": "{{question}}"}' height='auto' />
         </Form.Item>
         <Form.Item
           name="responsePath"

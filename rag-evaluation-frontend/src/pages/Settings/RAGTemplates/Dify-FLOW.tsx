@@ -75,7 +75,7 @@ const DifyFlow: React.FC<{
           <Input placeholder="https://api.dify.ai/v1/chat-messages" />
         </Form.Item>
         <Form.Item name="apiKey" label={labelWithTip('API密钥', 'Dify的API密钥')} rules={[{ required: true, message: '请输入API密钥' }]}>
-          <Input.Password placeholder="sk-..." />
+          <Input.Password placeholder="app-..." />
         </Form.Item>
         <Form.Item
           name="inputField"

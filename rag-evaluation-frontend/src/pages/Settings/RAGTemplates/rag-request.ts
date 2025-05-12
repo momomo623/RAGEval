@@ -123,106 +123,65 @@ export async function requestCustomRAG(config: any, question: string) {
 
 // Dify-Chatflow请求
 export async function requestDifyChatflow(config: any, question: string) {
-  try {
-    const headers = DIFY_CHATFLOW_TEMPLATE.requestHeaders(config.apiKey);
-    const requestTemplate = DIFY_CHATFLOW_TEMPLATE.requestTemplate;
-    // 替换模板中的{{question}}
-    const requestBody = JSON.stringify(
-      JSON.parse(
-        JSON.stringify(requestTemplate).replace(/{{question}}/g, question)
-      )
-    );
-    // 拼接多配置参数
-    const mergedConfig = {
-      ...DIFY_CHATFLOW_TEMPLATE,
-      ...config,
-      requestHeaders: headers,
-      requestTemplate,
-    };
-    const response = await fetch(config.url, {
-      method: 'POST',
-      headers,
-      body: requestBody,
-    });
-    if (!response.ok) {
-      let errMsg = `HTTP错误: ${response.status}`;
-      try {
-        const errJson = await response.json();
-        errMsg = errJson.message || errMsg;
-      } catch {}
-      throw new Error(errMsg);
-    }
-    const contentType = response.headers.get('content-type') || '';
-    if (contentType.includes('text/event-stream')) {
-      const content = await parseSSEStreamWithConfig(response, mergedConfig);
-      return { success: true, content: content || '[SSE无内容]' };
-    } else {
-      const data = await response.json();
-      const result = extractFromPath(data, mergedConfig.responsePath || '');
-      return { success: true, content: result };
-    }
-  } catch (err: any) {
-    return { success: false, error: err.message || '请求异常' };
-  }
+  // 组装 customRAG 参数
+  const customConfig = {
+    url: config.url,
+    requestHeaders: JSON.stringify({
+      "Authorization": `Bearer ${config.apiKey}`,
+      "Content-Type": "application/json"
+    }),
+    requestTemplate: JSON.stringify({
+      "inputs": {},
+      "query": "{{question}}",
+      "response_mode": "streaming",
+      "conversation_id": "",
+      "user": "abc-123"
+    }),
+    responsePath: "answer",
+    streamEventField: "event",
+    streamEventValue: "message",
+    ...config // 保留其他自定义参数
+  };
+  return await requestCustomRAG(customConfig, question);
 }
 
 // Dify-FLOW请求
 export async function requestDifyFlow(config: any, question: string) {
-  try {
-    const headers = DIFY_FLOW_TEMPLATE.requestHeaders(config.apiKey);
-    const requestTemplate = { ...DIFY_FLOW_TEMPLATE.requestTemplate };
-    // 使用用户自定义inputs覆盖
-    if (config.inputs) {
-      try {
-        requestTemplate.inputs = JSON.parse(config.inputs);
-      } catch {
-        // fallback: 保持默认inputs
-      }
-    }
-    // 替换inputs.query等字段中的{{question}}
-    const replaceInObj = (obj: any) => {
-      for (const key in obj) {
-        if (typeof obj[key] === 'string') {
-          obj[key] = obj[key].replace(/{{question}}/g, question);
-        } else if (typeof obj[key] === 'object' && obj[key] !== null) {
-          replaceInObj(obj[key]);
-        }
-      }
-    };
-    replaceInObj(requestTemplate.inputs);
-    const requestBody = JSON.stringify(requestTemplate);
-    // 拼接多配置参数
-    const mergedConfig = {
-      ...DIFY_FLOW_TEMPLATE,
-      ...config,
-      requestHeaders: headers,
-      requestTemplate,
-    };
-    const response = await fetch(config.url, {
-      method: 'POST',
-      headers,
-      body: requestBody,
-    });
-    if (!response.ok) {
-      let errMsg = `HTTP错误: ${response.status}`;
-      try {
-        const errJson = await response.json();
-        errMsg = errJson.message || errMsg;
-      } catch {}
-      throw new Error(errMsg);
-    }
-    const contentType = response.headers.get('content-type') || '';
-    if (contentType.includes('text/event-stream')) {
-      const content = await parseSSEStreamWithConfig(response, mergedConfig);
-      return { success: true, content: content || '[SSE无内容]' };
-    } else {
-      const data = await response.json();
-      const result = extractFromPath(data, mergedConfig.responsePath || '');
-      return { success: true, content: result };
-    }
-  } catch (err: any) {
-    return { success: false, error: err.message || '请求异常' };
+  // 组装 inputs 字段
+  let inputs = { query: "{{question}}" };
+  if (config.inputs) {
+    try {
+      inputs = JSON.parse(config.inputs);
+    } catch {}
   }
+  // 替换 inputs 内的 {{question}}
+  const replaceInObj = (obj: any) => {
+    for (const key in obj) {
+      if (typeof obj[key] === 'string') {
+        obj[key] = obj[key].replace(/{{question}}/g, question);
+      } else if (typeof obj[key] === 'object' && obj[key] !== null) {
+        replaceInObj(obj[key]);
+      }
+    }
+  };
+  // 组装 customRAG 参数
+  const customConfig = {
+    url: config.url,
+    requestHeaders: JSON.stringify({
+      "Authorization": `Bearer ${config.apiKey}`,
+      "Content-Type": "application/json"
+    }),
+    requestTemplate: JSON.stringify({
+      "inputs": inputs,
+      "response_mode": "streaming",
+      "user": "abc-123"
+    }),
+    responsePath: "data.text",
+    streamEventField: "event",
+    streamEventValue: "text_chunk",
+    ...config // 保留其他自定义参数
+  };
+  return await requestCustomRAG(customConfig, question);
 }
 
 // 统一入口

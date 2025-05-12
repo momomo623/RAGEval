@@ -7,8 +7,12 @@ export const RAG_TEMPLATES = [
     defaultConfig: {
       name: '',
       url: '',
-      requestHeaders: '{"Content-Type": "application/json"}',
-      requestTemplate: '{"query": "{{question}}"}',
+      requestHeaders: `{
+  "Content-Type": "application/json"
+}`,
+      requestTemplate: `{
+  "query": "{{question}}"
+}`,
       responsePath: 'answer',
       streamEventField: '',
       streamEventValue: '',
