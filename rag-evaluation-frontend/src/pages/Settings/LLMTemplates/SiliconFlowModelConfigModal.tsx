@@ -47,7 +47,12 @@ const SiliconFlowModelConfigModal: React.FC<{
       });
       message.destroy();
       message.success('连接成功！收到响应: ' + (content ? content.substring(0, 20) + '...' : '无内容'));
-      onSave(values);
+      
+      onSave({
+        ...values,
+        baseUrl: API_URL,
+        additionalParams: values.additionalParams ? JSON.parse(values.additionalParams) : undefined
+      });
     } catch (err: any) {
       message.destroy();
       message.error(err.message || '表单校验失败');
@@ -58,7 +63,11 @@ const SiliconFlowModelConfigModal: React.FC<{
 
   const handleOk = async () => {
     const values = await form.validateFields();
-    onSave(values);
+    onSave({
+      ...values,
+      baseUrl: API_URL,
+      additionalParams: values.additionalParams ? JSON.parse(values.additionalParams) : undefined
+    });
   };
   return (
     <Modal

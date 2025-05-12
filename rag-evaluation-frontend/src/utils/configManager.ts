@@ -175,4 +175,11 @@ export class ConfigManager {
     if (!this.currentUserId) return;
     localStorage.removeItem(`${this.STORAGE_KEY}_${this.currentUserId}`);
   }
+
+  // 根据类型和名称查找RAG配置
+  public async findRAGConfigByTypeAndName(type: string, name: string): Promise<RAGConfig | null> {
+    await this.updateCurrentUserId();
+    const userConfigs = this.getUserConfigs();
+    return userConfigs.rags.find(c => c.type === type && c.name === name) || null;
+  }
 }

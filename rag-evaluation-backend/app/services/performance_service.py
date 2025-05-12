@@ -53,6 +53,7 @@ class PerformanceService:
             concurrency=obj_in.concurrency,
             version=obj_in.version,
             config=obj_in.config,
+            rag_config=obj_in.rag_config,
             total_questions=total_questions,
             status="created"
         )

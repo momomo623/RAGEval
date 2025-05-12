@@ -34,6 +34,25 @@ class RAGFlowClient {
       throw new Error(err.message || '请求异常');
     }
   }
+
+  async* streamChatCompletion(question: string) {
+    try {
+      const stream = await this.client.chat.completions.create({
+        model: 'model',
+        messages: [{ role: 'user', content: question }],
+        stream: true,
+      });
+
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content || '';
+        if (content) {
+          yield content;
+        }
+      }
+    } catch (err: any) {
+      throw new Error(err.message || '请求异常');
+    }
+  }
 }
 
 // RAGFlow-Chat 请求处理
@@ -150,13 +169,29 @@ export async function requestCustomRAG(config: any, question: string) {
       } catch {}
       throw new Error(errMsg);
     }
+    // 如果状态码不是2xx,直接返回错误
+    if (!response.ok) {
+      let errMsg = `HTTP错误: ${response.status}`;
+      try {
+        const errJson = await response.json();
+        errMsg = errJson.message || errMsg;
+      } catch {}
+      return { success: false, error: errMsg };
+    }
+
     const contentType = response.headers.get('content-type') || '';
     if (contentType.includes('text/event-stream')) {
       const content = await parseSSEStreamWithConfig(response, config);
-      return { success: true, content: content || '[SSE无内容]' };
+      if (!content) {
+        return { success: false, error: 'SSE响应无有效内容' };
+      }
+      return { success: true, content };
     } else {
       const data = await response.json();
       const result = extractFromPath(data, config.responsePath || '');
+      if (!result) {
+        return { success: false, error: '响应数据格式无效' };
+      }
       return { success: true, content: result };
     }
   } catch (err: any) {
@@ -273,21 +308,112 @@ export async function handleTestAndSaveGeneric({
   key: string;
 }) {
   try {
+    // 1. 首先验证表单
     const values = await form.validateFields();
     setLoading(true);
-    message.loading('正在测试连接...', 0);
+    message.loading({ content: '正在测试连接...', key: 'testConnection' });
+
+    // 2. 测试连接
     const result = await testRAGConfig(values, '测试问题', key);
-    message.destroy();
-    if (result.success) {
+    
+    // 3. 清除加载提示
+    message.destroy('testConnection');
+
+    // 4. 处理测试结果
+    if (result.success && result.content) {
+      // 确保返回的内容存在且有效
       message.success('连接成功，配置已保存');
       onSave(values);
     } else {
-      message.error('测试失败: ' + (result.error || '未知错误'));
+      // 提供更详细的错误信息
+      const errorMessage = result.error
+        ? `测试失败: ${result.error}`
+        : '测试失败: 服务器返回的数据格式无效';
+      message.error(errorMessage);
     }
   } catch (err: any) {
-    message.destroy();
-    message.error(err.message || '表单校验失败');
+    // 5. 处理其他错误（如网络错误、表单验证错误等）
+    message.destroy('testConnection');
+    
+    const errorMessage = err.message
+      ? `错误: ${err.message}`
+      : '发生未知错误，请检查网络连接或联系管理员';
+    
+    message.error(errorMessage);
   } finally {
     setLoading(false);
   }
+}
+
+// 新增：流式 async generator 接口
+export async function* streamRAGResponse(config: any, question: string) {
+  // 兼容多种RAG类型
+  if (config.type === 'ragflow_chat') {
+    // RAGFlow流式
+    const client = new RAGFlowClient(config.address, config.chatId, config.apiKey);
+    let buffer = '';
+    // 这里假设RAGFlowClient支持流式for await
+    // 如果不支持，需要在RAGFlowClient中实现
+    for await (const chunk of client.streamChatCompletion(question)) {
+      yield chunk;
+    }
+    return;
+  }
+  if (config.type === 'custom' || config.type === 'dify_chatflow' || config.type === 'dify_flow') {
+    // 通用流式SSE
+    const headers = JSON.parse(config.requestHeaders || '{}');
+    const requestTemplate = JSON.parse(config.requestTemplate || '{}');
+    const requestBody = JSON.stringify(
+      JSON.parse(JSON.stringify(requestTemplate).replace(/{{question}}/g, question))
+    );
+    const response = await fetch(config.url, {
+      method: 'POST',
+      headers,
+      body: requestBody,
+    });
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('text/event-stream')) {
+      // SSE流式
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+      if (!reader) return;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const jsonStr = line.replace('data: ', '').trim();
+            if (jsonStr && jsonStr !== '[DONE]') {
+              try {
+                const eventData = JSON.parse(jsonStr);
+                if (
+                  config.streamEventField &&
+                  config.streamEventValue &&
+                  eventData[config.streamEventField] === config.streamEventValue
+                ) {
+                  // 提取内容块
+                  const chunkText = extractFromPath(eventData, config.responsePath || '') || '';
+                  if (chunkText) yield chunkText;
+                }
+              } catch (e) {
+                // 忽略解析失败的行
+              }
+            }
+          }
+        }
+      }
+      return;
+    } else {
+      // 非流式，直接yield一次
+      const data = await response.json();
+      const result = extractFromPath(data, config.responsePath || '');
+      if (result) yield result;
+      return;
+    }
+  }
+  // 其他类型可扩展
 }

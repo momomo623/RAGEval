@@ -17,6 +17,7 @@ import { datasetService } from '../../../services/dataset.service';
 import { useConfigContext } from '../../../contexts/ConfigContext';
 import ConfigButton from '../../../components/ConfigButton';
 import { PerformanceTestDetail } from './PerformanceTestDetail';
+import { ConfigManager, RAGConfig } from '../../../utils/configManager';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -42,11 +43,14 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
   const [stoppingTest, setStoppingTest] = useState(false);
 
   useEffect(() => {
-    // 检查LLM配置
-    const llmConfig = getRAGConfig();
-    setIsConfigured(!!llmConfig);
-  }, [getRAGConfig]);
-
+    // 使用ConfigManager检查RAG系统配置
+    const checkRAGConfig = async () => {
+      const configManager = ConfigManager.getInstance();
+      const configs = await configManager.getAllConfigs<RAGConfig>('rag');
+      setIsConfigured(configs.length > 0);
+    };
+    checkRAGConfig();
+  }, []);
 
   useEffect(() => {
     fetchTests();
@@ -117,13 +121,14 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
       setProgress(null);
 
       // 检查RAG配置
-      const ragConfig = getRAGConfig();
-      if (!ragConfig) {
+      // const ragConfig = getRAGConfig();
+      if (!isConfigured) {
         setShowConfigWarning(true);
         setRunningTestId(null);
         message.warning('未配置RAG系统，请先配置RAG系统才能使用性能测试功能');
         return;
       }
+      
 
       // 防止total被覆盖的进度状态管理器
       let progressState = {
@@ -233,7 +238,7 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
 
   return (
     <div className={styles.container}>
-      {showConfigWarning && (
+      {/* {showConfigWarning && (
         <Alert
           message="RAG系统未配置"
           description="性能测试需要RAG系统配置才能运行，请先完成配置"
@@ -244,7 +249,7 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
           }
           style={{ marginBottom: 16 }}
         />
-      )}
+      )} */}
       
       <div className={styles.header}>
         <Title level={4}>性能测试</Title>

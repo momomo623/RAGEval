@@ -7,6 +7,8 @@ import { questionGeneratorService, SplitterType, FailedRequestRecord } from '../
 import { TextChunk, GenerationParams, GeneratedQA, ProgressInfo } from '../../types/question-generator';
 import styles from './QuestionGeneration.module.css';
 import ConfigButton from "../../components/ConfigButton";
+import { ConfigManager, ModelConfig } from '@utils/configManager';
+import { LLMClient } from '../../pages/Settings/LLMTemplates/llm-request';
 
 const { Option } = Select;
 const { Column } = Table;
@@ -74,11 +76,34 @@ const QuestionGenerationContent: React.FC<QuestionGenerationContentProps> = ({ d
   const [failedRequestsModalVisible, setFailedRequestsModalVisible] = useState(false);
   const [failedRequests, setFailedRequests] = useState<FailedRequestRecord[]>([]);
 
+  const [availableModels, setAvailableModels] = useState<ModelConfig[]>([]);
+  const [selectedModelId, setSelectedModelId] = useState<string>('');
+
+  // 添加加载可用模型的函数
+  const loadAvailableModels = async () => {
+    const configManager = ConfigManager.getInstance();
+    const models = await configManager.getAllConfigs<ModelConfig>('model');
+    setAvailableModels(models);
+    if (models.length > 0) {
+      setSelectedModelId(models[0].id);
+    }
+  };
+
+  // 在组件加载时获取可用模型
   useEffect(() => {
-    // 检查LLM配置
-    const llmConfig = getLLMConfig();
-    setIsConfigured(!!llmConfig);
-  }, [getLLMConfig]);
+    loadAvailableModels();
+  }, []);
+
+  useEffect(() => {
+    // 使用ConfigManager检查LLM配置
+    const checkLLMConfig = async () => {
+      const configManager = ConfigManager.getInstance();
+      const configs = await configManager.getAllConfigs<ModelConfig>('model');
+      setIsConfigured(configs.length > 0);
+    };
+    
+    checkLLMConfig();
+  }, []);
 
   // 在组件初始化时，获取默认提示词模板
   useEffect(() => {
@@ -224,14 +249,13 @@ const QuestionGenerationContent: React.FC<QuestionGenerationContentProps> = ({ d
     }
   };
 
-  // 修改生成问答对的函数，传递并发数
+  // 修改生成问答对的函数
   const handleGenerateQA = async () => {
     try {
       await form.validateFields();
 
-      const llmConfig = getLLMConfig();
-      if (!llmConfig) {
-        message.error('请先配置大模型API');
+      if (!selectedModelId) {
+        message.error('请选择大模型');
         return;
       }
 
@@ -246,25 +270,24 @@ const QuestionGenerationContent: React.FC<QuestionGenerationContentProps> = ({ d
         difficulty: values.difficulty,
         questionTypes: values.questionTypes,
         maxTokens: values.maxTokens,
-        concurrency: values.concurrency // 添加并发数
+        concurrency: values.concurrency
       };
 
       setIsGenerating(true);
       setCurrentTab('generate');
       setGeneratedQAs([]);
 
-      // 开始生成问答对，传入自定义提示词和并发数
+      // 开始生成问答对，传入选中的模型ID
       await questionGeneratorService.generateQAPairs(
         params,
         datasetId,
-        llmConfig,
+        selectedModelId,
         (newProgress, newQAs) => {
           setProgress(newProgress);
           if (newQAs) {
             setGeneratedQAs(prev => [...prev, ...newQAs]);
           }
 
-          // 如果生成完成，跳转到结果页
           if (newProgress.isCompleted) {
             setCurrentTab('results');
             setIsGenerating(false);
@@ -281,6 +304,11 @@ const QuestionGenerationContent: React.FC<QuestionGenerationContentProps> = ({ d
   const handleStopGeneration = () => {
     questionGeneratorService.stopGeneration();
     message.info('正在停止生成...');
+    // 设置一个短暂的延迟，让用户看到停止消息
+    setTimeout(() => {
+      setCurrentTab('results');
+      setIsGenerating(false);
+    }, 1000);
   };
 
   const handleFinish = () => {
@@ -573,6 +601,27 @@ const QuestionGenerationContent: React.FC<QuestionGenerationContentProps> = ({ d
       >
         <div className={styles.formContainer}>
           <Row gutter={[24, 0]}>
+            <Col span={24}>
+              <Card className={styles.settingCard} bordered={false}>
+                <Form.Item
+                  label="选择大模型"
+                  required
+                >
+                  <Select
+                    value={selectedModelId}
+                    onChange={setSelectedModelId}
+                    style={{ width: '100%' }}
+                    placeholder="请选择大模型"
+                  >
+                    {availableModels.map(model => (
+                      <Option key={model.id} value={model.id}>
+                        {model.name} ({model.modelName})
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </Card>
+            </Col>
             <Col xs={24} sm={12} md={8} lg={8}>
               <Card className={styles.settingCard} bordered={false}>
                 <Form.Item

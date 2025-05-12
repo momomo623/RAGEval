@@ -148,12 +148,7 @@ export const CreateAccuracyTestForm: React.FC<CreateAccuracyTestFormProps> = ({
         dimensions: evaluationDimensions,
         weights: weights,
         version: values.version,
-        prompt_template: promptTemplate,
-        model_config_test: {
-          model: values.model,
-          temperature: values.temperature,
-          max_tokens: values.max_tokens
-        }
+        prompt_template: promptTemplate
       };
       
       const response = await accuracyService.create(data);
@@ -196,10 +191,7 @@ export const CreateAccuracyTestForm: React.FC<CreateAccuracyTestFormProps> = ({
           initialValues={{
             name: `精度测试-${new Date().toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric' })}`,
             evaluation_type: 'ai',
-            scoring_method: 'five_scale',
-            model: config?.modelName || 'deepseek-r1',
-            temperature: 0.1,
-            max_tokens: 800
+            scoring_method: 'five_scale'
           }}
         >
           <Form.Item
@@ -343,40 +335,6 @@ export const CreateAccuracyTestForm: React.FC<CreateAccuracyTestFormProps> = ({
               <TextArea rows={10} placeholder="请输入提示词模板" />
             </Form.Item>
           )}
-          
-          {/* 模型配置 */}
-          <Card title="模型配置（本设置将覆盖系统的模型配置）" size="small" style={{ marginBottom: 24 }}>
-            <Form.Item
-              name="model"
-              label="模型名称"
-            >
-              <Input placeholder="例如：gpt-4" />
-            </Form.Item>
-            
-            <Form.Item
-              name="temperature"
-              label="温度"
-            >
-              <InputNumber 
-                min={0}
-                max={1}
-                step={0.1}
-                style={{ width: '100%' }}
-              />
-            </Form.Item>
-            
-            <Form.Item
-              name="max_tokens"
-              label="最大生成长度"
-            >
-              <InputNumber 
-                min={100}
-                max={4000}
-                step={100}
-                style={{ width: '100%' }}
-              />
-            </Form.Item>
-          </Card>
           
           <Form.Item>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>

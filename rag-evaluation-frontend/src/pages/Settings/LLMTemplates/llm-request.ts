@@ -16,12 +16,16 @@ export class LLMClient {
   private modelName: string;
   private baseUrl: string;
   private apiKey: string;
-
   private additionalParams?: Record<string, any>;
 
-  constructor({ baseUrl, apiKey, modelName, additionalParams }: {
-    baseUrl: string;
-    apiKey: string;
+  constructor({ 
+    baseUrl, 
+    apiKey, 
+    modelName, 
+    additionalParams 
+  }: { 
+    baseUrl: string; 
+    apiKey: string; 
     modelName: string;
     additionalParams?: Record<string, any>;
   }) {
@@ -69,7 +73,7 @@ export class LLMClient {
   async chatCompletion({
     userMessage,
     systemMessage = '你是一个有帮助的AI助手。',
-    additionalParams: requestParams = {},
+    additionalParams = {},
   }: {
     userMessage: string;
     systemMessage?: string;
@@ -83,7 +87,7 @@ export class LLMClient {
           { role: 'user', content: userMessage },
         ],
         ...(this.additionalParams || {}),
-        ...requestParams,
+        ...additionalParams,
       });
       const content = response.choices?.[0]?.message?.content?.trim() || '';
       return content;

@@ -2,6 +2,9 @@ import { RagAnswer } from '../types/ragAnswer';
 import { api } from '../utils/api';
 import { performanceService } from './performance.service';
 import { executeRAGRequest, RAGRequestConfig } from '../utils/ragUtils';
+import { ConfigManager } from '../utils/configManager';
+import { streamRAGResponse } from '../pages/Settings/RAGTemplates/rag-request';
+import { message } from 'antd';
 
 // 测试进度数据结构
 export interface TestProgress {
@@ -33,109 +36,68 @@ interface TestResult {
 }
 
 /**
- * 获取RAG配置项
- * 从localStorage直接获取，因为服务文件不能使用React hooks
- */
-const getRagConfig = (): RAGRequestConfig | null => {
-  const RAG_CONFIG_KEY = 'rag_eval_rag_config';
-  const configStr = localStorage.getItem(RAG_CONFIG_KEY);
-  console.log('RAG配置字符串:', configStr);
-  
-  if (!configStr) return null;
-  
-  try {
-    const config = JSON.parse(configStr);
-    console.log('解析后的RAG配置:', config);
-    
-    return {
-      url: config.url,
-      headers: JSON.parse(config.requestHeaders || '{}'),
-      requestTemplate: JSON.parse(config.requestTemplate || '{}'),
-      responsePath: config.responsePath || '',
-      isStream: config.isStream || false,
-      streamEventField: config.streamEventField,
-      streamEventValue: config.streamEventValue,
-      retrieverPath: config.retrieverPath || ''
-    };
-  } catch (error) {
-    console.error('RAG配置解析错误:', error);
-    return null;
-  }
-};
-
-/**
  * 执行单个RAG请求并计时
  */
-const executeRagRequest = async (question: any, ragConfig: RAGRequestConfig): Promise<TestResult> => {
-  console.log('准备向RAG系统发送问题:', question);
-  
+const executeRagRequest = async (question: any, test: any): Promise<TestResult> => {
   try {
-    const startTime = performance.now();
-    let firstResponseTime: number | null = null;
-    
-    // 检查问题对象是否有效
-    if (!question) {
-      throw new Error('问题对象为空');
-    }
-    
-    // 获取问题文本 - 修复这里，确保正确获取问题文本
-    // 根据后端数据结构，问题文本可能在 question_text, text, content 或 question 字段
-    const questionText = question.question_text || question.text || question.content || question.question;
-    
-    // 输出调试信息，帮助诊断
-    console.log('问题对象结构:', JSON.stringify(question, null, 2));
-    console.log('提取的问题文本:', questionText);
-    
-    if (!questionText) {
-      console.warn('无法从问题对象中提取文本，使用问题ID作为备用:', question.id);
-      // 如果仍然无法获取文本，使用问题ID或抛出错误
-      throw new Error(`无法获取问题ID ${question.id} 的文本内容`);
-    }
-    
-    // 构建请求参数，确保query字段使用正确的问题文本
-    const requestParams = {
-      inputs: { query: questionText },  // 修复：使用问题文本而不是可能undefined的字段
-      response_mode: ragConfig.streamingEnabled ? "streaming" : "blocking",
-      user: `user-${Math.random().toString(36).substring(2, 8)}`
-    };
-    
-    console.log('发送给RAG系统的请求参数:', requestParams);
-    
-    // 使用通用函数执行请求
-    const result = await executeRAGRequest(questionText, ragConfig);
-    console.log('执行RAG请求结果:', result);
-    console.log('执行RAG请求问题:', question);
-    
-    // 根据执行结果构建测试结果
-    if (result.success) {
+    // 拆分rag_config
+    if (!test.rag_config) {
+      message.error('未配置RAG系统');
       return {
         questionId: question.id,
-        success: true,
-        firstResponseTime: result.firstResponseTime,
-        totalResponseTime: result.totalResponseTime,
-        characterCount: result.characterCount,
-        charactersPerSecond: result.charactersPerSecond,
-        response: result.content,
-        version: question.version,
-        performance_test_id: question.performance_test_id,
-        // retrievedDocs: result.retrievedDocs || [],
+        success: false,
+        errorDetails: { message: '未配置RAG系统' },
         sequenceNumber: question.sequence_number || 0
       };
-    } else {
-      throw result.error || new Error('请求失败');
     }
+    const [type, name] = test.rag_config.split('/');
+    const configManager = ConfigManager.getInstance();
+    const ragConfig = await configManager.findRAGConfigByTypeAndName(type, name);
+    if (!ragConfig) {
+      message.error('未找到RAG配置，请检查系统设置');
+      return {
+        questionId: question.id,
+        success: false,
+        errorDetails: { message: '未找到RAG配置' },
+        sequenceNumber: question.sequence_number || 0
+      };
+    }
+    // 获取问题文本
+    const questionText = question.question_text || question.text || question.content || question.question;
+    if (!questionText) {
+      throw new Error(`无法获取问题ID ${question.id} 的文本内容`);
+    }
+    // 性能统计
+    const startTime = performance.now();
+    let firstTokenTime: number | null = null;
+    let totalChars = 0;
+    let content = '';
+    for await (const chunk of streamRAGResponse(ragConfig, questionText)) {
+      if (firstTokenTime === null) {
+        firstTokenTime = performance.now() - startTime;
+      }
+      content += chunk;
+      totalChars += chunk.length;
+    }
+    const totalTime = performance.now() - startTime;
+    return {
+      questionId: question.id,
+      success: true,
+      firstResponseTime: firstTokenTime || 0,
+      totalResponseTime: totalTime,
+      characterCount: totalChars,
+      charactersPerSecond: totalChars / (totalTime / 1000),
+      response: content,
+      version: question.version,
+      performance_test_id: question.performance_test_id,
+      sequenceNumber: question.sequence_number || 0
+    };
   } catch (error) {
-    console.error('执行RAG请求失败:', error);
-    
-    // 返回失败结果
+    message.error('RAG请求失败: ' + (error.message || '未知错误'));
     return {
       questionId: question.id,
       success: false,
-      errorDetails: {
-        message: error.message,
-        status: error.response?.status,
-        data: error.response?.data
-      },
+      errorDetails: { message: error.message },
       sequenceNumber: question.sequence_number || 0
     };
   }
@@ -234,7 +196,7 @@ const executeWithBufferedQuestions = async (
       }
       
       // 执行RAG请求
-      const result = await executeRagRequest(questionWithSeq, ragConfig);
+      const result = await executeRagRequest(questionWithSeq, test);
       
       // 保存结果到后端
       await saveTestResult(test, result);
@@ -406,10 +368,10 @@ export const executePerformanceTest = async (
     await performanceService.start({ performance_test_id: test.id });
     
     // 获取RAG配置
-    const ragConfig = getRagConfig();
-    if (!ragConfig) {
-      throw new Error('性能测试需要RAG系统配置，请先配置RAG系统');
-    }
+    // const ragConfig = getRagConfig();
+    // if (!ragConfig) {
+    //   throw new Error('性能测试需要RAG系统配置，请先配置RAG系统');
+    // }
 
     // 如果提供了问题列表，则使用老的并发方式
     if (questions && questions.length > 0) {
@@ -420,7 +382,7 @@ export const executePerformanceTest = async (
       await executeWithConcurrencyLimit(
         test,
         questions,
-        ragConfig,
+        // ragConfig,
         (progress) => updateProgress(progress)
       );
     } else {
@@ -469,7 +431,7 @@ export const executePerformanceTest = async (
       await executeWithBufferedQuestions(
         test,
         questionBuffer,
-        ragConfig,
+        // ragConfig,
         (progress) => updateProgress(progress)
       );
     }

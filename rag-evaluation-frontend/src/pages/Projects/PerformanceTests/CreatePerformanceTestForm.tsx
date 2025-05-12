@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Form, Input, Select, Button, InputNumber, Card, message, Spin } from 'antd';
 import { PerformanceTestCreate, performanceService } from '../../../services/performance.service';
 import { datasetService } from '../../../services/dataset.service';
+import { ConfigManager, RAGConfig } from '../../../utils/configManager';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -21,6 +22,7 @@ export const CreatePerformanceTestForm: React.FC<CreatePerformanceTestFormProps>
   const [loading, setLoading] = useState(false);
   const [datasets, setDatasets] = useState<any[]>([]);
   const [loadingDatasets, setLoadingDatasets] = useState(false);
+  const [ragConfigs, setRagConfigs] = useState<RAGConfig[]>([]);
 
   // 加载项目的数据集
   useEffect(() => {
@@ -42,6 +44,15 @@ export const CreatePerformanceTestForm: React.FC<CreatePerformanceTestFormProps>
     fetchDatasets();
   }, [projectId]);
 
+  useEffect(() => {
+    const loadRAGConfigs = async () => {
+      const configManager = ConfigManager.getInstance();
+      const configs = await configManager.getAllConfigs<RAGConfig>('rag');
+      setRagConfigs(configs);
+    };
+    loadRAGConfigs();
+  }, []);
+
   const handleSubmit = async (values: any) => {
     if (!projectId) {
       message.error('未找到项目ID');
@@ -53,6 +64,7 @@ export const CreatePerformanceTestForm: React.FC<CreatePerformanceTestFormProps>
       const testData: PerformanceTestCreate = {
         ...values,
         project_id: projectId,
+        rag_config: values.rag_config,
       };
 
       const result = await performanceService.create(testData);
@@ -122,6 +134,20 @@ export const CreatePerformanceTestForm: React.FC<CreatePerformanceTestFormProps>
             rules={[{ required: true, message: '请输入并发请求数' }]}
           >
             <InputNumber min={1} max={50} style={{ width: '100%' }} />
+          </Form.Item>
+          
+          <Form.Item
+            name="rag_config"
+            label="RAG系统配置"
+            rules={[{ required: true, message: '请选择RAG系统配置' }]}
+          >
+            <Select placeholder="请选择RAG系统">
+              {ragConfigs.map(cfg => (
+                <Option key={cfg.type + '/' + cfg.name} value={cfg.type + '/' + cfg.name}>
+                  {cfg.type + '/' + cfg.name}
+                </Option>
+              ))}
+            </Select>
           </Form.Item>
           
           <Form.Item>

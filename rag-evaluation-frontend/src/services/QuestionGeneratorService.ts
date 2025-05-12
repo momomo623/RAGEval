@@ -7,6 +7,8 @@ import {
   LLMRequestPayload
 } from '../types/question-generator';
 import { datasetService } from './dataset.service';
+import { ConfigManager, ModelConfig } from '@utils/configManager';
+import { LLMClient } from '../pages/Settings/LLMTemplates/llm-request';
 
 // 替换为新的导入路径
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
@@ -38,16 +40,17 @@ export class QuestionGeneratorService {
     generatedQAPairs: 0,
     isCompleted: false
   };
-  private abortController: AbortController | null = null;
   private processingPromises: Promise<any>[] = [];
   private maxConcurrentRequests = 3;
   private datasetId: string | null = null;
   private fileSourceMap: Map<string, string> = new Map(); // 用于存储分块ID和源文件名的映射
   private defaultChunkSize = 1000;
   private splitterType: SplitterType = 'recursive';
+  private isStopped: boolean = false; // 添加停止标志
   
   // 失败记录列表
   private failedRequests: FailedRequestRecord[] = [];
+  private activeLLMClients: LLMClient[] = []; // 添加活跃的LLMClient列表
 
 // TODO 5. 原文依据:原文依据应该来源于原文，并不超过10个字
   
@@ -61,7 +64,7 @@ export class QuestionGeneratorService {
 
 ### 生成要求：
 1. **问题：** 
-   - 问题要精准、清晰，直接基于文本内容，避免使用“本文”、“文中”、“文章中”等字眼。
+   - 问题要精准、清晰，直接基于文本内容，避免使用"本文"、"文中"、"文章中"等字眼。
    - 模拟用户提问的方式，问题应自然流畅，覆盖不同角度，包括细节、概念、流程、对比等。
 2. **答案：**
    - 简明扼要，紧扣问题核心，不要超出文本信息。
@@ -105,14 +108,12 @@ export class QuestionGeneratorService {
       generatedQAPairs: 0,
       isCompleted: false
     };
-    if (this.abortController) {
-      this.abortController.abort();
-    }
-    this.abortController = new AbortController();
     this.processingPromises = [];
     this.fileSourceMap = new Map();
     // 重置失败记录
     this.failedRequests = [];
+    this.activeLLMClients = [];
+    this.isStopped = false; // 重置停止标志
   }
   
   // 获取失败记录列表
@@ -251,19 +252,17 @@ export class QuestionGeneratorService {
   public async generateQAPairs(
     params: GenerationParams, 
     datasetId: string,
-    llmConfig: any, 
+    modelId: string, 
     onProgress: (progress: ProgressInfo, newQAs?: GeneratedQA[]) => void,
     customPromptTemplate?: string
   ): Promise<GeneratedQA[]> {
     this.datasetId = datasetId;
-    this.abortController = new AbortController();
-    
+    this.isStopped = false; // 重置停止标志
     // 设置并发数
     if (params.concurrency && params.concurrency > 0) {
       this.maxConcurrentRequests = params.concurrency;
       console.log(`设置并发请求数为: ${this.maxConcurrentRequests}`);
     }
-    
     // 计算总共需要生成的问答对数量
     const selectedChunks = this.chunks.filter(chunk => chunk.selected);
     this.progress.totalChunks = selectedChunks.length;
@@ -271,112 +270,90 @@ export class QuestionGeneratorService {
     this.progress.completedChunks = 0;
     this.progress.generatedQAPairs = 0;
     this.progress.isCompleted = false;
-    
     onProgress({...this.progress});
-    
     // 设置并发处理队列
     let activePromises: Promise<any>[] = [];
     this.generatedQAs = [];
+    try {
+      for (const chunk of selectedChunks) {
+        // 检查是否已停止
+        if (this.isStopped) {
+          console.log('生成已停止，取消未发出的请求');
+          break;
+        }
 
-    for (const chunk of selectedChunks) {
-      // 如果已中止，停止处理
-      if (this.abortController.signal.aborted) {
-        break;
-      }
-      
-      this.progress.currentChunk = chunk;
-      onProgress({...this.progress});
-      
-      // 创建当前块的处理Promise
-      const processPromise = this.processChunk(chunk, params, llmConfig, customPromptTemplate)
-        .then(qaPairs => {
-          // 更新进度
-          this.progress.completedChunks++;
-          this.progress.generatedQAPairs += qaPairs.length;
-          this.progress.currentChunk = undefined;
-          
-          // 将生成的问答对添加到结果中
-          this.generatedQAs.push(...qaPairs);
-          
-          // 回调，传递进度和新生成的问答对
-          onProgress({...this.progress}, qaPairs);
-          
-          // 如果是增量保存，这里可以调用保存API
-          if (this.datasetId) {
-            this.saveQAPairsBatch(qaPairs, this.datasetId);
-          }
-          
-          return qaPairs;
-        })
-        .catch(error => {
-          console.error('处理分块时出错:', error);
-          this.progress.error = `处理分块时出错: ${error.message}`;
-          this.progress.completedChunks++;
-          onProgress({...this.progress});  
-          // // 创建失败的问答对记录（简化版本，只用于表格显示）
-          // const sourceFileName = this.fileSourceMap.get(chunk.id) || '未知文件';
-          // const failedQA: GeneratedQA = {
-          //   id: uuidv4(),
-          //   question: '生成失败',
-          //   answer: '生成失败',
-          //   difficulty: 'medium',
-          //   category: 'factoid',
-          //   sourceChunkId: chunk.id,
-          //   sourceFileName: sourceFileName,
-          //   status: 'failed',
-          //   errorReason: error.message
-          // };
-          
-          // // 将失败记录添加到结果中
-          // this.generatedQAs.push(failedQA);
-          
-          // // 回调，传递进度和新生成的问答对（包括失败记录）
-          // onProgress({...this.progress}, [failedQA]);
-        });
-      
-      activePromises.push(processPromise);
-      
-      // 如果达到最大并发数，等待其中一个完成
-      if (activePromises.length >= this.maxConcurrentRequests) {
-        let completedPromiseIndex: number | null = null;
-        
-        await Promise.race(activePromises)
-          .then(() => {
-            // 一旦有Promise完成，我们只需要从列表中移除它
-            // 简化处理：移除第一个已完成的Promise
-            completedPromiseIndex = 0;
+        this.progress.currentChunk = chunk;
+        onProgress({...this.progress});
+        // 创建当前块的处理Promise
+        const processPromise = this.processChunk(chunk, params, modelId, customPromptTemplate)
+          .then(qaPairs => {
+            // 更新进度
+            this.progress.completedChunks++;
+            this.progress.generatedQAPairs += qaPairs.length;
+            this.progress.currentChunk = undefined;
+            // 将生成的问答对添加到结果中
+            this.generatedQAs.push(...qaPairs);
+            // 回调，传递进度和新生成的问答对
+            onProgress({...this.progress}, qaPairs);
+            // 如果是增量保存，这里可以调用保存API
+            if (this.datasetId) {
+              this.saveQAPairsBatch(qaPairs, this.datasetId);
+            }
+            return qaPairs;
+          })
+          .catch(error => {
+            console.error('处理分块时出错:', error);
+            this.progress.error = `处理分块时出错: ${error.message}`;
+            this.progress.completedChunks++;
+            onProgress({...this.progress});  
           });
-        
-        // 移除一个已完成的Promise
-        if (completedPromiseIndex !== null) {
-          activePromises.splice(completedPromiseIndex, 1);
+        activePromises.push(processPromise);
+        // 如果达到最大并发数，等待其中一个完成
+        if (activePromises.length >= this.maxConcurrentRequests) {
+          let completedPromiseIndex: number | null = null;
+          await Promise.race(activePromises)
+            .then(() => {
+              // 一旦有Promise完成，我们只需要从列表中移除它
+              completedPromiseIndex = 0;
+            });
+          // 移除一个已完成的Promise
+          if (completedPromiseIndex !== null) {
+            activePromises.splice(completedPromiseIndex, 1);
+          }
         }
       }
+      // 等待所有剩余的处理完成
+      await Promise.all(activePromises);
+      // 标记为完成
+      this.progress.isCompleted = true;
+      onProgress({...this.progress});
+      return this.generatedQAs;
+    } catch (error) {
+      throw error;
     }
-    
-    // 等待所有剩余的处理完成
-    await Promise.all(activePromises);
-    
-    // 标记为完成
-    this.progress.isCompleted = true;
-    onProgress({...this.progress});
-    
-    return this.generatedQAs;
   }
 
   // 处理单个文本块
   private async processChunk(
     chunk: TextChunk, 
     params: GenerationParams, 
-    llmConfig: any,
+    modelId: string,
     customPromptTemplate?: string
   ): Promise<GeneratedQA[]> {
     // 构建提示词，传入自定义模板
     const prompt = this.buildPrompt(chunk.content, params, customPromptTemplate);
 
     try {
+      // 创建LLMClient实例
+      const llmClient = await LLMClient.createFromConfigId(modelId);
+      // 添加到活跃客户端列表
+      this.activeLLMClients.push(llmClient);
+
       // 调用LLM API
-      const response = await this.callLLMAPI(prompt, params, llmConfig);
+      const response = await this.callLLMAPI(prompt, params, llmClient);
+      
+      // 从活跃客户端列表中移除
+      this.activeLLMClients = this.activeLLMClients.filter(client => client !== llmClient);
       
       // 解析响应生成问答对
       const qaPairs = this.parseResponse(response, chunk.id);
@@ -386,7 +363,6 @@ export class QuestionGeneratorService {
       console.error(`处理分块 ${chunk.id} 失败:`, error);
       console.error('处理分块失败:', error);
 
-      
       // 记录失败详情
       const sourceFileName = this.fileSourceMap.get(chunk.id) || '未知文件';
       
@@ -400,7 +376,6 @@ export class QuestionGeneratorService {
         errorMessage: error.message,
         chunkContent: chunk.content,
         rawResponse: error.rawResponse || '',
-        
       };
 
       console.log('失败记录:', failedRecord);
@@ -483,36 +458,19 @@ export class QuestionGeneratorService {
   }
 
   // 调用LLM API
-  private async callLLMAPI(prompt: string, params: GenerationParams, llmConfig: any): Promise<string> {
+  private async callLLMAPI(prompt: string, params: GenerationParams, llmClient: LLMClient): Promise<string> {
     try {
-      // 创建OpenAI客户端
-      const openai = new OpenAI({
-        apiKey: llmConfig.apiKey,
-        baseURL: llmConfig.baseUrl,
-        dangerouslyAllowBrowser: true // 在浏览器中使用
+      // 调用LLM API
+      const response = await llmClient.chatCompletion({
+        userMessage: prompt,
+        systemMessage: '你是一个专业的问答对生成专家，擅长根据文本生成多样性高、质量优的问答对。',
+        additionalParams: {
+          temperature: 0.2,
+          max_tokens: params.maxTokens || 2048
+        }
       });
 
-      // 准备请求体
-      const requestBody = {
-        model: llmConfig.modelName,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a helpful assistant specialized in generating high-quality question-answer pairs.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.2,
-        max_tokens: params.maxTokens || 1000
-      };
-
-      // 调用LLM API
-      const completion = await openai.chat.completions.create(requestBody);
-
-      return completion.choices[0].message.content;
+      return response;
     } catch (error: any) {
       // 增强错误处理，保存更多错误信息
       if (error instanceof Error && error.name === 'AbortError') {
@@ -524,12 +482,6 @@ export class QuestionGeneratorService {
       enhancedError.status = error.status || error.statusCode;
       enhancedError.statusText = error.statusText;
       enhancedError.headers = error.headers;
-      enhancedError.requestBody = {
-        model: llmConfig.modelName,
-        messages: [...requestBody.messages],
-        temperature: requestBody.temperature,
-        max_tokens: requestBody.max_tokens
-      };
       
       // 如果有原始响应体，添加到错误对象
       if (error.response) {
@@ -614,11 +566,11 @@ export class QuestionGeneratorService {
 
   // 中止生成过程
   public stopGeneration(): void {
-    if (this.abortController) {
-      this.abortController.abort();
-      this.progress.error = '生成已手动停止';
-      this.progress.isCompleted = true;
-    }
+    this.isStopped = true; // 设置停止标志
+    this.progress.error = '生成已手动停止';
+    this.progress.isCompleted = true;
+    this.progress.completedChunks = this.progress.totalChunks;
+    this.progress.generatedQAPairs = this.generatedQAs.length;
   }
 
   // 修改方法名和实现

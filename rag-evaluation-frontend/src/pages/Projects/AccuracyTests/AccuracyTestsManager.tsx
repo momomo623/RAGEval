@@ -17,6 +17,7 @@ import { CreateAccuracyTestForm } from './CreateAccuracyTestForm';
 import { AccuracyTestDetail } from './AccuracyTestDetail';
 import { useConfigContext } from '../../../contexts/ConfigContext';
 import ConfigButton from '../../../components/ConfigButton';
+import { ConfigManager, RAGConfig, ModelConfig } from '@utils/configManager';
 
 const { Title, Text } = Typography;
 
@@ -40,13 +41,20 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
   const [showConfigWarning, setShowConfigWarning] = useState(false);
   // 添加并发数设置状态
   const [concurrency, setConcurrency] = useState<number>(10);
+  const [selectedModelId, setSelectedModelId] = useState<string>('');
+  const [availableModels, setAvailableModels] = useState<ModelConfig[]>([]);
 
   const [isConfigured, setIsConfigured] = useState(false);
   useEffect(() => {
-    // 检查LLM配置
-    const llmConfig = getLLMConfig();
-    setIsConfigured(!!llmConfig);
-  }, [getLLMConfig]);
+    // 使用ConfigManager检查RAG系统配置
+    const checkRAGConfig = async () => {
+      const configManager = ConfigManager.getInstance();
+      const configs = await configManager.getAllConfigs<RAGConfig>('rag');
+      setIsConfigured(configs.length > 0);
+    };
+    
+    checkRAGConfig();
+  }, []);
 
   // 初始加载测试列表和并发数设置
   useEffect(() => {
@@ -57,6 +65,19 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
       setConcurrency(parseInt(savedConcurrency, 10));
     }
   }, [projectId]);
+
+  // 加载大模型配置
+  useEffect(() => {
+    const loadModels = async () => {
+      const configManager = ConfigManager.getInstance();
+      const models = await configManager.getAllConfigs<ModelConfig>('model');
+      setAvailableModels(models);
+      if (models.length > 0) {
+        setSelectedModelId(models[0].id);
+      }
+    };
+    loadModels();
+  }, []);
 
   // 保存并发数设置到localStorage
   const handleConcurrencyChange = (value: number) => {
@@ -118,27 +139,22 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
     }
   };
 
-  // 修改运行测试函数，传递并发数
+  // 修改运行测试函数，传递大模型配置ID
   const handleRunTest = async (test: any) => {
     if (runningTestId) {
       message.warning('已有测试正在运行，请等待完成');
       return;
     }
 
-    try {
-      // 检查LLM配置
-      const llmConfig = getLLMConfig();
-      if (!llmConfig) {
-        setShowConfigWarning(true);
-        message.warning('未配置大模型API，请先配置大模型API才能使用精度评测功能');
-        return;
-      }
+    if (!selectedModelId) {
+      message.error('请先选择大模型配置');
+      return;
+    }
 
+    try {
       setRunningTestId(test.id);
       setSelectedTestId(test.id);
       setProgress(null);
-
-      // 防止total被覆盖的进度状态管理器
       let progressState = {
         total: 0,
         completed: 0,
@@ -146,45 +162,29 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
         failed: 0,
         startTime: performance.now()
       };
-
-      // 不再预加载所有问题，直接使用缓冲区模式
       setProgress(progressState);
-
-      // 创建测试配置，包含并发设置
       const testConfig = {
         ...test,
         batch_settings: {
           ...test.batch_settings,
-          concurrency: concurrency // 使用设置的并发数
+          concurrency: concurrency
         }
       };
-
-      // 执行测试 - 传递空数组以触发缓冲区模式
       await executeAccuracyTest(
-        testConfig, // 使用包含并发设置的配置
-        [], // 空数组触发缓冲区模式
+        testConfig,
+        [],
         (progress) => {
-          // 确保total被正确保留
-          // if (progress.total > 0) {
-          //   progressState.total = progress.total;
-          //   console.log("11111111122222222进度状态",progressState)
-          // }
-          
-          // 确保其他字段也被更新
           progressState = {
             ...progressState,
             ...progress,
             total: progressState.total > 0 ? progressState.total : progress.total
           };
-
-          
-          setProgress({...progressState});
+          setProgress({ ...progressState });
         },
-        getLLMConfig
+        selectedModelId // 传递大模型配置ID
       );
-
       message.success('精度测试执行完成');
-      await fetchTests(); // 刷新测试列表
+      await fetchTests();
     } catch (error) {
       console.error('执行精度测试失败:', error);
       message.error('执行精度测试失败: ' + (error.message || '未知错误'));
@@ -313,10 +313,24 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
     );
   };
 
-  // 添加并发设置组件
+  // 修改并发设置，左侧添加大模型选择
   const renderConcurrencySettings = () => {
     return (
       <Form layout="inline" style={{ marginBottom: 16 }}>
+        <Form.Item label="大模型配置">
+          <Select
+            value={selectedModelId}
+            onChange={setSelectedModelId}
+            style={{ width: 220 }}
+            placeholder="请选择大模型配置"
+          >
+            {availableModels.map(model => (
+              <Select.Option key={model.id} value={model.id}>
+                {model.name}（{model.modelName}）
+              </Select.Option>
+            ))}
+          </Select>
+        </Form.Item>
         <Form.Item label="并发请求数">
           <Select
             value={concurrency}

@@ -4,6 +4,7 @@ import { datasetService } from './dataset.service';
 import OpenAI from 'openai';
 import { accuracyService } from './accuracy.service';
 import * as yaml from 'js-yaml';
+import { LLMClient } from '../pages/Settings/LLMTemplates/llm-request';
 
 export interface TestProgress {
   total: number;
@@ -38,40 +39,22 @@ function buildPrompt(
 }
 
 /**
- * 执行LLM评测
+ * 执行LLM评测（改为llm-request方式）
  */
 async function evaluateWithLLM(
   prompt: string,
-  modelConfig: any,
-  getLLMConfig: () => any
+  modelConfigId: string
 ): Promise<any> {
-  const llmConfig = getLLMConfig();
-  if (!llmConfig) {
-    throw new Error('缺少LLM配置，请先配置大模型API');
-  }
-
-  // 创建OpenAI客户端
-  const openai = new OpenAI({
-    apiKey: llmConfig.apiKey,
-    baseURL: llmConfig.baseUrl,
-    dangerouslyAllowBrowser: true // 在浏览器中使用
+  const llmClient = await LLMClient.createFromConfigId(modelConfigId);
+  const response = await llmClient.chatCompletion({
+    userMessage: prompt,
+    systemMessage: '你是一个专业的RAG回答评估专家，你的任务是评估生成式AI的回答质量。请根据提供的标准答案评价RAG系统的回答质量，分析其准确性、相关性和完整性。',
+    additionalParams: {
+      temperature: 0.2,
+      max_tokens: 1000
+    }
   });
-
-  // 调用LLM API
-  const completion = await openai.chat.completions.create({
-    // 优先使用用户配置的model，而不是model_name
-    model: modelConfig.model || llmConfig.modelName ,
-    messages: [
-      { role: "system", content: "你是一个专业的RAG回答评估专家，你的任务是评估生成式AI的回答质量。请根据提供的标准答案评价RAG系统的回答质量，分析其准确性、相关性和完整性。" },
-      { role: "user", content: prompt }
-    ],
-    // 优先使用用户配置的参数
-    temperature: modelConfig.temperature || 0.2,
-    max_tokens: modelConfig.max_tokens || 1000,
-    top_p: modelConfig.top_p || 1
-  });
-
-  return completion;
+  return response;
 }
 
 /**
@@ -193,8 +176,7 @@ function applyEvaluationResults(
 async function processEvaluationItem(
   item: any,
   test: any,
-  modelConfig: any,
-  getLLMConfig: () => any
+  modelConfigId: string
 ): Promise<any> {
   try {
     console.log(`处理评测项: ${item.id}`, item);
@@ -210,12 +192,12 @@ async function processEvaluationItem(
     const startTime = performance.now();
     
     // 调用LLM进行评测
-    const llmResponse = await evaluateWithLLM(prompt, modelConfig, getLLMConfig);
+    const llmResponse = await evaluateWithLLM(prompt, modelConfigId);
     
     const processingTime = performance.now() - startTime;
     
     // 解析评测结果
-    const { overall_score, dimension_scores, evaluation_reason, item_metadata } = extractEvaluationResult(llmResponse.choices[0].message.content);
+    const { overall_score, dimension_scores, evaluation_reason, item_metadata } = extractEvaluationResult(llmResponse);
     
     // 构建评测项结果
     return {
@@ -224,11 +206,10 @@ async function processEvaluationItem(
       ai_dimension_scores: dimension_scores,
       ai_evaluation_reason: evaluation_reason,
       ai_evaluation_time: new Date().toISOString(),
-      ai_raw_response: llmResponse.choices[0].message.content,
+      ai_raw_response: llmResponse,
       status: test.evaluation_type === 'ai' ? 'ai_completed' : 'ai_completed',
       processing_time: processingTime,
       item_metadata: item_metadata, // 原始回答
-      // 对于纯AI评测，最终结果直接使用AI评测结果
       ...(test.evaluation_type === 'ai' ? {
         final_score: overall_score,
         final_dimension_scores: dimension_scores,
@@ -252,9 +233,8 @@ async function processEvaluationItem(
 async function executeWithConcurrencyLimit(
   test: any,
   questions: any[],
-  modelConfig: any,
-  progressCallback: (progress: TestProgress) => void,
-  getLLMConfig: () => any
+  modelConfigId: string,
+  progressCallback: (progress: TestProgress) => void
 ): Promise<void> {
   const concurrencyLimit = test.batch_settings?.concurrency || 6;
   const results: any[] = [];
@@ -276,7 +256,7 @@ async function executeWithConcurrencyLimit(
   const processQuestion = async (question: any): Promise<void> => {
     try {
       // 处理问题
-      const result = await processEvaluationItem(question, test, modelConfig, getLLMConfig);
+      const result = await processEvaluationItem(question, test, modelConfigId);
       
       // 提交评测结果到后端
       await accuracyService.submitItemResults(test.id, [result]);
@@ -686,7 +666,7 @@ async function executeWithBufferedAccuracyTest(
   test: any,
   questionBuffer: AccuracyQuestionBufferManager,
   progressCallback: (progress: TestProgress) => void,
-  getLLMConfig: () => any
+  modelConfigId: string
 ): Promise<void> {
   const results: any[] = [];
   const startTime = performance.now();
@@ -740,7 +720,7 @@ async function executeWithBufferedAccuracyTest(
       }
       
       // 处理问题并进行评测
-      const result = await processEvaluationItem(questionWithSeq, test, test.model_config_test || {}, getLLMConfig);
+      const result = await processEvaluationItem(questionWithSeq, test, modelConfigId);
       
       // 提交评测结果到后端
       await accuracyService.submitItemResults(test.id, [result]);
@@ -942,7 +922,7 @@ export async function executeAccuracyTest(
   test: any,
   questions: any[],
   onProgressUpdate: (progress: TestProgress) => void,
-  getLLMConfig: () => any
+  modelConfigId: string
 ): Promise<boolean> {
   try {
     console.log('开始执行精度测试:', test);
@@ -979,12 +959,6 @@ export async function executeAccuracyTest(
     // 开始测试前通知后端
     await accuracyService.start({ accuracy_test_id: test.id });
     
-    // 获取LLM配置
-    const llmConfig = getLLMConfig();
-    if (!llmConfig) {
-      throw new Error('精度测试需要LLM配置，请先配置大模型API');
-    }
-    
     // 如果提供了问题列表，则使用老的并发方式
     if (questions && questions.length > 0) {
       console.log(`使用预加载的 ${questions.length} 个问题执行精度测试`);
@@ -1002,9 +976,8 @@ export async function executeAccuracyTest(
       await executeWithConcurrencyLimit(
         test,
         preparedQuestions,
-        test.model_config_test || {},
-        updateProgress,
-        getLLMConfig
+        modelConfigId,
+        updateProgress
       );
     } else {
       console.log(`使用缓冲区管理器从数据集 ${test.dataset_id} 加载精度评测问题`);
@@ -1040,7 +1013,7 @@ export async function executeAccuracyTest(
         test,
         questionBuffer,
         updateProgress,
-        getLLMConfig
+        modelConfigId
       );
     }
     

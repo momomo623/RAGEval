@@ -11,6 +11,7 @@ class PerformanceTestBase(BaseModel):
     concurrency: int = 1
     version: Optional[str] = None
     config: Dict[str, Any] = {}
+    rag_config: Optional[str] = None
 
 class PerformanceTestCreate(PerformanceTestBase):
     pass
