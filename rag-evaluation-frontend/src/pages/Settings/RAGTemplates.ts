@@ -1,3 +1,8 @@
+// 拼接RAGFlow的完整URL
+export const getRAGFlowUrl = (address: string, chatId: string) => {
+  return `http://${address}/api/v1/chats_openai/${chatId}/chat/completions`;
+};
+
 export const RAG_TEMPLATES = [
   {
     key: 'custom',
@@ -5,8 +10,6 @@ export const RAG_TEMPLATES = [
     desc: '自定义RAG系统配置',
     logo: '/logo.png',
     defaultConfig: {
-      name: '',
-      url: '',
       requestHeaders: `{
   "Content-Type": "application/json"
 }`,
@@ -53,5 +56,41 @@ export const RAG_TEMPLATES = [
       streamEventValue: 'text_chunk',
     }
   },
+  {
+    key: 'ragflow_chat',
+    name: 'RAGFlow-Chat',
+    desc: '支持流式输出的OpenAI兼容RAG对话系统',
+    logo: '/llm_logo/ragflow_logo.png',
+    defaultConfig: {
+      name: 'RAGFlow对话',
+      address: 'localhost',
+      chatId: '',
+      apiKey: '',
+      type: 'ragflow_chat',
+      requestHeaders: `{
+  "Authorization": "Bearer 你的密钥",
+  "Content-Type": "application/json"
+}`,
+      requestTemplate: `{
+  "model": "model",
+  "messages": [{"role": "user", "content": "{{question}}"}],
+  "stream": true
+}`,
+      responsePath: 'choices[0].delta.content',
+      streamEventField: 'choices',
+      streamEventValue: 'delta'
+    }
+  }
+];
 
-]; 
+// RAGFlow-Chat API文档：
+// POST /api/v1/chats_openai/{chat_id}/chat/completions
+// 请求头：
+// - Content-Type: application/json
+// - Authorization: Bearer <YOUR_API_KEY>
+// 请求体：
+// {
+//   "model": "model",
+//   "messages": [{"role": "user", "content": "问题内容"}],
+//   "stream": true
+// }

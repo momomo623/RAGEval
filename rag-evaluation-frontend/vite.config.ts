@@ -20,7 +20,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@components': path.resolve(__dirname, 'src/components'),
-      // 你可以在这里加更多别名
       '@utils': path.resolve(__dirname, 'src/utils'),
       '@services': path.resolve(__dirname, 'src/services'), 
       '@pages': path.resolve(__dirname, 'src/pages'),

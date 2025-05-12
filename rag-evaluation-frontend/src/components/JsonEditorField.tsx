@@ -6,8 +6,7 @@ const JsonEditorField: React.FC<{
   value?: string;
   onChange?: (v: string) => void;
   placeholder?: string;
-  height?: number;
-}> = ({ value, onChange, placeholder, height = 120 }) => {
+}> = ({ value, onChange, placeholder }) => {
   const [text, setText] = useState(value || '');
   const [error, setError] = useState(false);
 
@@ -25,7 +24,7 @@ const JsonEditorField: React.FC<{
   }, [text]);
 
   return (
-    <div style={{ background: '#fafafa', border: error ? '1px solid #ff4d4f' : '1px solid #d9d9d9', borderRadius: 4, padding: 4, minHeight: height }}>
+    <div style={{ background: '#fafafa', border: error ? '1px solid #ff4d4f' : '1px solid #d9d9d9', borderRadius: 4, padding: 4, minHeight: 'auto' }}>
       <CodeMirror
         value={text}
         extensions={[json()]}

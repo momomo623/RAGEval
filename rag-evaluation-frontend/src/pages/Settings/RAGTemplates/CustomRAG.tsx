@@ -71,7 +71,7 @@ const CustomRAG: React.FC<{
           valuePropName="value"
           getValueFromEvent={v => v}
         >
-          <JsonEditorField placeholder='{"Content-Type": "application/json"}' height='auto' />
+          <JsonEditorField placeholder='{"Content-Type": "application/json"}'  />
         </Form.Item>
         <Form.Item
           name="requestTemplate"
@@ -92,7 +92,7 @@ const CustomRAG: React.FC<{
           valuePropName="value"
           getValueFromEvent={v => v}
         >
-          <JsonEditorField placeholder='{"query": "{{question}}"}' height='auto' />
+          <JsonEditorField placeholder='{"query": "{{question}}"}'  />
         </Form.Item>
         <Form.Item
           name="responsePath"

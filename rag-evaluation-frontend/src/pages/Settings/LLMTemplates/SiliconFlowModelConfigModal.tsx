@@ -2,9 +2,11 @@ import React, { useEffect } from 'react';
 import { Modal, Form, Input, Button, message } from 'antd';
 import JsonEditorField from '@components/JsonEditorField';
 import { labelWithTip } from '../utils';
-import { requestLLM, ChatCompletionMessageParam } from './llm-request';
+import { LLMClient, ChatCompletionMessageParam } from './llm-request';
 
-const ModelConfigModal: React.FC<{
+const API_URL = 'https://api.siliconflow.cn/v1';
+
+const SiliconFlowModelConfigModal: React.FC<{
   open: boolean;
   onCancel: () => void;
   onSave: (values: any) => void;
@@ -16,19 +18,16 @@ const ModelConfigModal: React.FC<{
   useEffect(() => {
     if (open) {
       form.resetFields();
-      form.setFieldsValue(initialValues || {});
+      const { baseUrl, ...rest } = initialValues || {};
+      form.setFieldsValue(rest);
     }
   }, [open, initialValues, form]);
 
-  // 使用 requestLLM 进行测试
   const handleTestAndSave = async () => {
     try {
       const values = await form.validateFields();
       setLoading(true);
       message.loading('正在测试模型连通性...', 0);
-      const messages: ChatCompletionMessageParam[] = [
-        { role: 'user', content: '你好' }
-      ];
       let additionalParams: any = {};
       if (values.additionalParams) {
         try {
@@ -37,21 +36,18 @@ const ModelConfigModal: React.FC<{
           additionalParams = {};
         }
       }
-      const result = await requestLLM({
-        baseUrl: values.baseUrl,
+      const client = new LLMClient({
+        baseUrl: API_URL,
         apiKey: values.apiKey,
         modelName: values.modelName,
-        messages,
-        additionalParams
+      });
+      const content = await client.chatCompletion({
+        userMessage: '你好',
+        additionalParams,
       });
       message.destroy();
-      if (result.success) {
-        const content = result.data.choices?.[0]?.message?.content;
-        message.success('连接成功！收到响应: ' + (content ? content.substring(0, 20) + '...' : '无内容'));
-        onSave(values);
-      } else {
-        message.error('测试失败: ' + (result.error || '未知错误'));
-      }
+      message.success('连接成功！收到响应: ' + (content ? content.substring(0, 20) + '...' : '无内容'));
+      onSave(values);
     } catch (err: any) {
       message.destroy();
       message.error(err.message || '表单校验失败');
@@ -67,7 +63,7 @@ const ModelConfigModal: React.FC<{
   return (
     <Modal
       open={open}
-      title="大模型配置"
+      title="硅基流动大模型配置"
       onCancel={onCancel}
       onOk={handleOk}
       destroyOnClose
@@ -87,28 +83,19 @@ const ModelConfigModal: React.FC<{
           label={labelWithTip('配置名称', '自定义本配置的名称，便于区分多个模型账号')}
           rules={[{ required: true, message: '请输入配置名称' }]}
         >
-          <Input placeholder="如：OpenAI主账号" />
-        </Form.Item>
-        <Form.Item
-          name="baseUrl"
-          label={labelWithTip('BASE_URL', 'OpenAI API的基础URL，如 https://api.openai.com/v1')}
-          rules={[{ required: true, message: '请输入BASE_URL' }]}
-        >
-          <Input placeholder="https://api.openai.com/v1" />
+          <Input placeholder="如：硅基流动" />
         </Form.Item>
         <Form.Item
           name="apiKey"
-          label={labelWithTip('API_KEY', 'OpenAI或兼容API的密钥')}
-          rules={[{ required: true, message: '请输入API_KEY' }]}
-        >
-          <Input.Password placeholder="sk-..." />
+          label={labelWithTip('API_KEY', '硅基流动的API密钥')}
+          rules={[{ required: true, message: '请输入API密钥' }]}>
+          <Input.Password placeholder="token..." />
         </Form.Item>
         <Form.Item
           name="modelName"
-          label={labelWithTip('模型名称', '如gpt-4、deepseek等，具体见API文档')}
-          rules={[{ required: true, message: '请输入模型名称' }]}
-        >
-          <Input placeholder="gpt-4" />
+          label={labelWithTip('模型名称', '如 Qwen/QwQ-32B，具体见API文档')}
+          rules={[{ required: true, message: '请输入模型名称' }]}>
+          <Input placeholder="Qwen/QwQ-32B" />
         </Form.Item>
         <Form.Item
           name="additionalParams"
@@ -122,11 +109,11 @@ const ModelConfigModal: React.FC<{
           valuePropName="value"
           getValueFromEvent={v => v}
         >
-          <JsonEditorField placeholder='{"temperature": 0.1}' height='auto' />
+          <JsonEditorField placeholder='{"temperature": 0.7, "max_tokens": 2048}'/>
         </Form.Item>
       </Form>
     </Modal>
   );
 };
 
-export default ModelConfigModal; 
+export default SiliconFlowModelConfigModal; 

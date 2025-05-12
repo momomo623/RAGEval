@@ -1,38 +1,81 @@
 import { message } from 'antd';
+import { ConfigManager, RAGConfig } from '@utils/configManager';
+import OpenAI from 'openai';
 
-// Dify Chatflow 预制模板
-const DIFY_CHATFLOW_TEMPLATE = {
-  requestHeaders: (apiKey: string) => ({
-    "Authorization": `Bearer ${apiKey}`,
-    "Content-Type": "application/json"
-  }),
-  requestTemplate: {
-    "inputs": {},
-    "query": "{{question}}",
-    "response_mode": "streaming",
-    "conversation_id": "",
-    "user": "abc-123"
-  },
-  responsePath: "answer",
-  streamEventField: "event",
-  streamEventValue: "message"
-};
+// RAGFlow请求客户端封装
+class RAGFlowClient {
+  private client: OpenAI;
+  private baseURL: string;
 
-// Dify Flow 预制模板
-const DIFY_FLOW_TEMPLATE = {
-  requestHeaders: (apiKey: string) => ({
-    "Authorization": `Bearer ${apiKey}`,
-    "Content-Type": "application/json"
-  }),
-  requestTemplate: {
-    "inputs": { "query": "{{question}}" },
-    "response_mode": "streaming",
-    "user": "abc-123"
-  },
-  responsePath: "data.text",
-  streamEventField: "event",
-  streamEventValue: "text_chunk"
-};
+  constructor(address: string, chatId: string, apiKey: string) {
+    this.baseURL = `http://${address}/api/v1/chats_openai/${chatId}`;
+    this.client = new OpenAI({
+      apiKey,
+      baseURL: this.baseURL,
+      dangerouslyAllowBrowser: true,
+    });
+  }
+
+  async chatCompletion(question: string, onChunk: (text: string) => void) {
+    try {
+      const stream = await this.client.chat.completions.create({
+        model: 'model',
+        messages: [{ role: 'user', content: question }],
+        stream: true,
+      });
+
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content || '';
+        if (content) {
+          onChunk(content);
+        }
+      }
+    } catch (err: any) {
+      throw new Error(err.message || '请求异常');
+    }
+  }
+}
+
+// RAGFlow-Chat 请求处理
+export async function requestRAGFlowChat(config: any, question: string) {
+  try {
+    let content = '';
+    const client = new RAGFlowClient(config.address, config.chatId, config.apiKey);
+    
+    await client.chatCompletion(
+      question,
+      (chunk) => {
+        content += chunk;
+      }
+    );
+
+    return { success: true, content };
+  } catch (err: any) {
+    return { success: false, error: err.message || '请求异常' };
+  }
+}
+
+// 测试RAGFlow配置
+export async function testRAGFlowChat(config: any) {
+  try {
+    const client = new RAGFlowClient(config.address, config.chatId, config.apiKey);
+    const testContent = await new Promise<string>((resolve, reject) => {
+      let content = '';
+      client.chatCompletion(
+        '测试问题',
+        (chunk) => {
+          content += chunk;
+        }
+      )
+      .then(() => resolve(content))
+      .catch(reject);
+    });
+    
+    return { success: true, content: testContent };
+  } catch (err: any) {
+    return { success: false, error: err.message || '连接测试失败' };
+  }
+}
 
 // 通用：从嵌套对象提取值
 function extractFromPath(obj: any, path: string): any {
@@ -195,10 +238,26 @@ export async function requestRAGByKey(key: string, config: any, question: string
   if (key === 'dify_flow') {
     return await requestDifyFlow(config, question);
   }
+  if (key === 'ragflow_chat') {
+    return await requestRAGFlowChat(config, question);
+  }
   return { success: false, error: '未知RAG系统类型' };
 }
 
+// 新增通过配置ID请求RAG的函数
+export async function requestRAGByConfigId(configId: string, question: string) {
+  const configManager = ConfigManager.getInstance();
+  const config = await configManager.getConfig<RAGConfig>(configId, 'rag');
+  if (!config) {
+    throw new Error('Configuration not found');
+  }
+  return await requestRAGByKey(config.type, config, question);
+}
+
 export async function testRAGConfig(config: any, question: string, key: string) {
+  if (key === 'ragflow_chat') {
+    return await testRAGFlowChat(config);
+  }
   return await requestRAGByKey(key, config, question);
 }
 
