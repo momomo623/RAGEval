@@ -327,12 +327,13 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
             title: '名称',
             dataIndex: 'name',
             key: 'name',
+            width: 200,
           },
           {
             title: '版本',
             dataIndex: 'version',
             key: 'version',
-            render: (version) => <Tag color="blue" style={{ minWidth: '40px', textAlign: 'center' }}>{version}</Tag>
+            render: (version) => <Tag color="blue" style={{ minWidth: '30px', textAlign: 'center' }}>{version}</Tag>
           },
           {
             title: '并发数',
@@ -372,6 +373,7 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
             title: '状态',
             dataIndex: 'status',
             key: 'status',
+            minWidth:90,
             render: (status) => {
               let color = 'default';
               let icon = null;

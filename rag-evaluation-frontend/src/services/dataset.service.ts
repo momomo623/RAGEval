@@ -1,8 +1,8 @@
 import { api } from '../utils/api';
-import { 
-  Dataset, 
+import {
+  Dataset,
   DatasetDetail,
-  CreateDatasetRequest, 
+  CreateDatasetRequest,
   UpdateDatasetRequest,
   DatasetListParams,
   Question,
@@ -41,15 +41,15 @@ export const datasetService = {
             queryParams.append(key, String(value));
           }
         });
-        
+
         const queryString = queryParams.toString();
         if (queryString) {
           url += `?${queryString}`;
         }
       }
-      
+
       console.log('发起请求URL:', url); // 调试日志
-      
+
       const response = await api.get<PaginatedResponse<Dataset>>(url);
       return {
         datasets: response.items || [],
@@ -117,7 +117,7 @@ export const datasetService = {
   async getQuestions(datasetId: string, params?: any): Promise<any> {
     try {
       const response = await api.get(`/v1/datasets-questions/${datasetId}/questions`, { params });
-      
+
       // 将后端返回的分页数据转换为前端需要的格式
       return {
         questions: response.items,
@@ -180,25 +180,25 @@ export const datasetService = {
           if (value) queryParams.append(key, value);
         });
       }
-      
+
       // 添加时间戳防止缓存
       queryParams.append('_t', Date.now().toString());
-      
+
       const queryString = queryParams.toString();
-      
+
       // 修正 API 路径 - 这里可能需要添加API前缀或修改路径
       // 尝试方法1: 使用/api前缀
       const url = `/api/v1/datasets-questions/${datasetId}/export${queryString ? `?${queryString}` : ''}`;
-      
+
       // 使用消息提示加载状态
       const loadingMessage = message.loading('正在生成导出文件...', 0);
-      
+
       console.log('发起导出请求:', url);
-      
+
       // 获取认证信息
       const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
       const tokenType = localStorage.getItem('token_type') || sessionStorage.getItem('token_type') || 'Bearer';
-      
+
       const response = await fetch(url, {
         method: 'GET',
         credentials: 'include',
@@ -210,48 +210,48 @@ export const datasetService = {
           ...(token ? { 'Authorization': `${tokenType} ${token}` } : {})
         }
       });
-      
+
       // 关闭加载提示
       loadingMessage();
-      
+
       console.log('导出响应状态:', response.status, response.statusText);
-      
+
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`导出失败: ${response.status} ${response.statusText}. ${errorText}`);
       }
-      
+
       // 获取二进制数据
       const blobData = await response.blob();
-      
+
       if (blobData.size === 0) {
         throw new Error('获取到的文件为空');
       }
-      
+
       // 创建下载链接
       const downloadUrl = window.URL.createObjectURL(blobData);
       const link = document.createElement('a');
       link.href = downloadUrl;
-      
+
       // 从响应头获取文件名
       const contentDisposition = response.headers.get('content-disposition');
       let filename = `dataset-${datasetId}-questions.xlsx`;
-      
+
       if (contentDisposition) {
         const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/);
         if (filenameMatch && filenameMatch[1]) {
           filename = filenameMatch[1];
         }
       }
-      
+
       link.setAttribute('download', filename);
       document.body.appendChild(link);
       link.click();
       link.remove();
-      
+
       // 释放URL对象
       window.URL.revokeObjectURL(downloadUrl);
-      
+
       message.success('导出成功');
     } catch (error) {
       message.error(`导出失败: ${error instanceof Error ? error.message : '请重试'}`);
@@ -293,7 +293,12 @@ export const datasetService = {
 
   // 从项目中移除数据集
   async unlinkDatasetFromProject(link: ProjectDatasetLink): Promise<void> {
-    await api.delete(`/v1/projects/${link.project_id}/datasets/${link.dataset_id}`);
+    try {
+      await api.delete(`/v1/datasets/unlink/${link.project_id}/${link.dataset_id}`);
+    } catch (error) {
+      console.error('取消挂载数据集失败:', error);
+      throw error; // 将错误传递给调用者，以便显示详细错误信息
+    }
   },
 
   // 复制数据集
@@ -302,17 +307,17 @@ export const datasetService = {
     if (newName) {
       url += `?name=${encodeURIComponent(newName)}`;
     }
-    
+
     return api.post<Dataset>(url);
   },
 
   // 保留兼容性方法，避免现有代码出错
   async getDatasetQuestions(
-    datasetId: string, 
-    params?: { 
-      skip?: number; 
-      limit?: number; 
-      category?: string; 
+    datasetId: string,
+    params?: {
+      skip?: number;
+      limit?: number;
+      category?: string;
       difficulty?: string;
       search?: string;
     }
@@ -326,10 +331,10 @@ export const datasetService = {
         category: params?.category,
         difficulty: params?.difficulty
       };
-      
+
       // 调用新方法
       const response = await this.getQuestions(datasetId, newParams);
-      
+
       // 返回兼容格式
       return response.questions || [];
     } catch (error) {
@@ -392,26 +397,26 @@ export const datasetService = {
       const response = await api.get(`/v1/datasets-questions/${datasetId}/questions`, {
         params: { page, size }
       });
-      
+
       console.log('API返回的问题数据结构:', response);
-      
+
       // 检查第一个问题的结构
       if (response.items && response.items.length > 0) {
         console.log('第一个问题对象结构:', JSON.stringify(response.items[0], null, 2));
-        
+
         // 验证问题文本字段
         const firstQuestion = response.items[0];
-        const textField = firstQuestion.question_text ? 'question_text' : 
-                           firstQuestion.text ? 'text' : 
+        const textField = firstQuestion.question_text ? 'question_text' :
+                           firstQuestion.text ? 'text' :
                            firstQuestion.content ? 'content' : 'unknown';
-        
+
         console.log(`问题文本存储在 ${textField} 字段中`);
       }
-      
+
       return response;
     } catch (error) {
       console.error('获取数据集问题失败:', error);
       throw error;
     }
   }
-}; 
+};

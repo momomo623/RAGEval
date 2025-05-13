@@ -471,6 +471,7 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
             title: '状态',
             dataIndex: 'status',
             key: 'status',
+            minWidth:90,
             render: (status) => {
               let icon = null;
               let color = 'default';

@@ -7,9 +7,9 @@ from sqlalchemy import func, or_
 from app.api.deps import get_current_user, get_db
 from app.models.user import User
 from app.schemas.dataset import (
-    DatasetCreate, 
-    DatasetUpdate, 
-    DatasetOut, 
+    DatasetCreate,
+    DatasetUpdate,
+    DatasetOut,
     DatasetDetail,
     BatchLinkDatasets
 )
@@ -44,7 +44,7 @@ def create_dataset_api(
     创建数据集
     """
     dataset = create_dataset(db, obj_in=dataset_in, user_id=str(current_user.id))
-    
+
     # 手动转换返回值，确保UUID被转换为字符串
     return {
         "id": str(dataset.id),
@@ -74,16 +74,16 @@ def read_datasets(
     获取数据集列表，支持多种筛选条件
     """
     skip = (page - 1) * size
-    
+
     # 处理标签
     tag_list = tags.split(",") if tags else None
-    
+
     # 设置公开和所有者筛选
     include_public = True
     only_public = False
     only_private = False
     only_mine = False
-    
+
     if filter_type == "my":
         include_public = False  # 只看我的数据集
         only_mine = True
@@ -92,13 +92,13 @@ def read_datasets(
     elif filter_type == "private":
         only_private = True  # 只看私有数据集
         include_public = False
-    
+
     # 获取数据集列表
     datasets = get_datasets_by_user(
-        db, 
-        user_id=str(current_user.id), 
-        skip=skip, 
-        limit=size, 
+        db,
+        user_id=str(current_user.id),
+        skip=skip,
+        limit=size,
         search=search,
         include_public=include_public,
         only_public=only_public,
@@ -106,10 +106,10 @@ def read_datasets(
         only_mine=only_mine,
         tags=tag_list
     )
-    
+
     # 计算总数（需要考虑筛选条件）
     query = db.query(func.count(Dataset.id))
-    
+
     # 应用相同的筛选逻辑用于计算总数
     if include_public:
         if only_public:
@@ -130,12 +130,12 @@ def read_datasets(
         query = query.filter(Dataset.user_id == current_user.id)
         if only_private:
             query = query.filter(Dataset.is_public == False)
-    
+
     # 应用标签筛选
     if tag_list:
         for tag in tag_list:
             query = query.filter(Dataset.tags.contains([tag]))
-    
+
     # 应用搜索关键词
     if search:
         search_term = f"%{search}%"
@@ -145,12 +145,12 @@ def read_datasets(
                 Dataset.description.ilike(search_term)
             )
         )
-    
+
     total = query.scalar()
-    
+
     # 计算总页数
     pages = (total + size - 1) // size if total > 0 else 1
-    
+
     # 准备返回结果
     result = []
     for dataset in datasets:
@@ -158,7 +158,7 @@ def read_datasets(
         question_count = db.query(func.count(Question.id)).filter(
             Question.dataset_id == dataset.id
         ).scalar()
-        
+
         dataset_dict = {
             "id": str(dataset.id),
             "user_id": str(dataset.user_id) if str(dataset.user_id) == str(current_user.id) else None,
@@ -173,7 +173,7 @@ def read_datasets(
             "is_owner": str(dataset.user_id) == str(current_user.id)
         }
         result.append(dataset_dict)
-    
+
     return {
         "items": result,
         "total": total,
@@ -196,14 +196,14 @@ def read_public_datasets(
     获取公开数据集
     """
     tag_list = tags.split(",") if tags else None
-    
+
     # 创建基础查询
     query = db.query(Dataset).filter(Dataset.is_public == True)
-    
+
     if tag_list:
         for tag in tag_list:
             query = query.filter(Dataset.tags.contains([tag]))
-            
+
     if search:
         query = query.filter(
             or_(
@@ -211,21 +211,21 @@ def read_public_datasets(
                 Dataset.description.ilike(f"%{search}%")
             )
         )
-    
+
     # 计算总数
     total = query.count()
-    
+
     # 计算分页
     offset = (page - 1) * size
     datasets = query.offset(offset).limit(size).all()
-    
+
     # 为每个数据集添加问题数量，并转换UUID为字符串
     result = []
     for dataset in datasets:
         question_count = db.query(func.count(Question.id)).filter(
             Question.dataset_id == dataset.id
         ).scalar()
-        
+
         dataset_dict = {
             "id": str(dataset.id),
             "user_id": str(dataset.user_id) if str(dataset.user_id) == str(current_user.id) else None,
@@ -239,10 +239,10 @@ def read_public_datasets(
             "updated_at": dataset.updated_at
         }
         result.append(dataset_dict)
-    
+
     # 计算总页数
     pages = (total + size - 1) // size if total > 0 else 1
-    
+
     # 返回分页结果
     return {
         "items": result,
@@ -265,13 +265,13 @@ def read_dataset(
     dataset = get_dataset(db, dataset_id=dataset_id)
     if not dataset:
         raise HTTPException(status_code=404, detail="数据集未找到")
-    
+
     # 检查访问权限
     if not dataset.is_public and str(dataset.user_id) != str(current_user.id) and not current_user.is_admin:
         raise HTTPException(status_code=403, detail="无权访问此数据集")
-    
+
     result = get_dataset_with_stats(db, dataset_id)
-    
+
     # 将result转换为schema需要的格式，明确转换UUID为字符串
     return {
         "id": str(result["dataset"].id),
@@ -301,19 +301,19 @@ def update_dataset_api(
     dataset = get_dataset(db, dataset_id=dataset_id)
     if not dataset:
         raise HTTPException(status_code=404, detail="数据集未找到")
-    
+
     # 严格检查所有权 - 只有创建者可以修改，即使是管理员也不行
     if str(dataset.user_id) != str(current_user.id):
         raise HTTPException(status_code=403, detail="您不是此数据集的所有者，无权修改")
-    
+
     # 更新数据集
     dataset = update_dataset(db, dataset_id=dataset_id, obj_in=dataset_in)
-    
+
     # 获取问题数量
     question_count = db.query(func.count(Question.id)).filter(
         Question.dataset_id == dataset.id
     ).scalar()
-    
+
     # 返回响应
     return {
         "id": str(dataset.id),
@@ -341,20 +341,20 @@ def delete_dataset_api(
     dataset = get_dataset(db, dataset_id=dataset_id)
     if not dataset:
         raise HTTPException(status_code=404, detail="数据集未找到")
-    
+
     # 检查删除权限
     if str(dataset.user_id) != str(current_user.id) and not current_user.is_admin:
         raise HTTPException(status_code=403, detail="无权删除此数据集")
-    
+
     # 检查是否有项目正在使用此数据集
     from app.models.dataset import ProjectDataset
     project_links = db.query(ProjectDataset).filter(
         ProjectDataset.dataset_id == dataset_id
     ).count()
-    
+
     if project_links > 0:
         raise HTTPException(status_code=400, detail="数据集正在被项目使用，无法删除")
-    
+
     delete_dataset(db, dataset_id=dataset_id)
     return {"detail": "数据集已删除"}
 
@@ -374,22 +374,22 @@ def link_datasets_to_project(
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="项目未找到")
-    
+
     if str(project.user_id) != str(current_user.id) and not current_user.is_admin:
         raise HTTPException(status_code=403, detail="无权操作此项目")
-    
+
     # 验证所有数据集是否存在，以及用户是否有权限访问
     datasets = []
     for dataset_id in link_data.dataset_ids:
         dataset = get_dataset(db, dataset_id=dataset_id)
         if not dataset:
             raise HTTPException(status_code=404, detail=f"数据集 {dataset_id} 未找到")
-        
+
         if not dataset.is_public and str(dataset.user_id) != str(current_user.id) and not current_user.is_admin:
             raise HTTPException(status_code=403, detail=f"无权访问数据集 {dataset_id}")
-        
+
         datasets.append(dataset)
-    
+
     # 关联数据集到项目
     added_datasets = []
     for dataset in datasets:
@@ -398,7 +398,7 @@ def link_datasets_to_project(
             "id": str(dataset.id),
             "name": dataset.name
         })
-    
+
     return {
         "success": True,
         "added_datasets": added_datasets
@@ -420,23 +420,46 @@ def unlink_dataset_from_project_api(
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="项目未找到")
-    
+
     if str(project.user_id) != str(current_user.id) and not current_user.is_admin:
         raise HTTPException(status_code=403, detail="无权操作此项目")
-    
+
     # 检查关联是否存在
     from app.models.dataset import ProjectDataset
     link = db.query(ProjectDataset).filter(
         ProjectDataset.project_id == project_id,
         ProjectDataset.dataset_id == dataset_id
     ).first()
-    
+
     if not link:
         raise HTTPException(status_code=404, detail="项目未关联此数据集")
-    
-    # 检查是否有使用此数据集的评测结果
-    # 这里需要根据实际应用逻辑添加检查代码
-    
+
+    # 检查是否有使用此数据集的精度评测结果
+    from app.models.accuracy import AccuracyTest
+    accuracy_tests = db.query(AccuracyTest).filter(
+        AccuracyTest.project_id == project_id,
+        AccuracyTest.dataset_id == dataset_id
+    ).count()
+
+    if accuracy_tests > 0:
+        raise HTTPException(
+            status_code=400,
+            detail="该数据集已被用于精度评测，无法移除。请先删除相关的精度评测结果。"
+        )
+
+    # 检查是否有使用此数据集的性能评测结果
+    from app.models.performance import PerformanceTest
+    performance_tests = db.query(PerformanceTest).filter(
+        PerformanceTest.project_id == project_id,
+        PerformanceTest.dataset_id == dataset_id
+    ).count()
+
+    if performance_tests > 0:
+        raise HTTPException(
+            status_code=400,
+            detail="该数据集已被用于性能评测，无法移除。请先删除相关的性能评测结果。"
+        )
+
     unlink_dataset_from_project(db, project_id=project_id, dataset_id=dataset_id)
     return {"detail": "数据集已从项目中移除"}
 
@@ -457,20 +480,20 @@ def read_dataset_questions(
     dataset = get_dataset(db, dataset_id=dataset_id)
     if not dataset:
         raise HTTPException(status_code=404, detail="数据集未找到")
-    
+
     # 检查访问权限
     if not dataset.is_public and str(dataset.user_id) != str(current_user.id) and not current_user.is_admin:
         raise HTTPException(status_code=403, detail="无权访问此数据集")
-    
+
     questions = get_questions_by_dataset(
-        db, 
-        dataset_id=dataset_id, 
-        skip=skip, 
+        db,
+        dataset_id=dataset_id,
+        skip=skip,
         limit=limit,
         category=category,
         difficulty=difficulty
     )
-    
+
     # 转换UUID为字符串
     result = []
     for question in questions:
@@ -488,7 +511,7 @@ def read_dataset_questions(
             "updated_at": question.updated_at
         }
         result.append(question_dict)
-    
+
     return result
 
 @router.post("/{dataset_id}/copy", response_model=DatasetOut)
@@ -506,22 +529,22 @@ def copy_dataset_api(
     source_dataset = get_dataset(db, dataset_id=dataset_id)
     if not source_dataset:
         raise HTTPException(status_code=404, detail="数据集未找到")
-    
+
     # 检查权限 - 如果数据集不是公开的且不属于当前用户，则拒绝访问
     if not source_dataset.is_public and str(source_dataset.user_id) != str(current_user.id):
         raise HTTPException(status_code=403, detail="无权复制此数据集")
-    
+
     # 执行复制
     new_dataset = copy_dataset(db, source_dataset_id=dataset_id, user_id=str(current_user.id), new_name=name)
-    
+
     if not new_dataset:
         raise HTTPException(status_code=500, detail="复制数据集失败")
-    
+
     # 获取问题数量
     question_count = db.query(func.count(Question.id)).filter(
         Question.dataset_id == new_dataset.id
     ).scalar()
-    
+
     # 返回响应
     return {
         "id": str(new_dataset.id),
@@ -534,4 +557,4 @@ def copy_dataset_api(
         "question_count": question_count,
         "created_at": new_dataset.created_at,
         "updated_at": new_dataset.updated_at
-    } 
+    }
