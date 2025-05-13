@@ -7,7 +7,6 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import { authService } from '../../services/auth.service';
 import styles from './MainLayout.module.css';
-import ConfigButton from '../ConfigButton';
 
 const { Header, Content } = Layout;
 
@@ -116,16 +115,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             />
           </div>
           <div className={styles.rightContent}>
-        <ConfigButton text="" type="default" className={styles.notificationBtn} />
-
-            {/* <Button 
+            <Button 
               type="text"
-              icon={<BellOutlined />}
+              icon={<SettingOutlined />}
               className={styles.notificationBtn}
-            /> */}
-            {/* <Space direction="vertical" size="middle" style={{ width: '100%', marginTop: 16 }}> */}
-        {/* <ConfigButton text="" type="default" /> */}
-      {/* </Space> */}
+              onClick={() => navigate('/user/settings')}
+              title="系统设置"
+            />
             <Dropdown menu={{ items: userMenuItems }} trigger={['click']}>
               <div className={styles.userInfo}>
                 {loading ? (

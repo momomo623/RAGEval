@@ -1,13 +1,14 @@
 import React, { useEffect } from 'react';
 import { Form, Button, Alert } from 'antd';
-import { useParams } from 'react-router-dom';
-import ConfigButton from '../../../components/ConfigButton';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useConfigContext } from '../../../contexts/ConfigContext';
+import { SettingOutlined } from '@ant-design/icons';
 
 const AutoEvaluation: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const { getLLMConfig } = useConfigContext();
   const [form] = Form.useForm();
+  const navigate = useNavigate();
   
   useEffect(() => {
     // 检查是否已配置LLM
@@ -21,7 +22,12 @@ const AutoEvaluation: React.FC = () => {
     <div>
       <div className="page-header">
         <h1>自动评测</h1>
-        <ConfigButton icon={true} text="" type="link" />
+        <Button 
+          type="link"
+          icon={<SettingOutlined />}
+          onClick={() => navigate('/user/settings')}
+          title="系统设置"
+        />
       </div>
       
       {!getLLMConfig() && (
@@ -29,7 +35,15 @@ const AutoEvaluation: React.FC = () => {
           message="未配置大模型API"
           description="请先配置大模型API以进行自动评测"
           type="warning"
-          action={<ConfigButton text="立即配置" type="primary" size="small" />}
+          action={
+            <Button 
+              type="primary" 
+              size="small"
+              onClick={() => navigate('/user/settings')}
+            >
+              立即配置
+            </Button>
+          }
           showIcon
           style={{ marginBottom: 16 }}
         />

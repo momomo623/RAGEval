@@ -16,8 +16,9 @@ import { datasetService } from '../../../services/dataset.service';
 import { CreateAccuracyTestForm } from './CreateAccuracyTestForm';
 import { AccuracyTestDetail } from './AccuracyTestDetail';
 import { useConfigContext } from '../../../contexts/ConfigContext';
-import ConfigButton from '../../../components/ConfigButton';
+// import ConfigButton from '../../../components/ConfigButton';
 import { ConfigManager, RAGConfig, ModelConfig } from '@utils/configManager';
+import { useNavigate } from 'react-router-dom';
 
 const { Title, Text } = Typography;
 
@@ -45,6 +46,8 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
   const [availableModels, setAvailableModels] = useState<ModelConfig[]>([]);
 
   const [isConfigured, setIsConfigured] = useState(false);
+  const navigate = useNavigate();
+
   useEffect(() => {
     // 使用ConfigManager检查RAG系统配置
     const checkRAGConfig = async () => {
@@ -359,6 +362,24 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
 
   return (
     <div className={styles.container}>
+      {!isConfigured && (
+        <Alert
+          message="未配置大模型API"
+          description="请先配置大模型API才能使用精度评测功能"
+          type="warning"
+          showIcon
+          action={
+            <Button 
+              type="primary" 
+              size="small"
+              onClick={() => navigate('/user/settings')}
+            >
+              立即配置
+            </Button>
+          }
+          style={{ marginBottom: 16 }}
+        />
+      )}
       <div className={styles.header}>
         <Title level={4}>精度测试</Title>
         <Space>
@@ -373,16 +394,7 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
         </Space>
 
       </div>
-      {!isConfigured && (
-          <Alert
-            message="未配置大模型API"
-            description="请先配置大模型API才能使用精度评测功能"
-            type="warning"
-            showIcon
-            action={<ConfigButton text="立即配置" type="primary" size="small" />}
-            style={{ marginBottom: 16 }}
-          />
-        )}
+      
 
       {/* 添加并发设置 */}
       {renderConcurrencySettings()}

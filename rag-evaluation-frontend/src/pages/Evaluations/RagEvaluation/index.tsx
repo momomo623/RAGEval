@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Button, Form, Input, Alert, message } from 'antd';
-import { useParams } from 'react-router-dom';
-import ConfigButton from '../../../components/ConfigButton';
+import { useParams, useNavigate } from 'react-router-dom';
+import { SettingOutlined } from '@ant-design/icons';
+// import ConfigButton from '../../../components/ConfigButton';
 import { useConfigContext } from '../../../contexts/ConfigContext';
 import styles from './RagEvaluation.module.css';
 
@@ -10,6 +11,7 @@ const RagEvaluation: React.FC = () => {
   const { getLLMConfig, getRAGConfig } = useConfigContext();
   const [form] = Form.useForm();
   const [isConfigured, setIsConfigured] = useState(false);
+  const navigate = useNavigate();
   
   useEffect(() => {
     // 检查配置状态
@@ -60,25 +62,30 @@ const RagEvaluation: React.FC = () => {
     <div className={styles.container}>
       <div className={styles.header}>
         <h1>RAG系统评测</h1>
-        <ConfigButton 
-          text="系统配置" 
-          type="primary"
-          icon={true} 
+        <Button 
+          type="link"
+          icon={<SettingOutlined />}
+          onClick={() => navigate('/user/settings')}
+          title="系统设置"
         />
       </div>
       
       {!isConfigured && (
         <Alert
-          message="系统未完全配置"
-          description="请先配置大模型API和RAG系统接口，以进行评测"
+          message="未配置RAG系统"
+          description="请先配置RAG系统以进行评测"
           type="warning"
-          showIcon
-          style={{ marginBottom: 16 }}
           action={
-            <Button size="small" type="primary" onClick={() => useConfigContext().showConfigModal()}>
+            <Button 
+              type="primary" 
+              size="small"
+              onClick={() => navigate('/user/settings')}
+            >
               立即配置
             </Button>
           }
+          showIcon
+          style={{ marginBottom: 16 }}
         />
       )}
       

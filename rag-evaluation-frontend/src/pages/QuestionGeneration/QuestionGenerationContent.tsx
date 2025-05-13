@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Upload, Spin, Form, InputNumber, Select, Radio, Divider, message, Table, Progress, Alert, Checkbox, Slider, Modal, Tooltip, Input, Badge, Space, Collapse, Typography, Empty, Row, Col } from 'antd';
-import { UploadOutlined, FileTextOutlined, CheckCircleOutlined, CloseCircleOutlined, ReloadOutlined, FullscreenOutlined, DeleteOutlined, EyeOutlined, WarningOutlined, InfoCircleOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+import { UploadOutlined, FileTextOutlined, CheckCircleOutlined, CloseCircleOutlined, ReloadOutlined, FullscreenOutlined, DeleteOutlined, EyeOutlined, WarningOutlined, InfoCircleOutlined, QuestionCircleOutlined, SettingOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useConfigContext } from '../../contexts/ConfigContext';
 import { questionGeneratorService, SplitterType, FailedRequestRecord } from '../../services/QuestionGeneratorService';
 import { TextChunk, GenerationParams, GeneratedQA, ProgressInfo } from '../../types/question-generator';
 import styles from './QuestionGeneration.module.css';
-import ConfigButton from "../../components/ConfigButton";
 import { ConfigManager, ModelConfig } from '@utils/configManager';
 import { LLMClient } from '../../pages/Settings/LLMTemplates/llm-request';
 
@@ -423,25 +422,21 @@ const QuestionGenerationContent: React.FC<QuestionGenerationContentProps> = ({ d
         {!isConfigured && (
           <Alert
             message="未配置大模型API"
-            description={
-              <div className={styles.alertContent}>
-                <p className={styles.alertText}>请先配置大模型API才能使用问答对生成功能</p>
-                {/* <ConfigButton 
-                  text="系统配置" 
-                  type="default" 
-                  className={styles.configButton} 
-                /> */}
-              </div>
-            }
-            action={
-              <ConfigButton text="立即配置" type="primary" size="small" />
-            }
+            description="请先配置大模型API以进行问题生成"
             type="warning"
+            action={
+              <Button 
+                type="primary" 
+                size="small"
+                onClick={() => navigate('/user/settings')}
+              >
+                立即配置
+              </Button>
+            }
             showIcon
             style={{ marginBottom: 24 }}
           />
         )}
-
 
         <Upload.Dragger
           multiple

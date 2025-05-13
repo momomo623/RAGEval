@@ -15,9 +15,10 @@ import styles from './PerformanceTests.module.css';
 import { CreatePerformanceTestForm } from './CreatePerformanceTestForm';
 import { datasetService } from '../../../services/dataset.service';
 import { useConfigContext } from '../../../contexts/ConfigContext';
-import ConfigButton from '../../../components/ConfigButton';
+// import ConfigButton from '../../../components/ConfigButton';
 import { PerformanceTestDetail } from './PerformanceTestDetail';
 import { ConfigManager, RAGConfig } from '../../../utils/configManager';
+import { useNavigate } from 'react-router-dom';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -43,6 +44,7 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
   const [detailVisible, setDetailVisible] = useState(false);
   const [isConfigured, setIsConfigured] = useState(false);
   const [stoppingTest, setStoppingTest] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     // 使用ConfigManager检查RAG系统配置
@@ -227,18 +229,24 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
 
   return (
     <div className={styles.container}>
-      {/* {showConfigWarning && (
+      {!isConfigured && (
         <Alert
-          message="RAG系统未配置"
-          description="性能测试需要RAG系统配置才能运行，请先完成配置"
+          message="RAG系统接口未配置"
+          description="性能测试需要RAG系统接口配置才能运行，请先完成配置"
+          action={
+            <Button 
+              type="primary" 
+              size="small"
+              onClick={() => navigate('/user/settings')}
+            >
+              立即配置
+            </Button>
+          }
           type="warning"
           showIcon
-          action={
-            <ConfigButton text="立即配置" type="primary" size="small" />
-          }
           style={{ marginBottom: 16 }}
         />
-      )} */}
+      )}
       
       <div className={styles.header}>
         <Title level={4}>性能测试</Title>
@@ -250,19 +258,6 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
           新建测试
         </Button>
       </div>
-      {!isConfigured && (
-        <Alert
-          message="RAG系统接口未配置"
-          description="性能测试需要RAG系统接口配置才能运行，请先完成配置"
-          action={
-            <ConfigButton text="立即配置" type="primary" size="small" />
-          }
-          type="warning"
-          showIcon
-          style={{ marginBottom: 16 }}
-        />
-      )}
-      
       
       {runningTestId && progress && (
         <Card className={styles.progressCard}>
@@ -273,12 +268,6 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
                 {tests.find(t => t.id === runningTestId)?.name || ""}
               </Typography.Text>
             </div>
-            {/* <Button 
-              danger 
-              onClick={handleStopTest}
-            >
-              停止测试
-            </Button> */}
           </div>
           
           <Progress 
@@ -333,7 +322,6 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
         loading={loading}
         dataSource={tests}
         rowKey="id"
-        // 内容居中显示
         columns={[
           {
             title: '名称',
@@ -344,7 +332,6 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
             title: '版本',
             dataIndex: 'version',
             key: 'version',
-            // tag 固定长度 内部居中  
             render: (version) => <Tag color="blue" style={{ minWidth: '40px', textAlign: 'center' }}>{version}</Tag>
           },
           {
@@ -353,68 +340,34 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
             key: 'concurrency',
             render: (concurrency) => <Tag color="" style={{ minWidth: '40px', textAlign: 'center' }}>{concurrency}</Tag>
           },
-          //         "name": "1",
-        // "project_id": "74cf7b69-020d-47f1-bcb9-ccd84723697c",
-        // "dataset_id": "ac1d69a6-fc9a-46ef-bca6-9724b89f58b5",
-        // "description": null,
-        // "concurrency": 1,
-        // "version": "1",
-        // "config": {},
-        // "id": "5dccf809-347c-44e0-bf62-8f49fee8da8c",
-        // "created_at": "2025-03-26T02:41:29.225297Z",
-        // "started_at": null,
-        // "completed_at": null,
-        // "status": "created",
-        // "total_questions": 45,
-        // "processed_questions": 0,
-        // "success_questions": 0,
-        // "failed_questions": 0,
-        // "summary_metrics": {}
-        // 问题数
-        {
-          title: '问题数',
-          dataIndex: 'processed_questions',
-          key: 'processed_questions',
-          render: (processed_questions) => <Tag  style={{ minWidth: '40px', textAlign: 'center' }}>{processed_questions}</Tag>
-        },
-        {
-          title: '成功率',
-          key: 'success_rate',
-          // 标签 内部居中
-          render: (_: any, record: any) => {
-            if (record.status === 'completed' && record.total_questions > 0) {
-              const successRate = (record.success_questions / record.processed_questions * 100).toFixed(0);
-              return <Tag color="green" style={{ minWidth: '40px', textAlign: 'center' }}>
-                {successRate}%</Tag>;
-            }
-            return '-';
+          {
+            title: '问题数',
+            dataIndex: 'processed_questions',
+            key: 'processed_questions',
+            render: (processed_questions) => <Tag  style={{ minWidth: '40px', textAlign: 'center' }}>{processed_questions}</Tag>
           },
-        },
-        {
-          title: '平均响应时间',
-          key: 'avg_response_time',
-          render: (_, record: any) => {
-            if (record.status === 'completed' && record.summary_metrics?.response_time?.total_time?.avg) {
-              return <Tag color="blue" style={{ minWidth: '40px', textAlign: 'center' }}>{record.summary_metrics.response_time.total_time.avg.toFixed(2)} 秒</Tag>;
-            }
-            return '-';
+          {
+            title: '成功率',
+            key: 'success_rate',
+            render: (_: any, record: any) => {
+              if (record.status === 'completed' && record.total_questions > 0) {
+                const successRate = (record.success_questions / record.processed_questions * 100).toFixed(0);
+                return <Tag color="green" style={{ minWidth: '40px', textAlign: 'center' }}>
+                  {successRate}%</Tag>;
+              }
+              return '-';
+            },
           },
-        },
-        // 成功率
-        // {
-        //   title: '成功率',
-        //   dataIndex: 'success_questions',
-        //   key: 'success_questions',
-        // },
-        // // 平均响应时间
-        // {
-        //   title: '平均响应时间',
-        //   dataIndex: 'average_response_time',
-        //   key: 'average_response_time',
-        // },
-        // 版本
-       
-
+          {
+            title: '平均响应时间',
+            key: 'avg_response_time',
+            render: (_, record: any) => {
+              if (record.status === 'completed' && record.summary_metrics?.response_time?.total_time?.avg) {
+                return <Tag color="blue" style={{ minWidth: '40px', textAlign: 'center' }}>{record.summary_metrics.response_time.total_time.avg.toFixed(2)} 秒</Tag>;
+              }
+              return '-';
+            },
+          },
           {
             title: '状态',
             dataIndex: 'status',
@@ -463,9 +416,9 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
                   type="primary" 
                   icon={<PlayCircleOutlined />}
                   disabled={
-                    record.status === 'running' || // 运行中的测试
-                    record.status === 'completed' || // 已完成的测试
-                    runningTestId !== null // 有其他测试正在运行
+                    record.status === 'running' ||
+                    record.status === 'completed' ||
+                    runningTestId !== null
                   }
                   onClick={() => handleRunTest(record)}
                   title={

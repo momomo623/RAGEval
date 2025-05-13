@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Layout, Typography, Button, Card, Tabs, Descriptions, Tag, Space, 
-  Spin, message, Empty, Table, Divider, Row, Col, Statistic,Modal
+  Spin, message, Empty, Table, Divider, Row, Col, Statistic,Modal, Alert
 } from 'antd';
 import { 
   DatabaseOutlined, RocketOutlined, SettingOutlined, 
@@ -13,10 +13,11 @@ import { projectService } from '../../../services/project.service';
 import { datasetService } from '../../../services/dataset.service';
 import { Dataset } from '../../../types/dataset';
 import styles from './ProjectDetail.module.css';
-import ConfigButton from '../../../components/ConfigButton';
+// import ConfigButton from '../../../components/ConfigButton';
 import { useConfigContext } from '../../../contexts/ConfigContext';
 import { PerformanceTestsManager } from '../PerformanceTests/PerformanceTestsManager';
 import { AccuracyTestsManager } from '../AccuracyTests/AccuracyTestsManager';
+import { ConfigManager, RAGConfig } from '../../../utils/configManager';
 
 const { Title, Text, Paragraph } = Typography;
 const { TabPane } = Tabs;
@@ -31,12 +32,22 @@ const ProjectDetailPage: React.FC = () => {
   const [project, setProject] = useState<any>(null);
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [activeTab, setActiveTab] = useState('overview');
+  const [isConfigured, setIsConfigured] = useState(false);
   
   useEffect(() => {
     if (id) {
       fetchProjectDetail();
     }
   }, [id]);
+  
+  useEffect(() => {
+    const checkConfig = async () => {
+      const configManager = ConfigManager.getInstance();
+      const configs = await configManager.getAllConfigs<RAGConfig>('rag');
+      setIsConfigured(configs.length > 0);
+    };
+    checkConfig();
+  }, []);
   
   const fetchProjectDetail = async () => {
     try {
