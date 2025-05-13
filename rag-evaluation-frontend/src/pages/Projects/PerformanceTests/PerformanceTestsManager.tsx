@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Card, Button, Divider, Table, Tag, Space, Progress, 
   Modal, Form, Input, Select, message, Descriptions, Spin,
@@ -35,6 +35,8 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
   const [form] = Form.useForm();
   const [runningTestId, setRunningTestId] = useState<string | null>(null);
   const [progress, setProgress] = useState<TestProgress | null>(null);
+  const progressRef = useRef<TestProgress | null>(null);
+  const updateTimeoutRef = useRef<NodeJS.Timeout>();
   const [testQuestions, setTestQuestions] = useState<any[]>([]);
   const { getRAGConfig } = useConfigContext();
   const [showConfigWarning, setShowConfigWarning] = useState(false);
@@ -109,6 +111,28 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
     }
   };
 
+  const handleProgressUpdate = useCallback((newProgress: TestProgress) => {
+    progressRef.current = newProgress;
+    
+    // 清除之前的定时器
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current);
+    }
+    
+    // 设置新的定时器，确保UI更新
+    updateTimeoutRef.current = setTimeout(() => {
+      setProgress(newProgress);
+    }, 0);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const handleRunTest = async (test: any) => {
     if (runningTestId) {
       message.warning('已有测试正在运行，请等待完成');
@@ -120,47 +144,17 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
       setSelectedTestId(test.id);
       setProgress(null);
 
-      // 检查RAG配置
-      // const ragConfig = getRAGConfig();
       if (!isConfigured) {
         setShowConfigWarning(true);
         setRunningTestId(null);
         message.warning('未配置RAG系统，请先配置RAG系统才能使用性能测试功能');
         return;
       }
-      
 
-      // 防止total被覆盖的进度状态管理器
-      let progressState = {
-        total: 0,
-        completed: 0,
-        success: 0,
-        failed: 0,
-        startTime: performance.now()
-      };
-
-      // 直接使用新的缓冲区方式执行测试，无需预先获取全部问题
       const success = await executePerformanceTest(
         test,
         [], // 传递空数组，让函数使用缓冲区方式
-        (currentProgress: TestProgress) => {
-          
-          // 确保total被正确保留
-          if (currentProgress.total > 0) {
-            progressState.total = currentProgress.total;
-          }
-          
-          
-          // 确保其他字段也被更新
-          progressState = {
-            ...progressState,
-            ...currentProgress,
-            total: progressState.total > 0 ? progressState.total : currentProgress.total
-          };
-          
-          console.log('设置到UI的进度状态', progressState);
-          setProgress({...progressState});
-        }
+        handleProgressUpdate
       );
 
       if (success) {
@@ -199,15 +193,10 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
   const formatTime = (milliseconds: number): string => {
     if (!milliseconds || isNaN(milliseconds)) return '计算中...';
     
-    // 确保毫秒值是一个有效的数字
-    const ms = Math.abs(Math.floor(milliseconds));
-    
-    // 转换为秒
-    const seconds = Math.floor(ms / 1000);
+    const seconds = Math.floor(milliseconds / 1000);
     const minutes = Math.floor(seconds / 60);
     const hours = Math.floor(minutes / 60);
     
-    // 格式化为时:分:秒
     const formattedHours = hours.toString().padStart(2, '0');
     const formattedMinutes = (minutes % 60).toString().padStart(2, '0');
     const formattedSeconds = (seconds % 60).toString().padStart(2, '0');
@@ -319,27 +308,23 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
             <div className={styles.progressStat}>
               <div className={styles.progressLabel}>平均响应时间</div>
               <div className={styles.progressValue}>
-              {progress.averageResponseTime ? (
-                progress.averageResponseTime.toFixed(2) + ' 秒'
-              ) : (
-                '计算中...'
-              )}
+                {progress.averageResponseTime ? 
+                  progress.averageResponseTime.toFixed(2) + ' 秒' : 
+                  '计算中...'}
               </div>
             </div>
             <div className={styles.progressStat}>
               <div className={styles.progressLabel}>已用时间</div>
-              <div className={styles.progressValue}>{formatTime(progress.elapsedTime || 0)}</div>
+              <div className={styles.progressValue}>
+                {formatTime(progress.elapsedTime || 0)}
+              </div>
             </div>
             <div className={styles.progressStat}>
               <div className={styles.progressLabel}>预计剩余</div>
-              <div className={styles.progressValue}>{formatTime(progress.remainingTimeEstimate || 0)}</div>
+              <div className={styles.progressValue}>
+                {formatTime(progress.remainingTimeEstimate || 0)}
+              </div>
             </div>
-            {/* <Statistic 
-                  title="平均响应时间" 
-                  value={progress.averageResponseTime.toFixed(2)} 
-                  suffix="秒" 
-                /> */}
-            
           </div>
         </Card>
       )}
@@ -477,9 +462,18 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
                 <Button 
                   type="primary" 
                   icon={<PlayCircleOutlined />}
-                  disabled={record.status === 'running' || runningTestId !== null}
+                  disabled={
+                    record.status === 'running' || // 运行中的测试
+                    record.status === 'completed' || // 已完成的测试
+                    runningTestId !== null // 有其他测试正在运行
+                  }
                   onClick={() => handleRunTest(record)}
-                  title="运行测试"
+                  title={
+                    record.status === 'completed' ? '测试已完成' :
+                    record.status === 'running' ? '测试运行中' :
+                    runningTestId !== null ? '有其他测试正在运行' :
+                    '运行测试'
+                  }
                 />
                 <Button 
                   icon={<EyeOutlined />}
@@ -487,7 +481,7 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
                   title="查看详情"
                 />
               </Space>
-            ),
+            )
           },
         ]}
       />

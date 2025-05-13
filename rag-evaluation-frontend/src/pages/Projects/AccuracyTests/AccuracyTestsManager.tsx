@@ -506,9 +506,18 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
                 <Button 
                   type="primary" 
                   icon={<PlayCircleOutlined />}
-                  disabled={record.status === 'running' || runningTestId !== null}
+                  disabled={
+                    record.status === 'running' || // 运行中的测试
+                    record.status === 'completed' || // 已完成的测试
+                    runningTestId !== null // 有其他测试正在运行
+                  }
                   onClick={() => handleRunTest(record)}
-                  title="运行测试"
+                  title={
+                    record.status === 'completed' ? '测试已完成' :
+                    record.status === 'running' ? '测试运行中' :
+                    runningTestId !== null ? '有其他测试正在运行' :
+                    '运行测试'
+                  }
                 />
                 <Button 
                   icon={<EyeOutlined />}

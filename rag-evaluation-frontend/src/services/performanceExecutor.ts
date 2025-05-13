@@ -72,19 +72,24 @@ const executeRagRequest = async (question: any, test: any): Promise<TestResult> 
     let firstTokenTime: number | null = null;
     let totalChars = 0;
     let content = '';
+    let lastChunkTime = startTime;
+
     for await (const chunk of streamRAGResponse(ragConfig, questionText)) {
+      const currentTime = performance.now();
       if (firstTokenTime === null) {
-        firstTokenTime = performance.now() - startTime;
+        firstTokenTime = currentTime - startTime;
       }
       content += chunk;
       totalChars += chunk.length;
+      lastChunkTime = currentTime;
     }
-    const totalTime = performance.now() - startTime;
+    const totalTime = lastChunkTime - startTime;
+    
     return {
       questionId: question.id,
       success: true,
-      firstResponseTime: firstTokenTime || 0,
-      totalResponseTime: totalTime,
+      firstResponseTime: firstTokenTime ? firstTokenTime / 1000 : 0, // 转换为秒
+      totalResponseTime: totalTime / 1000, // 转换为秒
       characterCount: totalChars,
       charactersPerSecond: totalChars / (totalTime / 1000),
       response: content,
@@ -134,132 +139,90 @@ const saveTestResult = async (test: any, result: TestResult): Promise<void> => {
 const executeWithBufferedQuestions = async (
   test: any,
   questionBuffer: QuestionBufferManager,
-  ragConfig: RAGRequestConfig,
   progressCallback?: (progress: TestProgress) => void
 ): Promise<void> => {
   const results: TestResult[] = [];
   const startTime = performance.now();
   
-  // 初始化进度对象 - 此时使用从初始化函数获取的总数
+  // 初始化进度对象
   const progress: TestProgress = {
-    total: test.questionCount || 0,  // 使用测试设置的问题数或默认为0
+    total: 0,
     completed: 0,
     success: 0,
     failed: 0,
-    startTime: performance.now()
+    startTime: performance.now(),
+    elapsedTime: 0,
+    averageResponseTime: 0,
+    remainingTimeEstimate: 0
   };
   
-  // 设置问题缓冲区加载完成后的回调，更新real_total
-  questionBuffer.onAllQuestionsLoaded = (totalCount: number) => {
-    console.log(`已确认实际问题总数: ${totalCount}`);
+  // 更新进度的函数
+  const updateProgress = (update: Partial<TestProgress>) => {
+    Object.assign(progress, update);
     
-    // 只有当获取到的总数大于当前设置的总数时才更新
-    if (totalCount > progress.total) {
-      console.log(`更新总问题数: ${progress.total} -> ${totalCount}`);
-      progress.real_total = totalCount;
-      progress.total = totalCount;
-      
-      if (progressCallback) {
-        progressCallback({...progress});
+    // 计算已用时间
+    progress.elapsedTime = performance.now() - startTime;
+    
+    // 计算平均响应时间
+    if (results.length > 0) {
+      const successfulResults = results.filter(r => r.totalResponseTime);
+      if (successfulResults.length > 0) {
+        progress.averageResponseTime = successfulResults.reduce((sum, r) => sum + (r.totalResponseTime || 0), 0) / successfulResults.length;
       }
     }
-  };
-  
-  let processedQuestionCount = 0;
-  let activeRequests = 0;  // 跟踪活动请求数量
-  let allQuestionsProcessed = false;  // 标记是否所有问题都已处理
-  
-  // 处理单个问题的函数
-  const processQuestion = async (question: any): Promise<void> => {
-    if (!question) {
-      console.error('收到空问题对象，跳过处理');
-      return;
+    
+    // 计算预计剩余时间
+    if (progress.completed > 0 && progress.total > 0) {
+      const avgTimePerItem = progress.elapsedTime / progress.completed;
+      const remainingItems = progress.total - progress.completed;
+      progress.remainingTimeEstimate = remainingItems * avgTimePerItem;
     }
     
+    // 调用回调更新UI
+    if (progressCallback) {
+      progressCallback({...progress});
+    }
+  };
+
+  // 设置问题缓冲区加载完成后的回调
+  questionBuffer.onAllQuestionsLoaded = (totalCount: number) => {
+    console.log(`已确认实际问题总数: ${totalCount}`);
+    updateProgress({ total: totalCount });
+  };
+
+  let processedQuestionCount = 0;
+  let activeRequests = 0;
+  let allQuestionsProcessed = false;
+
+  // 处理单个问题的函数
+  const processQuestion = async (question: any): Promise<void> => {
+    if (!question) return;
+    
     try {
-      // 添加日志，查看问题结构
-      console.log('处理问题:', JSON.stringify(question, null, 2));
-      
-      // 添加序列号
       const questionWithSeq = {
         ...question,
         sequence_number: ++processedQuestionCount
       };
       
-      // 确保问题对象含有必要的字段
-      if (!questionWithSeq.id) {
-        console.warn('问题对象缺少ID字段');
-      }
-      
-      if (!questionWithSeq.question_text && !questionWithSeq.text && !questionWithSeq.content) {
-        console.warn('问题对象缺少文本内容字段');
-      }
-      
-      // 执行RAG请求
       const result = await executeRagRequest(questionWithSeq, test);
+      results.push(result);
+      
+      // 更新进度
+      updateProgress({
+        completed: processedQuestionCount,
+        success: results.filter(r => r.success).length,
+        failed: results.filter(r => !r.success).length
+      });
       
       // 保存结果到后端
       await saveTestResult(test, result);
       
-      // 更新进度，保留现有total值
-      progress.completed++;
-      if (result.success) {
-        progress.success++;
-      } else {
-        progress.failed++;
-      }
-      
-      // 计算性能指标
-      if (result.totalResponseTime) {
-        const successfulResults = results.filter(r => r.totalResponseTime);
-        const totalTimes = successfulResults.map(r => r.totalResponseTime || 0);
-        totalTimes.push(result.totalResponseTime);
-        progress.averageResponseTime = totalTimes.reduce((a, b) => a + b, 0) / totalTimes.length;
-        
-        // 修改时间预估计算方式
-        if (progress.total > 0 && progress.completed > 0) {
-          const elapsedTimeMs = performance.now() - startTime;
-          
-          // 确保已用时间计算正确
-          progress.elapsedTime = elapsedTimeMs;
-          
-          // 更准确地计算平均每项所需时间和剩余时间
-          const avgTimePerItem = elapsedTimeMs / progress.completed;
-          const remainingItems = progress.total - progress.completed;
-          
-          // 更科学的预估，考虑已处理项目的实际耗时
-          progress.remainingTimeEstimate = remainingItems * avgTimePerItem;
-          
-          // 调试输出，帮助诊断
-          console.log(`时间诊断:`, {
-            startTime,
-            now: performance.now(),
-            elapsedMs: elapsedTimeMs,
-            avgTimePerItem,
-            remainingItems,
-            estimatedRemainingMs: progress.remainingTimeEstimate
-          });
-        }
-      }
-      
-      // 计算已花费时间
-      progress.elapsedTime = performance.now() - startTime;
-      
-      // 更新测试进度，保持total不变
-      if (progressCallback) {
-        const progressToReport = {
-          ...progress,
-          // 只有在total为0时才更新total为当前缓冲区大小
-          total: progress.total || questionBuffer.getRemainingCount() + processedQuestionCount
-        };
-        
-        console.log('执行器报告进度:', progressToReport);
-        progressCallback(progressToReport);
-      }
-      
-      results.push(result);
     } catch (error) {
       console.error('处理问题失败:', error);
+      updateProgress({
+        completed: processedQuestionCount,
+        failed: results.filter(r => !r.success).length + 1
+      });
     }
   };
   
