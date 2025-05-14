@@ -7,6 +7,7 @@ import random
 import string
 from datetime import datetime, timedelta
 import logging
+from fastapi import HTTPException
 
 from app.models.accuracy import AccuracyTest, AccuracyTestItem, AccuracyHumanAssignment
 from app.models.question import Question
@@ -269,13 +270,8 @@ class AccuracyService:
         
         return test
     
-    def submit_test_item_results(
-        self, 
-        test_id: uuid.UUID, 
-        items: List[Dict[str, Any]]
-    ) -> bool:
+    def submit_test_item_results(self, test_id: uuid.UUID, items: List[Dict[str, Any]]) -> bool:
         """批量提交评测项结果"""
-        # 验证测试存在且状态正确
         test = self.db.query(AccuracyTest).filter(
             AccuracyTest.id == test_id
         ).first()
@@ -288,40 +284,26 @@ class AccuracyService:
 
         # 批量更新评测项
         for item_data in items:
-            item_id = item_data.get("id")
-            if not item_id:
+            question_id = item_data.get("id")
+            if not question_id:
                 continue
-                
-            # 修改这里的查询条件：直接使用评测项ID查询
+            
             item = self.db.query(AccuracyTestItem).filter(
-                # AccuracyTestItem.id == item_id
-                # 没有真正的item_id，而是通过question_id、evaluation_id确定item
-                AccuracyTestItem.question_id == item_id,
+                AccuracyTestItem.question_id == question_id,
                 AccuracyTestItem.evaluation_id == test_id
             ).first()
             
             if not item:
-                print(f"未找到评测项: {item_id}")
+                logger.warning(f"未找到评测项: {question_id}")
                 continue
             
-            # 直接从前端传入的数据中获取字段值，不再需要ai_result嵌套结构
+            # 更新AI评测结果
             if "ai_score" in item_data:
                 item.ai_score = item_data.get("ai_score")
                 item.ai_dimension_scores = item_data.get("ai_dimension_scores")
                 item.ai_evaluation_reason = item_data.get("ai_evaluation_reason")
                 item.ai_raw_response = item_data.get("ai_raw_response")
-                
-                # 转换时间字符串为datetime对象
-                if "ai_evaluation_time" in item_data:
-                    try:
-                        from datetime import datetime
-                        ai_eval_time = datetime.fromisoformat(item_data.get("ai_evaluation_time").replace('Z', '+00:00'))
-                        item.ai_evaluation_time = ai_eval_time
-                    except Exception as e:
-                        print(f"解析时间格式失败: {e}")
-                        item.ai_evaluation_time = datetime.utcnow()
-                else:
-                    item.ai_evaluation_time = datetime.utcnow()
+                item.ai_evaluation_time = datetime.utcnow()
                 
                 # 如果是AI评测，或者尚未有人工评测，则将AI结果设为最终结果
                 if test.evaluation_type == "ai" or not item.human_score:
@@ -329,15 +311,7 @@ class AccuracyService:
                     item.final_dimension_scores = item.ai_dimension_scores
                     item.final_evaluation_reason = item.ai_evaluation_reason
                     item.final_evaluation_type = "ai"
-                
-                # 更新状态
-                if "status" in item_data:
-                    item.status = item_data.get("status")
-                else:
-                    if item.status == "pending":
-                        item.status = "ai_completed"
-                    elif item.status == "human_completed":
-                        item.status = "both_completed"
+                    logger.info(f"设置AI评测最终分数: item_id={item.id}, score={item.final_score}")
             
             # 更新人工评测结果
             if "human_score" in item_data:
@@ -345,15 +319,7 @@ class AccuracyService:
                 item.human_dimension_scores = item_data.get("human_dimension_scores")
                 item.human_evaluation_reason = item_data.get("human_evaluation_reason")
                 item.human_evaluator_id = item_data.get("human_evaluator_id")
-                
-                if "human_evaluation_time" in item_data:
-                    try:
-                        human_eval_time = datetime.fromisoformat(item_data.get("human_evaluation_time").replace('Z', '+00:00'))
-                        item.human_evaluation_time = human_eval_time
-                    except Exception:
-                        item.human_evaluation_time = datetime.utcnow()
-                else:
-                    item.human_evaluation_time = datetime.utcnow()
+                item.human_evaluation_time = datetime.utcnow()
                 
                 # 如果是人工评测，或者混合评测且有人工结果，则将人工结果设为最终结果
                 if test.evaluation_type in ["manual", "hybrid"]:
@@ -361,19 +327,20 @@ class AccuracyService:
                     item.final_dimension_scores = item.human_dimension_scores
                     item.final_evaluation_reason = item.human_evaluation_reason
                     item.final_evaluation_type = "human"
-                
-                # 更新状态
-                if "status" in item_data:
-                    item.status = item_data.get("status")
-                else:
-                    if item.status == "pending":
-                        item.status = "human_completed"
-                    elif item.status == "ai_completed":
-                        item.status = "both_completed"
+                    logger.info(f"设置人工评测最终分数: item_id={item.id}, score={item.final_score}")
+            
+            # 更新状态
+            if "status" in item_data:
+                item.status = item_data.get("status")
+            else:
+                if item.status == "pending":
+                    item.status = "ai_completed" if test.evaluation_type == "ai" else "human_completed"
+                elif item.status in ["ai_completed", "human_completed"]:
+                    item.status = "both_completed"
         
         self.db.commit()
         
-        # 更新测试进度
+        # 更新测试进度和结果
         self._update_test_status(test_id)
         
         return True
@@ -423,6 +390,7 @@ class AccuracyService:
         ).first()
         
         if not test:
+            logger.error(f"测试不存在: test_id={test_id}")
             return {}
         
         # 获取所有完成的评测项
@@ -431,6 +399,8 @@ class AccuracyService:
             AccuracyTestItem.status.in_(["ai_completed", "human_completed", "both_completed"])
         ).all()
         
+        logger.info(f"计算测试结果: test_id={test_id}, 评测项数量={len(items)}")
+        
         # 计算总分和平均分
         total_score = 0
         dimension_totals = {}
@@ -438,23 +408,39 @@ class AccuracyService:
         
         for item in items:
             if item.final_score is not None:
-                total_score += float(item.final_score)
-                
-                # 计算各维度分数
-                if item.final_dimension_scores:
-                    for dim, score in item.final_dimension_scores.items():
-                        if dim not in dimension_totals:
-                            dimension_totals[dim] = 0
-                            dimension_counts[dim] = 0
-                        
-                        dimension_totals[dim] += score
-                        dimension_counts[dim] += 1
+                try:
+                    total_score += float(item.final_score)
+                    logger.info(f"评测项分数: id={item.id}, score={item.final_score}, dimensions={item.final_dimension_scores}")
+                    
+                    # 计算各维度分数
+                    if item.final_dimension_scores:
+                        for dim, score in item.final_dimension_scores.items():
+                            if dim not in dimension_totals:
+                                dimension_totals[dim] = 0
+                                dimension_counts[dim] = 0
+                            
+                            # 确保分数是有效的数值
+                            if score is not None:
+                                try:
+                                    score_float = float(score)
+                                    dimension_totals[dim] += score_float
+                                    dimension_counts[dim] += 1
+                                except (TypeError, ValueError) as e:
+                                    logger.warning(f"无效的维度分数: dim={dim}, score={score}, error={str(e)}")
+                                    continue
+                except (TypeError, ValueError) as e:
+                    logger.warning(f"无效的最终分数: item_id={item.id}, score={item.final_score}, error={str(e)}")
+                    continue
         
         # 计算各维度平均分
         dimension_scores = {}
         for dim in dimension_totals:
             if dimension_counts[dim] > 0:
-                dimension_scores[dim] = round(dimension_totals[dim] / dimension_counts[dim], 2)
+                try:
+                    dimension_scores[dim] = round(dimension_totals[dim] / dimension_counts[dim], 2)
+                except Exception as e:
+                    logger.error(f"计算维度平均分失败: dim={dim}, error={str(e)}")
+                    dimension_scores[dim] = 0
         
         # 计算加权总分
         weights = test.weights or {dim: 1.0 for dim in test.dimensions}
@@ -463,45 +449,28 @@ class AccuracyService:
         
         for dim, score in dimension_scores.items():
             if dim in weights:
-                weighted_score += score * weights[dim]
-                weight_sum += weights[dim]
+                try:
+                    weight = float(weights[dim])
+                    weighted_score += score * weight
+                    weight_sum += weight
+                except (TypeError, ValueError) as e:
+                    logger.warning(f"无效的权重: dim={dim}, weight={weights[dim]}, error={str(e)}")
+                    continue
         
-        overall_score = round(weighted_score / weight_sum, 2) if weight_sum > 0 else 0
+        try:
+            overall_score = round(weighted_score / weight_sum, 2) if weight_sum > 0 else 0
+        except Exception as e:
+            logger.error(f"计算总分失败: error={str(e)}")
+            overall_score = 0
         
-        # 计算分数分布
-        score_distribution = {
-            "5": 0, "4": 0, "3": 0, "2": 0, "1": 0, "0": 0
-        }
-        
-        for item in items:
-            if item.final_score is not None:
-                score_key = str(int(round(float(item.final_score))))
-                if score_key in score_distribution:
-                    score_distribution[score_key] += 1
-        
-        # 二元评分的特殊处理
-        if test.scoring_method == "binary":
-            score_distribution = {
-                "pass": score_distribution["1"],
-                "fail": score_distribution["0"]
-            }
-        
-        # 统计评测类型分布
-        evaluation_type_counts = {
-            "ai": 0,
-            "human": 0
-        }
-        
-        for item in items:
-            if item.final_evaluation_type:
-                evaluation_type_counts[item.final_evaluation_type] += 1
+        logger.info(f"测试结果汇总: test_id={test_id}, overall_score={overall_score}, dimension_scores={dimension_scores}")
         
         # 构建结果汇总
         results_summary = {
             "overall_score": overall_score,
             "dimension_scores": dimension_scores,
-            "score_distribution": score_distribution,
-            "evaluation_types": evaluation_type_counts,
+            "score_distribution": self._calculate_score_distribution(items),
+            "evaluation_types": self._calculate_evaluation_types(items),
             "total_evaluated": len(items),
             "evaluation_type": test.evaluation_type,
             "scoring_method": test.scoring_method
@@ -569,3 +538,93 @@ class AccuracyService:
         return self.db.query(AccuracyHumanAssignment).filter(
             AccuracyHumanAssignment.evaluation_id == test_id
         ).order_by(desc(AccuracyHumanAssignment.assigned_at)).all()
+
+    def check_running_tests(self, project_id: uuid.UUID) -> List[AccuracyTest]:
+        """检查项目中的运行中测试"""
+        return self.db.query(AccuracyTest).filter(
+            AccuracyTest.project_id == project_id,
+            AccuracyTest.status == "running"
+        ).all()
+
+    def mark_test_interrupted(self, test_id: uuid.UUID, reason: str) -> Optional[AccuracyTest]:
+        """标记测试为中断状态"""
+        test = self.db.query(AccuracyTest).filter(
+            AccuracyTest.id == test_id
+        ).first()
+        
+        if test and test.status == "running":
+            test.status = "interrupted"
+            test.interruption_reason = reason
+            test.completed_at = datetime.utcnow()
+            self.db.commit()
+            return test
+        return None
+
+    def reset_test_items(self, test_id: uuid.UUID) -> bool:
+        """重置测试项状态"""
+        try:
+            # 删除已完成的评测项
+            self.db.query(AccuracyTestItem).filter(
+                AccuracyTestItem.evaluation_id == test_id,
+                AccuracyTestItem.status.in_(["ai_completed", "human_completed", "both_completed"])
+            ).delete()
+            
+            # 重置测试状态
+            test = self.db.query(AccuracyTest).filter(
+                AccuracyTest.id == test_id
+            ).first()
+            
+            if test:
+                test.status = "created"
+                test.processed_questions = 0
+                test.success_questions = 0
+                test.failed_questions = 0
+                test.results_summary = None
+                test.started_at = None
+                test.completed_at = None
+                test.interruption_reason = None
+                
+            self.db.commit()
+            return True
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"重置测试项失败: {str(e)}")
+            return False
+
+    def update_test_status(self, db: Session, test_id: str, status: str) -> Optional[AccuracyTest]:
+        """更新测试状态"""
+        test = self.get_test_detail(test_id)
+        if not test:
+            raise HTTPException(status_code=404, detail="测试不存在")
+        
+        test.status = status
+        db.commit()
+        db.refresh(test)
+        return test
+
+    def _calculate_score_distribution(self, items: List[AccuracyTestItem]) -> Dict[str, int]:
+        """计算分数分布"""
+        distribution = {
+            "5": 0, "4": 0, "3": 0, "2": 0, "1": 0, "0": 0
+        }
+        
+        for item in items:
+            if item.final_score is not None:
+                score_key = str(int(round(float(item.final_score))))
+                if score_key in distribution:
+                    distribution[score_key] += 1
+        
+        return distribution
+
+    def _calculate_evaluation_types(self, items: List[AccuracyTestItem]) -> Dict[str, int]:
+        """计算评测类型分布"""
+        type_counts = {
+            "ai": 0,
+            "human": 0
+        }
+        
+        for item in items:
+            if item.final_evaluation_type:
+                type_counts[item.final_evaluation_type] += 1
+        
+        return type_counts

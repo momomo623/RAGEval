@@ -263,12 +263,6 @@ create index idx_reports_public
 create index idx_reports_created_at
     on public.reports (created_at);
 
-create trigger update_reports_updated_at
-    before update
-    on public.reports
-    for each row
-    execute procedure public.update_updated_at_column();
-
 create table public.datasets
 (
     id               uuid                     default uuid_generate_v4() not null
@@ -307,12 +301,6 @@ comment on column public.datasets.updated_at is '最后更新时间';
 
 alter table public.datasets
     owner to postgres;
-
-create trigger trigger_update_datasets_timestamp
-    before update
-    on public.datasets
-    for each row
-    execute procedure public.update_datasets_updated_at();
 
 create table public.project_datasets
 (
@@ -411,13 +399,17 @@ create table public.performance_tests
     created_at          timestamp with time zone default now(),
     started_at          timestamp with time zone,
     completed_at        timestamp with time zone,
-    status              varchar(20)              default 'created'::character varying not null,
+    status              varchar(20)              default 'created'::character varying not null
+        constraint performance_tests_status_check
+            check ((status)::text = ANY
+                   (ARRAY [('created'::character varying)::text, ('running'::character varying)::text, ('completed'::character varying)::text, ('failed'::character varying)::text, ('terminated'::character varying)::text])),
     config              jsonb                    default '{}'::jsonb                  not null,
     total_questions     integer                  default 0                            not null,
     processed_questions integer                  default 0                            not null,
     success_questions   integer                  default 0                            not null,
     failed_questions    integer                  default 0                            not null,
-    summary_metrics     jsonb                    default '{}'::jsonb                  not null
+    summary_metrics     jsonb                    default '{}'::jsonb                  not null,
+    rag_config          varchar(200)
 );
 
 comment on table public.performance_tests is 'RAG系统性能测试表';
@@ -442,7 +434,7 @@ comment on column public.performance_tests.started_at is '测试开始时间';
 
 comment on column public.performance_tests.completed_at is '测试完成时间';
 
-comment on column public.performance_tests.status is '测试状态：created(已创建), running(运行中), completed(已完成), failed(失败)';
+comment on column public.performance_tests.status is '测试状态：created(已创建), running(运行中), completed(已完成), failed(失败), terminated(已中断)';
 
 comment on column public.performance_tests.config is '测试配置详情，包括超时设置、重试策略等';
 
@@ -506,6 +498,15 @@ comment on column public.performance_tests.summary_metrics is '性能测试汇�
 
 alter table public.performance_tests
     owner to postgres;
+
+create index idx_performance_tests_project_id
+    on public.performance_tests (project_id);
+
+create index idx_performance_status
+    on public.performance_tests (status);
+
+create index idx_performance_tests_version
+    on public.performance_tests (version);
 
 create table public.rag_answers
 (
@@ -571,15 +572,6 @@ create index idx_rag_answers_character_count
 create index idx_rag_answers_performance_test
     on public.rag_answers (performance_test_id);
 
-create index idx_performance_tests_project_id
-    on public.performance_tests (project_id);
-
-create index idx_performance_status
-    on public.performance_tests (status);
-
-create index idx_performance_tests_version
-    on public.performance_tests (version);
-
 create table public.accuracy_test
 (
     id                  uuid                     default uuid_generate_v4()           not null
@@ -595,15 +587,15 @@ create table public.accuracy_test
     evaluation_type     varchar(20)                                                   not null
         constraint accuracy_test_evaluation_type_check
             check ((evaluation_type)::text = ANY
-        ((ARRAY ['ai'::character varying, 'manual'::character varying, 'hybrid'::character varying])::text[])),
+        (ARRAY [('ai'::character varying)::text, ('manual'::character varying)::text, ('hybrid'::character varying)::text])),
     scoring_method      varchar(20)                                                   not null
         constraint accuracy_test_scoring_method_check
             check ((scoring_method)::text = ANY
-                   ((ARRAY ['binary'::character varying, 'three_scale'::character varying, 'five_scale'::character varying])::text[])),
+                   (ARRAY [('binary'::character varying)::text, ('three_scale'::character varying)::text, ('five_scale'::character varying)::text])),
     status              varchar(20)              default 'created'::character varying not null
         constraint accuracy_test_status_check
             check ((status)::text = ANY
-                   ((ARRAY ['created'::character varying, 'running'::character varying, 'completed'::character varying, 'failed'::character varying])::text[])),
+                   ((ARRAY ['created'::character varying, 'running'::character varying, 'completed'::character varying, 'failed'::character varying, 'interrupted'::character varying])::text[])),
     dimensions          jsonb                    default '["accuracy"]'::jsonb        not null,
     weights             jsonb                    default '{"accuracy": 1.0}'::jsonb,
     model_config_test   jsonb,
@@ -640,7 +632,7 @@ comment on column public.accuracy_test.evaluation_type is '评测方式：ai(自
 
 comment on column public.accuracy_test.scoring_method is '评分方法：binary(二元评分)、three_scale(三分量表)、five_scale(五分量表)';
 
-comment on column public.accuracy_test.status is '评测状态：created(已创建)、running(运行中)、completed(已完成)、failed(失败)';
+comment on column public.accuracy_test.status is '评测状态：created(已创建)、running(运行中)、completed(已完成)、failed(失败)、terminated(已中断)';
 
 comment on column public.accuracy_test.dimensions is '评测维度：默认为准确性。样例：["accuracy", "relevance", "completeness"]';
 
@@ -702,15 +694,15 @@ create table public.accuracy_test_items
         references public.rag_answers,
     status                  varchar(20) default 'pending'::character varying
         constraint accuracy_test_items_status_check
-        check ((status)::text = ANY
-        ((ARRAY ['pending'::character varying, 'ai_completed'::character varying, 'human_completed'::character varying, 'both_completed'::character varying, 'failed'::character varying])::text[])),
+            check ((status)::text = ANY
+                   (ARRAY [('pending'::character varying)::text, ('ai_completed'::character varying)::text, ('human_completed'::character varying)::text, ('both_completed'::character varying)::text, ('failed'::character varying)::text])),
     final_score             numeric,
     final_dimension_scores  jsonb,
     final_evaluation_reason text,
     final_evaluation_type   varchar(20)
         constraint accuracy_test_items_final_evaluation_type_check
             check ((final_evaluation_type)::text = ANY
-        ((ARRAY ['ai'::character varying, 'human'::character varying])::text[])),
+        (ARRAY [('ai'::character varying)::text, ('human'::character varying)::text])),
     ai_score                numeric,
     ai_dimension_scores     jsonb,
     ai_evaluation_reason    text,
@@ -806,8 +798,8 @@ create table public.accuracy_human_assignments
     completed_items  integer                  default 0,
     status           varchar(20)              default 'assigned'::character varying
         constraint accuracy_human_assignments_status_check
-        check ((status)::text = ANY
-        ((ARRAY ['assigned'::character varying, 'in_progress'::character varying, 'completed'::character varying])::text[])),
+            check ((status)::text = ANY
+                   (ARRAY [('assigned'::character varying)::text, ('in_progress'::character varying)::text, ('completed'::character varying)::text])),
     is_active        boolean                  default true,
     expiration_date  timestamp with time zone,
     assigned_at      timestamp with time zone default CURRENT_TIMESTAMP,
@@ -861,4 +853,3 @@ create index idx_human_assignments_access_code
 
 create index idx_human_assignments_status
     on public.accuracy_human_assignments (status);
-

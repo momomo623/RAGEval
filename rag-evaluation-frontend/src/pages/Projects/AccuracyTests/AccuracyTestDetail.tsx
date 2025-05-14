@@ -538,7 +538,7 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
           <Col span={6}>
             <Card className={styles.metricCard}>
               <Statistic
-                title="整体评分"
+                title="整体得分"
                 value={summary.overall_score}
                 precision={2}
                 prefix={<StarOutlined />}

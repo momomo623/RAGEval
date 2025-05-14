@@ -51,10 +51,8 @@ class ProjectService {
   async createProject(projectData: CreateProjectRequest): Promise<Project | null> {
     try {
       const result = await api.post<Project>('/v1/projects', projectData);
-      message.success('项目创建成功');
       return result;
     } catch (error) {
-      message.error('项目创建失败');
       console.error('项目创建失败:', error);
       return null;
     }

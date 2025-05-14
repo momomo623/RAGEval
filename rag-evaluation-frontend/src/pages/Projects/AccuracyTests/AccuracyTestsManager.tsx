@@ -1,4 +1,4 @@
-import React, { useState, useEffect, version } from 'react';
+import React, { useState, useEffect, version, useRef } from 'react';
 import {
   Card, Button, Table, Tag, Space, Modal, message,
   Typography, Progress, Alert, Spin, Row, Col, Statistic,
@@ -6,7 +6,7 @@ import {
 } from 'antd';
 import {
   PlusOutlined, PlayCircleOutlined, EyeOutlined, SyncOutlined,
-  CheckCircleOutlined, CloseCircleOutlined, FileTextOutlined
+  CheckCircleOutlined, CloseCircleOutlined, FileTextOutlined, ExclamationCircleOutlined
 } from '@ant-design/icons';
 import { accuracyService } from '../../../services/accuracy.service';
 import { executeAccuracyTest, TestProgress } from '../../../services/accuracyExecutor';
@@ -46,9 +46,9 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
   const [concurrency, setConcurrency] = useState<number>(10);
   const [selectedModelId, setSelectedModelId] = useState<string>('');
   const [availableModels, setAvailableModels] = useState<ModelConfig[]>([]);
-
   const [isConfigured, setIsConfigured] = useState(false);
   const navigate = useNavigate();
+  const isFirstRun = useRef(true);
 
   useEffect(() => {
     // 使用ConfigManager检查RAG系统配置
@@ -135,18 +135,7 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
 
       // 添加数据检查和日志
       const questions = result;
-      // if (questions.length > 0) {
-      //   console.log('获取到的问题示例:', questions[0]);
-
-      //   // 检查数据完整性
-      //   const incomplete = questions.filter(q =>
-      //     !q.question_text || !q.standard_answer || !q.id
-      //   );
-
-      //   if (incomplete.length > 0) {
-      //     console.warn(`有${incomplete.length}个问题数据不完整`);
-      //   }
-      // }
+   
 
       return questions;
     } catch (error) {
@@ -156,7 +145,41 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
     }
   };
 
-  // 修改运行测试函数，传递大模型配置ID
+  // 检查运行中的测试
+  useEffect(() => {
+    if (isFirstRun.current) {
+      isFirstRun.current = false;
+      
+      const checkRunningTests = async () => {
+        try {
+          const runningTests = await accuracyService.checkRunningTests(projectId);
+          
+          if (runningTests.length > 0) {
+            Modal.confirm({
+              title: '发现未完成的测试',
+              content: `发现${runningTests.length}个未完成的测试，是否将其标记为中断状态？`,
+              onOk: async () => {
+                for (const test of runningTests) {
+                  await accuracyService.markTestInterrupted(
+                    test.id,
+                    '页面刷新导致评测中断'
+                  );
+                }
+                fetchTests();
+              }
+            });
+          }
+        } catch (error) {
+          console.error('检查运行中测试失败:', error);
+          message.error('检查运行中测试失败');
+        }
+      };
+
+      checkRunningTests();
+    }
+  }, [projectId]);
+
+  // 修改运行测试函数
   const handleRunTest = async (test: any) => {
     if (runningTestId) {
       message.warning('已有测试正在运行，请等待完成');
@@ -168,10 +191,35 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
       return;
     }
 
+    if (test.status === "interrupted") {
+      Modal.confirm({
+        title: '重新执行中断的测试',
+        content: '重新执行将清除已完成的评测结果，是否继续？',
+        destroyOnClose: true,
+        onOk: async () => {
+          try {
+            // 重置测试项
+            await accuracyService.resetTestItems(test.id);
+            // 开始新的测试
+            await startNewTest(test);
+          } catch (error) {
+            console.error('重置测试失败:', error);
+            message.error('重置测试失败');
+          }
+        }
+      });
+    } else {
+      await startNewTest(test);
+    }
+  };
+
+  // 开始新测试
+  const startNewTest = async (test: any) => {
     try {
       setRunningTestId(test.id);
       setSelectedTestId(test.id);
       setProgress(null);
+      
       let progressState = {
         total: 0,
         completed: 0,
@@ -179,7 +227,7 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
         failed: 0,
         startTime: performance.now()
       };
-      setProgress(progressState);
+      
       const testConfig = {
         ...test,
         batch_settings: {
@@ -187,6 +235,7 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
           concurrency: concurrency
         }
       };
+
       await executeAccuracyTest(
         testConfig,
         [],
@@ -198,13 +247,18 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
           };
           setProgress({ ...progressState });
         },
-        selectedModelId // 传递大模型配置ID
+        selectedModelId
       );
+      
+      // 更新测试状态为已完成
+      await accuracyService.updateTestStatus(test.id, 'completed');
       message.success('精度测试执行完成');
       await fetchTests();
     } catch (error) {
       console.error('执行精度测试失败:', error);
       message.error('执行精度测试失败: ' + (error.message || '未知错误'));
+      // 如果测试失败，更新状态为失败
+      await accuracyService.updateTestStatus(test.id, 'failed');
     } finally {
       setRunningTestId(null);
     }
@@ -473,6 +527,10 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
                   icon = <CloseCircleOutlined />;
                   color = 'error';
                   break;
+                case 'interrupted':
+                  icon = <ExclamationCircleOutlined />;
+                  color = 'warning';
+                  break;
               }
 
               return (
@@ -480,7 +538,8 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
                   {status === 'created' ? '已创建' :
                    status === 'running' ? '运行中' :
                    status === 'completed' ? '已完成' :
-                   status === 'failed' ? '失败' : status}
+                   status === 'failed' ? '失败' :
+                   status === 'interrupted' ? '已中断' : status}
                 </Tag>
               );
             }

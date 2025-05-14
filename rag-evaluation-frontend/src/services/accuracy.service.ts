@@ -161,4 +161,24 @@ export const accuracyService = {
     const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
     return api.get<any>(`/v1/accuracy/${testId}/items${queryString}`);
   },
+
+  // 检查运行中的测试
+  checkRunningTests: async (projectId: string): Promise<AccuracyTest[]> => {
+    return api.get<AccuracyTest[]>(`/v1/accuracy/project/${projectId}/running-tests`);
+  },
+
+  // 标记测试为中断
+  markTestInterrupted: async (testId: string, reason: string): Promise<AccuracyTest> => {
+    return api.post<AccuracyTest>(`/v1/accuracy/${testId}/interrupt`, { reason });
+  },
+
+  // 重置测试项
+  resetTestItems: async (testId: string): Promise<boolean> => {
+    return api.post<boolean>(`/v1/accuracy/${testId}/reset`);
+  },
+
+  // 更新测试状态
+  async updateTestStatus(testId: string, status: string): Promise<void> {
+    await api.put(`/accuracy/${testId}/status`, { status });
+  }
 }; 

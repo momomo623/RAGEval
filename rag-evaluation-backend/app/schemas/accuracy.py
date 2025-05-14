@@ -154,4 +154,40 @@ class GetTestItemsRequest(BaseModel):
     evaluation_id: UUID
     limit: Optional[int] = 50
     offset: Optional[int] = 0
-    status: Optional[str] = None 
+    status: Optional[str] = None
+
+# 中断测试请求
+class InterruptTestRequest(BaseModel):
+    reason: str = Field(..., description="中断原因")
+
+    class Config:
+        orm_mode = True
+
+class AccuracyTest(BaseModel):
+    id: UUID
+    project_id: UUID
+    dataset_id: UUID
+    name: str
+    description: Optional[str] = None
+    evaluation_type: str
+    scoring_method: str
+    status: str
+    dimensions: List[str]
+    weights: Dict[str, float]
+    model_config_test: Optional[Dict[str, Any]] = None
+    prompt_template: Optional[str] = None
+    version: Optional[str] = None
+    total_questions: int
+    processed_questions: int
+    success_questions: int
+    failed_questions: int
+    batch_settings: Dict[str, Any]
+    results_summary: Optional[Dict[str, Any]] = None
+    created_at: datetime
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    created_by: Optional[UUID] = None
+    interruption_reason: Optional[str] = None
+
+    class Config:
+        from_attributes = True 

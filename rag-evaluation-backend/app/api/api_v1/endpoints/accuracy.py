@@ -14,7 +14,9 @@ from app.schemas.accuracy import (
     AccuracyTestItemDetail,
     HumanAssignmentCreate,
     HumanAssignmentDetail,
-    StartAccuracyTestRequest
+    StartAccuracyTestRequest,
+    InterruptTestRequest,
+    AccuracyTest
 )
 from app.services.accuracy_service import AccuracyService
 
@@ -189,4 +191,51 @@ def get_human_assignments(
     """获取人工评测任务列表"""
     service = AccuracyService(db)
     assignments = service.get_human_assignments(test_id)
-    return assignments 
+    return assignments
+
+@router.get("/project/{project_id}/running-tests")
+async def get_running_tests(
+    project_id: uuid.UUID,
+    db: Session = Depends(deps.get_db)
+):
+    service = AccuracyService(db)
+    return service.check_running_tests(project_id)
+
+@router.post("/{test_id}/interrupt")
+async def interrupt_test(
+    test_id: uuid.UUID,
+    data: InterruptTestRequest,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user)
+):
+    """将测试标记为中断状态"""
+    service = AccuracyService(db)
+    return service.mark_test_interrupted(test_id, data.reason)
+
+@router.post("/{test_id}/reset")
+async def reset_test(
+    test_id: uuid.UUID,
+    db: Session = Depends(deps.get_db)
+):
+    service = AccuracyService(db)
+    return service.reset_test_items(test_id)
+
+@router.put("/{test_id}/status", response_model=AccuracyTest)
+async def update_test_status(
+    test_id: str,
+    data: Dict[str, str] = Body(...),
+    current_user: User = Depends(deps.get_current_user),
+    db: Session = Depends(deps.get_db)
+):
+    """更新测试状态"""
+    service = AccuracyService(db)
+    test = service.get_test_detail(test_id)
+    if not test:
+        raise HTTPException(status_code=404, detail="测试不存在")
+    
+    # 验证状态值
+    valid_statuses = ['created', 'running', 'completed', 'failed', 'interrupted']
+    if data.get('status') not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"无效的状态值，必须是以下之一: {', '.join(valid_statuses)}")
+    
+    return service.update_test_status(db, test_id, data.get('status')) 
