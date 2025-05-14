@@ -1,10 +1,10 @@
 import React, { useState, useEffect, version } from 'react';
-import { 
-  Card, Button, Table, Tag, Space, Modal, message, 
+import {
+  Card, Button, Table, Tag, Space, Modal, message,
   Typography, Progress, Alert, Spin, Row, Col, Statistic,
   Tooltip, Select, Form
 } from 'antd';
-import { 
+import {
   PlusOutlined, PlayCircleOutlined, EyeOutlined, SyncOutlined,
   CheckCircleOutlined, CloseCircleOutlined, FileTextOutlined
 } from '@ant-design/icons';
@@ -40,6 +40,8 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
   const [testQuestions, setTestQuestions] = useState<any[]>([]);
   const { getLLMConfig } = useConfigContext();
   const [showConfigWarning, setShowConfigWarning] = useState(false);
+  // 添加数据集状态
+  const [datasets, setDatasets] = useState<any[]>([]);
   // 添加并发数设置状态
   const [concurrency, setConcurrency] = useState<number>(10);
   const [selectedModelId, setSelectedModelId] = useState<string>('');
@@ -55,7 +57,7 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
       const configs = await configManager.getAllConfigs<RAGConfig>('rag');
       setIsConfigured(configs.length > 0);
     };
-    
+
     checkRAGConfig();
   }, []);
 
@@ -67,6 +69,18 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
     if (savedConcurrency) {
       setConcurrency(parseInt(savedConcurrency, 10));
     }
+
+    // 加载项目关联的数据集
+    const fetchDatasets = async () => {
+      try {
+        const data = await datasetService.getProjectDatasets(projectId);
+        setDatasets(data);
+      } catch (error) {
+        console.error('获取数据集失败:', error);
+      }
+    };
+
+    fetchDatasets();
   }, [projectId]);
 
   // 加载大模型配置
@@ -106,7 +120,7 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
   const fetchTestQuestions = async (test: any) => {
     try {
       const datasetId = test.dataset_id;
-      
+
       if (!datasetId) {
         message.error('测试没有关联数据集');
         return [];
@@ -115,25 +129,25 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
       version : test.version
       }
 
-      
+
       const result = await datasetService.getQuestions(datasetId, params);
       console.log("版本过滤 - 问答对",result)
-      
+
       // 添加数据检查和日志
       const questions = result;
       // if (questions.length > 0) {
       //   console.log('获取到的问题示例:', questions[0]);
-        
+
       //   // 检查数据完整性
-      //   const incomplete = questions.filter(q => 
+      //   const incomplete = questions.filter(q =>
       //     !q.question_text || !q.standard_answer || !q.id
       //   );
-        
+
       //   if (incomplete.length > 0) {
       //     console.warn(`有${incomplete.length}个问题数据不完整`);
       //   }
       // }
-      
+
       return questions;
     } catch (error) {
       console.error('获取测试问题失败:', error);
@@ -205,21 +219,21 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
   // 修复格式化时间的辅助函数
   const formatTime = (milliseconds: number): string => {
     if (!milliseconds || isNaN(milliseconds)) return '计算中...';
-    
+
     // 确保毫秒值是一个有效的数字
     const ms = Math.abs(Math.floor(milliseconds));
-    
+
     // 转换为秒
     const seconds = Math.floor(ms / 1000);
     const minutes = Math.floor(seconds / 60);
     const hours = Math.floor(minutes / 60);
-    
+
     // 格式化为时:分:秒
     const formattedHours = hours.toString().padStart(2, '0');
     const formattedMinutes = (minutes % 60).toString().padStart(2, '0');
     const formattedSeconds = (seconds % 60).toString().padStart(2, '0');
 
-    
+
     if (hours > 0) {
       return `${formattedHours}:${formattedMinutes}:${formattedSeconds}`;
     } else {
@@ -244,24 +258,24 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
             </Typography.Text>
           </div>
           {/* 可选的停止按钮
-          <Button 
-            danger 
+          <Button
+            danger
             onClick={handleStopTest}
           >
             停止测试
           </Button>
           */}
         </div>
-        
-        <Progress 
-          percent={progress.total ? Math.floor((progress.completed / progress.total) * 100) : 0} 
+
+        <Progress
+          percent={progress.total ? Math.floor((progress.completed / progress.total) * 100) : 0}
           status="active"
           strokeColor={{
             '0%': '#108ee9',
             '100%': '#87d068',
           }}
         />
-        
+
         <div className={styles.progressDetails}>
           <div className={styles.progressStat}>
             <div className={styles.progressLabel}>总问题数</div>
@@ -288,9 +302,9 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
           <div className={styles.progressStat}>
             <div className={styles.progressLabel}>平均响应时间</div>
             <div className={styles.progressValue}>
-              {progress.averageResponseTime 
-                ? (progress.averageResponseTime < 100 
-                    ? progress.averageResponseTime.toFixed(2) + ' 秒' 
+              {progress.averageResponseTime
+                ? (progress.averageResponseTime < 100
+                    ? progress.averageResponseTime.toFixed(2) + ' 秒'
                     : (progress.averageResponseTime / 60).toFixed(2) + ' 分钟')
                 : '计算中...'}
             </div>
@@ -369,8 +383,8 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
           type="warning"
           showIcon
           action={
-            <Button 
-              type="primary" 
+            <Button
+              type="primary"
               size="small"
               onClick={() => navigate('/user/settings')}
             >
@@ -394,7 +408,7 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
         </Space>
 
       </div>
-      
+
 
       {/* 添加并发设置 */}
       {renderConcurrencySettings()}
@@ -408,9 +422,9 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
           closable
           style={{ marginBottom: 16 }}
           action={
-            <ConfigButton type="primary" size="small">
+            <Button type="primary" size="small" onClick={() => navigate('/user/settings')}>
               前往配置
-            </ConfigButton>
+            </Button>
           }
           onClose={() => setShowConfigWarning(false)}
         />
@@ -418,26 +432,30 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
 
       {progress && renderProgress()}
 
-      <Table
-        dataSource={tests}
-        rowKey="id"
-        loading={loading}
-        pagination={{ pageSize: 10 }}
-        columns={[
+      <div className={styles.tableContainer}>
+        <Table
+          dataSource={tests}
+          rowKey="id"
+          loading={loading}
+          pagination={{ pageSize: 10 }}
+          scroll={{ x: 'max-content' }}
+          columns={[
           {
             title: '测试名称',
             dataIndex: 'name',
-            width: 200,
+            width: 100,
             key: 'name',
+            ellipsis: true,
             // 鼠标移动显示完整内容
-            render: (text) => <Tooltip title={text}>{text}</Tooltip>
+            render: (text) => <Tooltip title={text}><span style={{ maxWidth: '100%', display: 'inline-block', overflow: 'hidden', textOverflow: 'ellipsis' }}>{text}</span></Tooltip>
           },
           {
             title: '评测类型',
             dataIndex: 'evaluation_type',
             key: 'evaluation_type',
+            width: 100,
             render: (type) => (
-              <Tag>
+              <Tag style={{ whiteSpace: 'nowrap' }}>
                 {type === 'ai' ? 'AI评测' : type === 'manual' ? '人工评测' : type === 'hybrid' ? '混合评测' : type}
               </Tag>
             )
@@ -446,36 +464,92 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
             title: '评分方法',
             dataIndex: 'scoring_method',
             key: 'scoring_method',
+            width: 110,
             render: (method) => (
-              <Tag>
+              <Tag style={{ whiteSpace: 'nowrap' }}>
                 {method === 'binary' ? '二元评分' : method === 'three_scale' ? '三分量表' : method === 'five_scale' ? '五分量表' : method}
               </Tag>
             )
           },
           {
+            title: '数据集',
+            dataIndex: 'dataset_id',
+            key: 'dataset_id',
+            align: 'center',
+            ellipsis: true,
+            render: (dataset_id) => {
+              // 从datasets中查找匹配的数据集
+              const dataset = datasets.find((d: any) => d.id === dataset_id);
+              return (
+                <Tooltip title={dataset ? dataset.name : '未知数据集'}>
+                  <Tag color="cyan" style={{ whiteSpace: 'nowrap' }}>
+                    {dataset ? dataset.name : '未知数据集'}
+                  </Tag>
+                </Tooltip>
+              );
+            }
+          },
+          {
+            title: '评测维度',
+            dataIndex: 'dimensions',
+            key: 'dimensions',
+            width: 150,
+            render: (dimensions) => {
+              if (!dimensions || dimensions.length === 0) return <Tag>无</Tag>;
+
+              // 创建完整的维度列表用于Tooltip显示
+              const fullDimensionsList = dimensions.join(', ');
+
+              // 如果维度太多，只显示前两个，其余显示为 +N
+              if (dimensions.length <= 2) {
+                return (
+                  <Tooltip title={fullDimensionsList}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                      {dimensions.map((dim: string) => (
+                        <Tag key={dim} color="purple" style={{ margin: 0, whiteSpace: 'nowrap' }}>{dim}</Tag>
+                      ))}
+                    </div>
+                  </Tooltip>
+                );
+              } else {
+                return (
+                  <Tooltip title={fullDimensionsList}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                      <Tag color="purple" style={{ margin: 0, whiteSpace: 'nowrap' }}>{dimensions[0]}</Tag>
+                      <Tag color="purple" style={{ margin: 0, whiteSpace: 'nowrap' }}>{dimensions[1]}</Tag>
+                      <Tag style={{ margin: 0, whiteSpace: 'nowrap' }}>+{dimensions.length - 2}</Tag>
+                    </div>
+                  </Tooltip>
+                );
+              }
+            }
+          },
+          {
             title: '问题数',
             dataIndex: 'total_questions',
             key: 'total_questions',
-            render: (total_questions) => <Tag style={{ minWidth: '40px', textAlign: 'center' }}>{total_questions}</Tag>
+            width: 80,
+            render: (total_questions) => <Tag style={{ minWidth: '40px', textAlign: 'center', whiteSpace: 'nowrap' }}>{total_questions}</Tag>
           },
           {
             title: '整体得分',
             dataIndex: 'results_summary',
             key: 'overall_score',
+            width: 90,
             render: (summary) => {
               if (!summary || !summary.overall_score) return '-';
-              return <Tag color="blue" style={{ minWidth: '40px', textAlign: 'center' }}>{summary.overall_score.toFixed(2)}</Tag>;
+              return <Tag color="blue" style={{ minWidth: '40px', textAlign: 'center', whiteSpace: 'nowrap' }}>{summary.overall_score.toFixed(1)}</Tag>;
             }
           },
           {
             title: '状态',
             dataIndex: 'status',
             key: 'status',
-            minWidth:90,
+            width: 100,
             render: (status) => {
               let icon = null;
               let color = 'default';
-              
+
               switch (status) {
                 case 'created':
                   icon = <FileTextOutlined />;
@@ -493,12 +567,12 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
                   color = 'error';
                   break;
               }
-              
+
               return (
-                <Tag color={color} icon={icon}>
-                  {status === 'created' ? '已创建' : 
-                   status === 'running' ? '运行中' : 
-                   status === 'completed' ? '已完成' : 
+                <Tag color={color} icon={icon} style={{ whiteSpace: 'nowrap' }}>
+                  {status === 'created' ? '已创建' :
+                   status === 'running' ? '运行中' :
+                   status === 'completed' ? '已完成' :
                    status === 'failed' ? '失败' : status}
                 </Tag>
               );
@@ -508,16 +582,16 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
             title: '创建时间',
             dataIndex: 'created_at',
             key: 'created_at',
-            render: (time) => <TimeAgo date={time} />
+            width: 120,
+            render: (time) => <span style={{ whiteSpace: 'nowrap' }}><TimeAgo date={time} /></span>
           },
           {
             title: '操作',
             key: 'action',
-            width: 180,
             render: (_, record) => (
-              <Space size="middle">
-                <Button 
-                  type="primary" 
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                <Button
+                  type="primary"
                   icon={<PlayCircleOutlined />}
                   disabled={
                     record.status === 'running' || // 运行中的测试
@@ -532,17 +606,18 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
                     '运行测试'
                   }
                 />
-                <Button 
+                <Button
                   icon={<EyeOutlined />}
                   onClick={() => handleViewDetail(record.id)}
                   title="查看详情"
                 />
-              </Space>
+              </div>
             )
           }
         ]}
-      />
-      
+        />
+      </div>
+
       <Modal
         title="新建精度测试"
         open={modalVisible}
@@ -551,21 +626,22 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
         width={800}
         destroyOnClose
       >
-        <CreateAccuracyTestForm 
+        <CreateAccuracyTestForm
           projectId={projectId}
-          onSuccess={(testId) => {
+          onSuccess={() => {
             setModalVisible(false);
             fetchTests();
           }}
           onCancel={() => setModalVisible(false)}
         />
       </Modal>
-      
+
       <AccuracyTestDetail
         visible={detailVisible}
         testId={selectedTestId}
+        datasets={datasets}
         onClose={() => setDetailVisible(false)}
       />
     </div>
   );
-}; 
+};

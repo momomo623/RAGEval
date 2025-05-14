@@ -23,6 +23,27 @@
   gap: 8px;
 }
 
+/* 表格容器样式 */
+.tableContainer {
+  width: 100%;
+  overflow-x: auto;
+  margin-bottom: 20px;
+  border-radius: 4px;
+}
+
+/* 确保表格不超出容器 */
+.tableContainer :global(.ant-table-container) {
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+/* 表格行样式 */
+.tableContainer :global(.ant-table-tbody > tr > td) {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .detailContainer {
   margin-top: 16px;
 }
@@ -101,7 +122,7 @@
 
 /* 确保表格中的操作按钮正常显示 */
 :global(.ant-table-cell) .ant-space {
-  flex-wrap: nowrap !important; 
+  flex-wrap: nowrap !important;
   overflow: visible !important;
 }
 
@@ -174,4 +195,4 @@
 .progressValue {
   font-size: 18px;
   font-weight: 500;
-} 
+}

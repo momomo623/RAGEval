@@ -73,3 +73,41 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+/* 全局表格样式 */
+.ant-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+/* 确保表格内容不会超出容器 */
+.ant-table-container {
+  overflow: auto;
+}
+
+/* 表格行样式 */
+.ant-table-tbody > tr > td {
+  word-break: break-word;
+}
+
+/* 确保Tag内容不会被截断 */
+.ant-tag {
+  max-width: none !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+}
+
+/* 表格单元格内容过长时显示省略号 */
+.ant-table-cell-ellipsis {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 覆盖包含Tag的单元格样式 */
+.ant-table-cell .ant-tag {
+  white-space: normal;
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+}

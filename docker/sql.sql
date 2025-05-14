@@ -412,7 +412,8 @@ create table public.performance_tests
     processed_questions integer                  default 0                            not null,
     success_questions   integer                  default 0                            not null,
     failed_questions    integer                  default 0                            not null,
-    summary_metrics     jsonb                    default '{}'::jsonb                  not null
+    summary_metrics     jsonb                    default '{}'::jsonb                  not null,
+    rag_config          varchar(200)
 );
 
 comment on table public.performance_tests is 'RAG系统性能测试表';

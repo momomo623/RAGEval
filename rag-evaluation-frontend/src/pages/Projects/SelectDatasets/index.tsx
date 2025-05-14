@@ -17,7 +17,7 @@ const { TabPane } = Tabs;
 const SelectDatasetsPage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  
+
   const [loading, setLoading] = useState(true);
   const [myDatasetsLoading, setMyDatasetsLoading] = useState(false);
   const [publicDatasetsLoading, setPublicDatasetsLoading] = useState(false);
@@ -26,6 +26,7 @@ const SelectDatasetsPage: React.FC = () => {
   const [myDatasets, setMyDatasets] = useState<Dataset[]>([]);
   const [publicDatasets, setPublicDatasets] = useState<Dataset[]>([]);
   const [selectedDatasetIds, setSelectedDatasetIds] = useState<string[]>([]);
+  const [initialDatasetIds, setInitialDatasetIds] = useState<string[]>([]);
   const [searchText, setSearchText] = useState('');
   const [activeTab, setActiveTab] = useState('my'); // 'my' 或 'public'
   const [myDatasetsTotal, setMyDatasetsTotal] = useState(0);
@@ -33,28 +34,28 @@ const SelectDatasetsPage: React.FC = () => {
   const [myDatasetsPage, setMyDatasetsPage] = useState(1);
   const [publicDatasetsPage, setPublicDatasetsPage] = useState(1);
   const [pageSize] = useState(8);
-  
+
   // 获取项目信息和已关联的数据集
   useEffect(() => {
     if (projectId) {
       fetchProjectInfo();
     }
   }, [projectId]);
-  
+
   // 获取我的数据集
   useEffect(() => {
     if (activeTab === 'my') {
       fetchMyDatasets();
     }
   }, [activeTab, myDatasetsPage, searchText]);
-  
+
   // 获取公开数据集
   useEffect(() => {
     if (activeTab === 'public') {
       fetchPublicDatasets();
     }
   }, [activeTab, publicDatasetsPage, searchText]);
-  
+
   // 获取项目信息
   const fetchProjectInfo = async () => {
     try {
@@ -62,11 +63,12 @@ const SelectDatasetsPage: React.FC = () => {
       const project = await projectService.getProject(projectId!);
       if (project) {
         setProjectName(project.name);
-        
+
         // 获取已关联的数据集ID
         const linkedDatasets = await datasetService.getProjectDatasets(projectId!);
         const linkedIds = linkedDatasets.map(d => d.id);
         setSelectedDatasetIds(linkedIds);
+        setInitialDatasetIds(linkedIds); // 保存初始已关联的数据集ID
       }
     } catch (error) {
       console.error('获取项目信息失败:', error);
@@ -75,7 +77,7 @@ const SelectDatasetsPage: React.FC = () => {
       setLoading(false);
     }
   };
-  
+
   // 获取我的数据集
   const fetchMyDatasets = async () => {
     try {
@@ -85,7 +87,7 @@ const SelectDatasetsPage: React.FC = () => {
         size: pageSize,
         search: searchText || undefined
       };
-      
+
       const result = await datasetService.getDatasets(params);
       setMyDatasets(result.datasets);
       setMyDatasetsTotal(result.total);
@@ -96,7 +98,7 @@ const SelectDatasetsPage: React.FC = () => {
       setMyDatasetsLoading(false);
     }
   };
-  
+
   // 获取公开数据集
   const fetchPublicDatasets = async () => {
     try {
@@ -106,7 +108,7 @@ const SelectDatasetsPage: React.FC = () => {
         size: pageSize,
         search: searchText || undefined
       };
-      
+
       const result = await datasetService.getPublicDatasets(params);
       setPublicDatasets(result.datasets);
       setPublicDatasetsTotal(result.total);
@@ -117,27 +119,32 @@ const SelectDatasetsPage: React.FC = () => {
       setPublicDatasetsLoading(false);
     }
   };
-  
+
   // 切换选择状态
   const toggleDatasetSelection = (datasetId: string) => {
-    setSelectedDatasetIds(prev => 
+    // 如果是已关联的数据集，不允许取消选择
+    if (initialDatasetIds.includes(datasetId)) {
+      return; // 直接返回，不做任何操作
+    }
+
+    setSelectedDatasetIds(prev =>
       prev.includes(datasetId)
         ? prev.filter(id => id !== datasetId)
         : [...prev, datasetId]
     );
   };
-  
+
   // 提交选择
   const handleSubmit = async () => {
     if (!projectId || selectedDatasetIds.length === 0) return;
-    
+
     try {
       setSubmitting(true);
       await datasetService.batchLinkDatasetsToProject({
         project_id: projectId,
         dataset_ids: selectedDatasetIds
       });
-      
+
       message.success('数据集已关联到项目');
       navigate(`/projects/${projectId}`);
     } catch (error) {
@@ -147,7 +154,7 @@ const SelectDatasetsPage: React.FC = () => {
       setSubmitting(false);
     }
   };
-  
+
   // 搜索数据集
   const handleSearch = (value: string) => {
     setSearchText(value);
@@ -158,42 +165,49 @@ const SelectDatasetsPage: React.FC = () => {
       setPublicDatasetsPage(1);
     }
   };
-  
+
   // 切换标签页
   const handleTabChange = (key: string) => {
     setActiveTab(key);
   };
-  
+
   // 页码变更
   const handleMyDatasetsPageChange = (page: number) => {
     setMyDatasetsPage(page);
   };
-  
+
   const handlePublicDatasetsPageChange = (page: number) => {
     setPublicDatasetsPage(page);
   };
-  
+
   // 创建新数据集
   const handleCreateDataset = () => {
     navigate('/datasets/create', { state: { returnTo: `/projects/${projectId}/select-datasets` } });
   };
-  
+
   // 渲染数据集卡片
   const renderDatasetCard = (dataset: Dataset) => {
     const isSelected = selectedDatasetIds.includes(dataset.id);
-    
+    const isInitiallySelected = initialDatasetIds.includes(dataset.id);
+
     return (
-      <Card 
-        className={`${styles.datasetCard} ${isSelected ? styles.selectedCard : ''}`}
-        hoverable
-        onClick={() => toggleDatasetSelection(dataset.id)}
+      <Card
+        className={`${styles.datasetCard} ${isSelected ? styles.selectedCard : ''} ${isInitiallySelected ? styles.lockedCard : ''}`}
+        hoverable={!isInitiallySelected}
+        onClick={() => !isInitiallySelected && toggleDatasetSelection(dataset.id)}
       >
         <div className={styles.cardHeader}>
-          <Checkbox checked={isSelected} />
+          <Checkbox
+            checked={isSelected}
+            disabled={isInitiallySelected}
+          />
           <div className={styles.cardTitle}>
             <Text strong>{dataset.name}</Text>
             {dataset.is_public && (
               <Tag color="green">公开</Tag>
+            )}
+            {isInitiallySelected && (
+              <Tag color="blue">已关联</Tag>
             )}
           </div>
         </div>
@@ -207,11 +221,15 @@ const SelectDatasetsPage: React.FC = () => {
         </div>
         <div className={styles.cardFooter}>
           <Text type="secondary">问题数量: {dataset.question_count}</Text>
+          {isInitiallySelected && (
+            <Text type="secondary" style={{ color: '#1890ff' }}>
+            </Text>
+          )}
         </div>
       </Card>
     );
   };
-  
+
   // 如果正在加载项目信息，显示加载中
   if (loading) {
     return (
@@ -220,25 +238,25 @@ const SelectDatasetsPage: React.FC = () => {
       </div>
     );
   }
-  
+
   return (
     <Layout.Content className={styles.pageContainer}>
       <div className={styles.pageHeader}>
-        <Button 
-          type="link" 
-          icon={<ArrowLeftOutlined />} 
+        <Button
+          type="link"
+          icon={<ArrowLeftOutlined />}
           onClick={() => navigate(`/projects/${projectId}`)}
         >
           返回项目
         </Button>
         <Title level={4}>为项目 "{projectName}" 选择数据集</Title>
       </div>
-      
+
       <Card className={styles.selectionCard}>
         <div className={styles.selectedInfo}>
           已选择 <Text strong>{selectedDatasetIds.length}</Text> 个数据集
         </div>
-        
+
         <div className={styles.searchContainer}>
           <Search
             placeholder="搜索数据集"
@@ -248,7 +266,7 @@ const SelectDatasetsPage: React.FC = () => {
             style={{ width: 300 }}
           />
         </div>
-        
+
         <Tabs activeKey={activeTab} onChange={handleTabChange}>
           <TabPane tab="我的数据集" key="my">
             <div className={styles.datasetsContainer}>
@@ -267,7 +285,7 @@ const SelectDatasetsPage: React.FC = () => {
                   </Row>
                   {myDatasetsTotal > pageSize && (
                     <div className={styles.pagination}>
-                      <Pagination 
+                      <Pagination
                         current={myDatasetsPage}
                         pageSize={pageSize}
                         total={myDatasetsTotal}
@@ -282,7 +300,7 @@ const SelectDatasetsPage: React.FC = () => {
               )}
             </div>
           </TabPane>
-          
+
           <TabPane tab="公开数据集" key="public">
             <div className={styles.datasetsContainer}>
               {publicDatasetsLoading ? (
@@ -300,7 +318,7 @@ const SelectDatasetsPage: React.FC = () => {
                   </Row>
                   {publicDatasetsTotal > pageSize && (
                     <div className={styles.pagination}>
-                      <Pagination 
+                      <Pagination
                         current={publicDatasetsPage}
                         pageSize={pageSize}
                         total={publicDatasetsTotal}
@@ -316,26 +334,26 @@ const SelectDatasetsPage: React.FC = () => {
             </div>
           </TabPane>
         </Tabs>
-        
+
         <div className={styles.createDatasetLink}>
-          <Button 
-            type="link" 
-            icon={<PlusOutlined />} 
+          <Button
+            type="link"
+            icon={<PlusOutlined />}
             onClick={handleCreateDataset}
           >
             创建新数据集
           </Button>
         </div>
-        
+
         <div className={styles.formActions}>
-          <Button 
+          <Button
             onClick={() => navigate(`/projects/${projectId}`)}
           >
             取消
           </Button>
-          <Button 
-            type="primary" 
-            onClick={handleSubmit} 
+          <Button
+            type="primary"
+            onClick={handleSubmit}
             loading={submitting}
             disabled={selectedDatasetIds.length === 0}
           >
@@ -347,4 +365,4 @@ const SelectDatasetsPage: React.FC = () => {
   );
 };
 
-export default SelectDatasetsPage; 
+export default SelectDatasetsPage;

@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Drawer, Descriptions, Statistic, Card, Row, Col, 
+import {
+  Drawer, Descriptions, Statistic, Card, Row, Col,
   Divider, Table, Tag, Space, Typography, Button, Spin, Empty, message, List, Input, Select, Tabs
 } from 'antd';
-import { 
-  CheckCircleOutlined, CloseCircleOutlined, 
+import {
+  CheckCircleOutlined, CloseCircleOutlined,
   SyncOutlined, SearchOutlined, DownloadOutlined,
   FileTextOutlined, StarOutlined, UserOutlined, RobotOutlined
 } from '@ant-design/icons';
 import { TimeAgo } from '../../../components/common/TimeAgo';
 import styles from './AccuracyTests.module.css';
 import { accuracyService } from '../../../services/accuracy.service';
+import { datasetService } from '../../../services/dataset.service';
 import { CSVLink } from 'react-csv';
 
 const { Title, Text, Paragraph } = Typography;
@@ -20,12 +21,14 @@ interface AccuracyTestDetailProps {
   visible: boolean;
   testId: string | null;
   onClose: () => void;
+  datasets?: any[]; // 添加数据集列表属性
 }
 
 export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
   visible,
   testId,
-  onClose
+  onClose,
+  datasets = [] // 添加datasets参数并设置默认值
 }) => {
   const [loading, setLoading] = useState(false);
   const [testData, setTestData] = useState<any>(null);
@@ -36,7 +39,8 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
   const [activeTab, setActiveTab] = useState('summary');
   const [assignmentsLoading, setAssignmentsLoading] = useState(false);
   const [humanAssignments, setHumanAssignments] = useState<any[]>([]);
-  
+  const [datasetName, setDatasetName] = useState<string>('');
+
   // 添加分页相关状态
   const [itemsLoading, setItemsLoading] = useState(false);
   const [pagination, setPagination] = useState({
@@ -88,7 +92,15 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
     try {
       const response = await accuracyService.getDetail(id);
       setTestData(response);
-      
+
+      // 从传入的数据集列表中查找对应的数据集
+      if (response.dataset_id) {
+        const dataset = datasets.find((d: any) => d.id === response.dataset_id);
+        if (dataset) {
+          setDatasetName(dataset.name);
+        }
+      }
+
       // 仅设置测试基本信息，测试项将通过专门的API加载
       if (activeTab === 'items') {
         fetchTestItems(id);
@@ -104,7 +116,7 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
   // 新增：获取测试项目列表（支持分页）
   const fetchTestItems = async (id: string) => {
     if (!id) return;
-    
+
     setItemsLoading(true);
     try {
       const offset = (pagination.current - 1) * pagination.pageSize;
@@ -113,13 +125,13 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
         offset: offset,
         status: itemsFilter.status
       });
-      
+
       // 处理从API获取的测试项
       const items = response.items.map((item: any, index: number) => ({
         ...item,
         sequence_number: item.sequence_number || (offset + index + 1)
       }));
-      
+
       setTestItems(items);
       setPagination(prev => ({
         ...prev,
@@ -169,9 +181,9 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
   // 渲染评分标签
   const renderScoreTag = (score: number, method: string) => {
     if (score === undefined || score === null) return <Tag>未评分</Tag>;
-    
+
     let color = 'default';
-    
+
     if (method === 'binary') {
       color = score > 0 ? 'success' : 'error';
       return <Tag color={color}>{score > 0 ? '正确' : '错误'}</Tag>;
@@ -192,7 +204,7 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
   const renderStatus = (status: string) => {
     let icon = null;
     let color = 'default';
-    
+
     switch (status) {
       case 'created':
         icon = <FileTextOutlined />;
@@ -212,12 +224,12 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
       default:
         break;
     }
-    
+
     return (
       <Tag icon={icon} color={color}>
-        {status === 'created' ? '已创建' : 
-         status === 'running' ? '运行中' : 
-         status === 'completed' ? '已完成' : 
+        {status === 'created' ? '已创建' :
+         status === 'running' ? '运行中' :
+         status === 'completed' ? '已完成' :
          status === 'failed' ? '失败' : status}
       </Tag>
     );
@@ -242,8 +254,8 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
     return (
       <>
         <div className={styles.filterSection}>
-          <Input 
-            placeholder="搜索问题或回答..." 
+          <Input
+            placeholder="搜索问题或回答..."
             value={searchValue}
             onChange={e => setSearchValue(e.target.value)}
             prefix={<SearchOutlined />}
@@ -290,7 +302,7 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
             <Select.Option value="failed">评测失败</Select.Option>
           </Select>
           {testItems.length > 0 && (
-            <CSVLink 
+            <CSVLink
               data={csvData}
               filename={`精度测试_${testData?.name || 'export'}_${new Date().toISOString().slice(0, 10)}.csv`}
             >
@@ -298,27 +310,27 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
             </CSVLink>
           )}
         </div>
-        
+
         <Spin spinning={itemsLoading}>
           <List
             itemLayout="vertical"
             dataSource={testItems.filter(item => {
               let matchesSearch = true;
               let matchesScore = true;
-              
+
               if (searchValue) {
-                matchesSearch = 
+                matchesSearch =
                   item.question_content?.toLowerCase().includes(searchValue.toLowerCase()) ||
                   item.rag_answer_content?.toLowerCase().includes(searchValue.toLowerCase()) ||
                   item.reference_answer?.toLowerCase().includes(searchValue.toLowerCase()) ||
                   item.final_evaluation_reason?.toLowerCase().includes(searchValue.toLowerCase());
               }
-              
+
               if (filterScore) {
                 const score = parseFloat(filterScore);
                 matchesScore = item.final_score === score;
               }
-              
+
               return matchesSearch && matchesScore;
             })}
             pagination={{
@@ -353,24 +365,24 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
                     </Space>
                   </div>
                 </div>
-                
+
                 <Divider style={{ margin: '12px 0' }} />
-                
+
                 <Row gutter={[16, 16]}>
                   <Col span={12}>
-                    <Card 
-                      size="small" 
-                      title={<span className={styles.cardTitle}>参考答案</span>} 
-                      bordered={true} 
+                    <Card
+                      size="small"
+                      title={<span className={styles.cardTitle}>参考答案</span>}
+                      bordered={true}
                       className={styles.answerCard}
                     >
                       <div className={styles.itemContainer}>
                         <Typography.Paragraph
                           className={styles.answer}
-                          ellipsis={{ 
-                            rows: 5, 
-                            expandable: true, 
-                            symbol: '展开' 
+                          ellipsis={{
+                            rows: 5,
+                            expandable: true,
+                            symbol: '展开'
                           }}
                         >
                           {item.reference_answer}
@@ -379,19 +391,19 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
                     </Card>
                   </Col>
                   <Col span={12}>
-                    <Card 
-                      size="small" 
-                      title={<span className={styles.cardTitle}>RAG回答</span>} 
+                    <Card
+                      size="small"
+                      title={<span className={styles.cardTitle}>RAG回答</span>}
                       bordered={true}
                       className={styles.answerCard}
                     >
                       <div className={styles.itemContainer}>
                         <Typography.Paragraph
                           className={styles.answer}
-                          ellipsis={{ 
-                            rows: 5, 
-                            expandable: true, 
-                            symbol: '展开' 
+                          ellipsis={{
+                            rows: 5,
+                            expandable: true,
+                            symbol: '展开'
                           }}
                         >
                           {item.rag_answer_content}
@@ -400,28 +412,28 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
                     </Card>
                   </Col>
                 </Row>
-                
+
                 <div className={styles.evaluationReason}>
                   <Typography.Text strong>评测理由: </Typography.Text>
                   <Typography.Paragraph style={{marginTop: 10}}>
-                    {item.final_evaluation_reason ? 
+                    {item.final_evaluation_reason ?
                       item.final_evaluation_reason.split('\n').map((line: string, index: number) => (
                         <Typography.Paragraph key={index}>
                           {line}
                         </Typography.Paragraph>
-                      )) : 
+                      )) :
                       '暂无评测理由'
                     }
                   </Typography.Paragraph>
                 </div>
-                
+
                 {Object.keys(item.final_dimension_scores || {}).length > 0 && (
                   <div className={styles.dimensionScores}>
                     <Typography.Text strong>维度评分: </Typography.Text>
                     <Space wrap>
-                      {Object.entries(item.final_dimension_scores).map(([dimension, score]) => (
+                      {Object.entries(item.final_dimension_scores || {}).map(([dimension, score]) => (
                         <Tag key={dimension} color="blue">
-                          {dimension}: {score}
+                          {dimension}: {String(score)}
                         </Tag>
                       ))}
                     </Space>
@@ -480,7 +492,7 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
                     if (status === 'assigned') color = 'default';
                     else if (status === 'in_progress') color = 'processing';
                     else if (status === 'completed') color = 'success';
-                    
+
                     return <Tag color={color}>{status}</Tag>;
                   }
                 },
@@ -515,7 +527,7 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
   // 渲染测试概览
   const renderSummary = () => {
     const summary = testData?.results_summary || {};
-    
+
     return (
       <>
         <Row gutter={[16, 16]}>
@@ -562,20 +574,23 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
             </Card>
           </Col>
         </Row>
-        
-        <Divider>维度详情</Divider>
-        
+
+        <Divider>评测维度详情</Divider>
+
         <Row gutter={[16, 16]}>
           {Object.entries(summary)
             .filter(([key]) => testData?.dimensions?.includes(key))
             .map(([dimension, score]) => (
               <Col key={dimension} span={6}>
-                <Card className={styles.metricCard}>
+                <Card className={styles.metricCard}
+                  title={<span style={{ fontSize: '14px', fontWeight: 'bold', color: '#722ed1' }}>{dimension}</span>}
+                  headStyle={{ padding: '0 16px', backgroundColor: '#f9f0ff', borderBottom: '1px solid #d3adf7' }}
+                >
                   <Statistic
-                    title={`${dimension}得分`}
                     value={score as number}
                     precision={2}
                     valueStyle={{ color: '#1890ff' }}
+                    suffix="分"
                   />
                 </Card>
               </Col>
@@ -637,6 +652,24 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
                   'five_scale': '五分量表'
                 }[testData.scoring_method] || testData.scoring_method}
               </Descriptions.Item>
+              <Descriptions.Item label="数据集" span={1}>
+                {datasetName ? (
+                  <Tag color="cyan">{datasetName}</Tag>
+                ) : (
+                  <Tag>未知数据集</Tag>
+                )}
+              </Descriptions.Item>
+              <Descriptions.Item label="评测维度" span={2}>
+                <Space size={[0, 4]} wrap>
+                  {testData.dimensions && testData.dimensions.length > 0 ? (
+                    testData.dimensions.map((dim: string) => (
+                      <Tag key={dim} color="purple">{dim}</Tag>
+                    ))
+                  ) : (
+                    <Tag>无</Tag>
+                  )}
+                </Space>
+              </Descriptions.Item>
               <Descriptions.Item label="创建时间" span={1}>
                 <TimeAgo date={testData.created_at} />
               </Descriptions.Item>
@@ -650,7 +683,7 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
                 {testData.description || '无描述'}
               </Descriptions.Item>
             </Descriptions>
-            
+
             <Tabs activeKey={activeTab} onChange={setActiveTab}>
               <TabPane tab="评测概览" key="summary">
                 {renderSummary()}
@@ -671,4 +704,4 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
       </Spin>
     </Drawer>
   );
-}; 
+};

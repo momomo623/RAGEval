@@ -121,5 +121,10 @@ export const performanceService = {
     return api.get<PerformanceTestDetail>(`/v1/performance/${id}/qa-pairs`, {
       params: { page, size }
     });
+  },
+
+  // 取消性能测试
+  cancel: async (id: string): Promise<PerformanceTest> => {
+    return api.post<PerformanceTest>(`/v1/performance/${id}/cancel`);
   }
-}; 
+};

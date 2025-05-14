@@ -444,7 +444,7 @@ def unlink_dataset_from_project_api(
     if accuracy_tests > 0:
         raise HTTPException(
             status_code=400,
-            detail="该数据集已被用于精度评测，无法移除。请先删除相关的精度评测结果。"
+            detail="该数据集已被用于精度评测，无法移除。"
         )
 
     # 检查是否有使用此数据集的性能评测结果
@@ -457,7 +457,7 @@ def unlink_dataset_from_project_api(
     if performance_tests > 0:
         raise HTTPException(
             status_code=400,
-            detail="该数据集已被用于性能评测，无法移除。请先删除相关的性能评测结果。"
+            detail="该数据集已被用于性能评测，无法移除。"
         )
 
     unlink_dataset_from_project(db, project_id=project_id, dataset_id=dataset_id)
