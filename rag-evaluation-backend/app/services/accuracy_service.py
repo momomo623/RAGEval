@@ -113,11 +113,12 @@ class AccuracyService:
         ).first()
     
     def get_test_items(
-        self, 
-        test_id: uuid.UUID, 
-        limit: int = 50, 
+        self,
+        test_id: uuid.UUID,
+        limit: int = 50,
         offset: int = 0,
-        status: Optional[str] = None
+        status: Optional[str] = None,
+        score: Optional[float] = None
     ) -> Tuple[List[Dict[str, Any]], int]:
         """获取评测项目列表"""
         query = self.db.query(
@@ -133,8 +134,12 @@ class AccuracyService:
             AccuracyTestItem.evaluation_id == test_id
         )
         
+        # 应用筛选条件
         if status:
             query = query.filter(AccuracyTestItem.status == status)
+            
+        if score is not None:
+            query = query.filter(AccuracyTestItem.final_score == score)
         
         # 获取总数
         total_count = query.count()

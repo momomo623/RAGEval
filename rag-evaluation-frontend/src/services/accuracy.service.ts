@@ -134,7 +134,12 @@ export const accuracyService = {
   },
 
   // 获取精度测试项目列表（支持分页）
-  getTestItems: async (testId: string, params?: { limit?: number, offset?: number, status?: string | null }): Promise<any> => {
+  getTestItems: async (testId: string, params?: {
+    limit?: number,
+    offset?: number,
+    status?: string | null,
+    score?: number | null
+  }): Promise<any> => {
     const queryParams = new URLSearchParams();
     
     if (params?.limit) {
@@ -147,6 +152,10 @@ export const accuracyService = {
     
     if (params?.status) {
       queryParams.append('status', params.status);
+    }
+
+    if (params?.score !== null && params?.score !== undefined) {
+      queryParams.append('score', params.score.toString());
     }
     
     const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';

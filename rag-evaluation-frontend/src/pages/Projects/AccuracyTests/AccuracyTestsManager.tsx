@@ -446,100 +446,7 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
             width: 100,
             key: 'name',
             ellipsis: true,
-            // 鼠标移动显示完整内容
             render: (text) => <Tooltip title={text}><span style={{ maxWidth: '100%', display: 'inline-block', overflow: 'hidden', textOverflow: 'ellipsis' }}>{text}</span></Tooltip>
-          },
-          {
-            title: '评测类型',
-            dataIndex: 'evaluation_type',
-            key: 'evaluation_type',
-            width: 100,
-            render: (type) => (
-              <Tag style={{ whiteSpace: 'nowrap' }}>
-                {type === 'ai' ? 'AI评测' : type === 'manual' ? '人工评测' : type === 'hybrid' ? '混合评测' : type}
-              </Tag>
-            )
-          },
-          {
-            title: '评分方法',
-            dataIndex: 'scoring_method',
-            key: 'scoring_method',
-            width: 110,
-            render: (method) => (
-              <Tag style={{ whiteSpace: 'nowrap' }}>
-                {method === 'binary' ? '二元评分' : method === 'three_scale' ? '三分量表' : method === 'five_scale' ? '五分量表' : method}
-              </Tag>
-            )
-          },
-          {
-            title: '数据集',
-            dataIndex: 'dataset_id',
-            key: 'dataset_id',
-            align: 'center',
-            ellipsis: true,
-            render: (dataset_id) => {
-              // 从datasets中查找匹配的数据集
-              const dataset = datasets.find((d: any) => d.id === dataset_id);
-              return (
-                <Tooltip title={dataset ? dataset.name : '未知数据集'}>
-                  <Tag color="cyan" style={{ whiteSpace: 'nowrap' }}>
-                    {dataset ? dataset.name : '未知数据集'}
-                  </Tag>
-                </Tooltip>
-              );
-            }
-          },
-          {
-            title: '评测维度',
-            dataIndex: 'dimensions',
-            key: 'dimensions',
-            width: 150,
-            render: (dimensions) => {
-              if (!dimensions || dimensions.length === 0) return <Tag>无</Tag>;
-
-              // 创建完整的维度列表用于Tooltip显示
-              const fullDimensionsList = dimensions.join(', ');
-
-              // 如果维度太多，只显示前两个，其余显示为 +N
-              if (dimensions.length <= 2) {
-                return (
-                  <Tooltip title={fullDimensionsList}>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                      {dimensions.map((dim: string) => (
-                        <Tag key={dim} color="purple" style={{ margin: 0, whiteSpace: 'nowrap' }}>{dim}</Tag>
-                      ))}
-                    </div>
-                  </Tooltip>
-                );
-              } else {
-                return (
-                  <Tooltip title={fullDimensionsList}>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                      <Tag color="purple" style={{ margin: 0, whiteSpace: 'nowrap' }}>{dimensions[0]}</Tag>
-                      <Tag color="purple" style={{ margin: 0, whiteSpace: 'nowrap' }}>{dimensions[1]}</Tag>
-                      <Tag style={{ margin: 0, whiteSpace: 'nowrap' }}>+{dimensions.length - 2}</Tag>
-                    </div>
-                  </Tooltip>
-                );
-              }
-            }
-          },
-          {
-            title: '问题数',
-            dataIndex: 'total_questions',
-            key: 'total_questions',
-            width: 80,
-            render: (total_questions) => <Tag style={{ minWidth: '40px', textAlign: 'center', whiteSpace: 'nowrap' }}>{total_questions}</Tag>
-          },
-          {
-            title: '整体得分',
-            dataIndex: 'results_summary',
-            key: 'overall_score',
-            width: 90,
-            render: (summary) => {
-              if (!summary || !summary.overall_score) return '-';
-              return <Tag color="blue" style={{ minWidth: '40px', textAlign: 'center', whiteSpace: 'nowrap' }}>{summary.overall_score.toFixed(1)}</Tag>;
-            }
           },
           {
             title: '状态',
@@ -576,6 +483,95 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
                    status === 'failed' ? '失败' : status}
                 </Tag>
               );
+            }
+          },
+          {
+            title: '数据集',
+            dataIndex: 'dataset_id',
+            key: 'dataset_id',
+            align: 'center',
+            ellipsis: true,
+            render: (dataset_id) => {
+              const dataset = datasets.find((d: any) => d.id === dataset_id);
+              return (
+                <Tooltip title={dataset ? dataset.name : '未知数据集'}>
+                  <Tag color="cyan" style={{ whiteSpace: 'nowrap' }}>
+                    {dataset ? dataset.name : '未知数据集'}
+                  </Tag>
+                </Tooltip>
+              );
+            }
+          },
+          {
+            title: '评测类型',
+            dataIndex: 'evaluation_type',
+            key: 'evaluation_type',
+            width: 100,
+            render: (type) => (
+              <Tag style={{ whiteSpace: 'nowrap' }}>
+                {type === 'ai' ? 'AI评测' : type === 'manual' ? '人工评测' : type === 'hybrid' ? '混合评测' : type}
+              </Tag>
+            )
+          },
+          {
+            title: '问题数',
+            dataIndex: 'total_questions',
+            key: 'total_questions',
+            width: 80,
+            render: (total_questions) => <Tag style={{ minWidth: '40px', textAlign: 'center', whiteSpace: 'nowrap' }}>{total_questions}</Tag>
+          },
+          {
+            title: '整体得分',
+            dataIndex: 'results_summary',
+            key: 'overall_score',
+            width: 90,
+            render: (summary) => {
+              if (!summary || !summary.overall_score) return '-';
+              return <Tag color="blue" style={{ minWidth: '40px', textAlign: 'center', whiteSpace: 'nowrap' }}>{summary.overall_score.toFixed(1)}</Tag>;
+            }
+          },
+          {
+            title: '评分方法',
+            dataIndex: 'scoring_method',
+            key: 'scoring_method',
+            width: 110,
+            render: (method) => (
+              <Tag style={{ whiteSpace: 'nowrap' }}>
+                {method === 'binary' ? '二元评分' : method === 'three_scale' ? '三分量表' : method === 'five_scale' ? '五分量表' : method}
+              </Tag>
+            )
+          },
+          {
+            title: '评测维度',
+            dataIndex: 'dimensions',
+            key: 'dimensions',
+            width: 150,
+            render: (dimensions) => {
+              if (!dimensions || dimensions.length === 0) return <Tag>无</Tag>;
+
+              const fullDimensionsList = dimensions.join(', ');
+
+              if (dimensions.length <= 2) {
+                return (
+                  <Tooltip title={fullDimensionsList}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                      {dimensions.map((dim: string) => (
+                        <Tag key={dim} color="purple" style={{ margin: 0, whiteSpace: 'nowrap' }}>{dim}</Tag>
+                      ))}
+                    </div>
+                  </Tooltip>
+                );
+              } else {
+                return (
+                  <Tooltip title={fullDimensionsList}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                      <Tag color="purple" style={{ margin: 0, whiteSpace: 'nowrap' }}>{dimensions[0]}</Tag>
+                      <Tag color="purple" style={{ margin: 0, whiteSpace: 'nowrap' }}>{dimensions[1]}</Tag>
+                      <Tag style={{ margin: 0, whiteSpace: 'nowrap' }}>+{dimensions.length - 2}</Tag>
+                    </div>
+                  </Tooltip>
+                );
+              }
             }
           },
           {

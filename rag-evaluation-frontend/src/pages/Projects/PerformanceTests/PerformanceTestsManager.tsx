@@ -367,111 +367,6 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
             render: (text) => <Tooltip title={text}><span style={{ maxWidth: '100%', display: 'inline-block', overflow: 'hidden', textOverflow: 'ellipsis' }}>{text}</span></Tooltip>
           },
           {
-            title: '版本',
-            dataIndex: 'version',
-            key: 'version',
-            width: 85,
-            align: 'center',
-            render: (version) => (
-              <Tooltip title={`版本：${version}`}>
-                <Tag style={{
-                  textAlign: 'center',
-                  whiteSpace: 'nowrap'
-                }}>
-                  {version}
-                </Tag>
-              </Tooltip>
-            )
-          },
-          {
-            title: '并发数',
-            dataIndex: 'concurrency',
-            key: 'concurrency',
-            width: 100,
-            render: (concurrency) => (
-              <Tooltip title={`并发请求数：${concurrency}`}>
-                <Tag style={{ minWidth: '45px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                  {concurrency}
-                </Tag>
-              </Tooltip>
-            )
-          },
-          {
-            title: '数据集',
-            dataIndex: 'dataset_id',
-            key: 'dataset_id',
-            // 居中
-            align: 'center',
-            render: (dataset_id) => {
-              // 从datasets中查找匹配的数据集
-              const dataset = datasets.find((d: any) => d.id === dataset_id);
-              return (
-                <Tooltip title={dataset ? dataset.name : '未知数据集'}>
-                  <Tag  style={{ whiteSpace: 'nowrap' }}>
-                    {dataset ? dataset.name : '未知数据集'}
-                  </Tag>
-                </Tooltip>
-              );
-            }
-          },
-          {
-            title: 'RAG系统',
-            dataIndex: 'rag_config',
-            key: 'rag_config',
-            width: 130,
-            render: (rag_config) => {
-              if (!rag_config) return <Tag color="default">未设置</Tag>;
-
-              // 如果rag_config是形如"type/name"的格式，提取name部分
-              const configName = rag_config.includes('/') ? rag_config.split('/').pop() : rag_config;
-
-              return (
-                <Tooltip title={rag_config}>
-                  <Tag color="orange" style={{ whiteSpace: 'nowrap' }}>
-                    {configName}
-                  </Tag>
-                </Tooltip>
-              );
-            }
-          },
-          {
-            title: '问题数',
-            dataIndex: 'processed_questions',
-            key: 'processed_questions',
-            width: 90,
-            render: (processed_questions) => (
-              <Tooltip title={`处理问题数：${processed_questions}`}>
-                <Tag style={{ minWidth: '45px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                  {processed_questions}
-                </Tag>
-              </Tooltip>
-            )
-          },
-          {
-            title: '成功率',
-            key: 'success_rate',
-            width: 90,
-            render: (_: any, record: any) => {
-              if (record.status === 'completed' && record.total_questions > 0) {
-                const successRate = (record.success_questions / record.processed_questions * 100).toFixed(0);
-                return <Tag color="green" style={{ minWidth: '40px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                  {successRate}%</Tag>;
-              }
-              return '-';
-            },
-          },
-          {
-            title: '平均响应时间',
-            key: 'avg_response_time',
-            width: 120,
-            render: (_, record: any) => {
-              if (record.status === 'completed' && record.summary_metrics?.response_time?.total_time?.avg) {
-                return <Tag color="blue" style={{ minWidth: '40px', textAlign: 'center', whiteSpace: 'nowrap' }}>{record.summary_metrics.response_time.total_time.avg.toFixed(2)} 秒</Tag>;
-              }
-              return '-';
-            },
-          },
-          {
             title: '状态',
             dataIndex: 'status',
             key: 'status',
@@ -505,6 +400,107 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
               );
             }
           },
+          {
+            title: '数据集',
+            dataIndex: 'dataset_id',
+            key: 'dataset_id',
+            align: 'center',
+            render: (dataset_id) => {
+              const dataset = datasets.find((d: any) => d.id === dataset_id);
+              return (
+                <Tooltip title={dataset ? dataset.name : '未知数据集'}>
+                  <Tag style={{ whiteSpace: 'nowrap' }}>
+                    {dataset ? dataset.name : '未知数据集'}
+                  </Tag>
+                </Tooltip>
+              );
+            }
+          },
+          {
+            title: '问题数',
+            dataIndex: 'processed_questions',
+            key: 'processed_questions',
+            width: 90,
+            render: (processed_questions) => (
+              <Tooltip title={`处理问题数：${processed_questions}`}>
+                <Tag style={{ minWidth: '45px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                  {processed_questions}
+                </Tag>
+              </Tooltip>
+            )
+          },
+          {
+            title: '并发数',
+            dataIndex: 'concurrency',
+            key: 'concurrency',
+            width: 100,
+            render: (concurrency) => (
+              <Tooltip title={`并发请求数：${concurrency}`}>
+                <Tag style={{ minWidth: '45px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                  {concurrency}
+                </Tag>
+              </Tooltip>
+            )
+          },{
+            title: '版本',
+            dataIndex: 'version',
+            key: 'version',
+            width: 85,
+            align: 'center',
+            render: (version) => (
+              <Tooltip title={`版本：${version}`}>
+                <Tag style={{
+                  textAlign: 'center',
+                  whiteSpace: 'nowrap'
+                }}>
+                  {version}
+                </Tag>
+              </Tooltip>
+            )
+          },{
+            title: 'RAG系统',
+            dataIndex: 'rag_config',
+            key: 'rag_config',
+            width: 130,
+            render: (rag_config) => {
+              if (!rag_config) return <Tag color="default">未设置</Tag>;
+              const configName = rag_config.includes('/') ? rag_config.split('/').pop() : rag_config;
+              return (
+                <Tooltip title={rag_config}>
+                  <Tag color="orange" style={{ whiteSpace: 'nowrap' }}>
+                    {configName}
+                  </Tag>
+                </Tooltip>
+              );
+            }
+          },
+        
+        
+          {
+            title: '成功率',
+            key: 'success_rate',
+            width: 90,
+            render: (_: any, record: any) => {
+              if (record.status === 'completed' && record.total_questions > 0) {
+                const successRate = (record.success_questions / record.processed_questions * 100).toFixed(0);
+                return <Tag color="green" style={{ minWidth: '40px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                  {successRate}%</Tag>;
+              }
+              return '-';
+            },
+          },
+          {
+            title: '平均响应',
+            key: 'avg_response_time',
+            width: 120,
+            render: (_, record: any) => {
+              if (record.status === 'completed' && record.summary_metrics?.response_time?.total_time?.avg) {
+                return <Tag color="blue" style={{ minWidth: '40px', textAlign: 'center', whiteSpace: 'nowrap' }}>{record.summary_metrics.response_time.total_time.avg.toFixed(2)} 秒</Tag>;
+              }
+              return '-';
+            },
+          },
+          
           {
             title: '创建时间',
             dataIndex: 'created_at',

@@ -63,12 +63,13 @@ def get_accuracy_test_items(
     limit: int = Query(50, gt=0, le=100),
     offset: int = Query(0, ge=0),
     status: Optional[str] = Query(None),
+    score: Optional[float] = Query(None, description="按分数筛选"),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_user)
 ):
     """获取精度评测项目列表"""
     service = AccuracyService(db)
-    items, total = service.get_test_items(test_id, limit, offset, status)
+    items, total = service.get_test_items(test_id, limit, offset, status, score)
     return {
         "items": items,
         "total": total,

@@ -49,7 +49,8 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
     total: 0
   });
   const [itemsFilter, setItemsFilter] = useState({
-    status: null as string | null
+    status: null as string | null,
+    score: null as number | null
   });
 
   // 加载测试详情
@@ -123,7 +124,8 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
       const response = await accuracyService.getTestItems(id, {
         limit: pagination.pageSize,
         offset: offset,
-        status: itemsFilter.status
+        status: itemsFilter.status,
+        score: itemsFilter.score
       });
 
       // 处理从API获取的测试项
@@ -265,7 +267,17 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
             placeholder="筛选分数"
             allowClear
             style={{ width: 120 }}
-            onChange={value => setFilterScore(value)}
+            onChange={value => {
+              setFilterScore(value);
+              setItemsFilter(prev => ({
+                ...prev,
+                score: value ? parseFloat(value) : null
+              }));
+              setPagination(prev => ({
+                ...prev,
+                current: 1
+              }));
+            }}
           >
             {testData?.scoring_method === 'binary' ? (
               <>
@@ -315,23 +327,15 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
           <List
             itemLayout="vertical"
             dataSource={testItems.filter(item => {
-              let matchesSearch = true;
-              let matchesScore = true;
-
               if (searchValue) {
-                matchesSearch =
+                return (
                   item.question_content?.toLowerCase().includes(searchValue.toLowerCase()) ||
                   item.rag_answer_content?.toLowerCase().includes(searchValue.toLowerCase()) ||
                   item.reference_answer?.toLowerCase().includes(searchValue.toLowerCase()) ||
-                  item.final_evaluation_reason?.toLowerCase().includes(searchValue.toLowerCase());
+                  item.final_evaluation_reason?.toLowerCase().includes(searchValue.toLowerCase())
+                );
               }
-
-              if (filterScore) {
-                const score = parseFloat(filterScore);
-                matchesScore = item.final_score === score;
-              }
-
-              return matchesSearch && matchesScore;
+              return true;
             })}
             pagination={{
               current: pagination.current,
