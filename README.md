@@ -14,6 +14,8 @@
 > [测试网址](https://rag-eval.chongwenz.cn)：`https://rag-eval.chongwenz.cn`
 > 
 >测试账号：`t1@qq.com` / `1`
+>
+> PS：线上部署版本较旧，建议拉取代码后使用docker部署，本地测试。
 
 [快速介绍视频](https://www.bilibili.com/video/BV1XLZtYUEgW/?vd_source=45f48aae0c1bdd4da1e70a2f6913ab60#reply114260122277236)
 
