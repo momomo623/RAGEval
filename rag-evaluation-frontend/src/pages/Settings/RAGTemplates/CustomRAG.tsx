@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { Modal, Form, Input, Button, message } from 'antd';
 import { labelWithTip } from '../utils';
 import JsonEditorField from '@components/JsonEditorField';
-import { ragRequestService } from '../../../services/ragRequestService';
+import { ragRequestService } from './ragRequestService';
 
 const CustomRAG: React.FC<{
   open: boolean;

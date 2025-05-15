@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Form, Input, Select, Button, InputNumber, Card, message, Spin } from 'antd';
-import { PerformanceTestCreate, performanceService } from '../../../services/performance.service';
+import { PerformanceTestCreate, performanceService } from '@services/performance/performance.service';
 import { datasetService } from '../../../services/dataset.service';
 import { ConfigManager, RAGConfig } from '../../../utils/configManager';
 

@@ -9,9 +9,9 @@
  * @version 1.0.0
  */
 
-import { api } from '../utils/api';
+import { api } from '@utils/api';
 import { performanceService } from './performance.service';
-import { ragRequestService } from './ragRequestService';
+import { ragRequestService } from '@pages/Settings/RAGTemplates/ragRequestService';
 import { message } from 'antd';
 import { PerformanceQuestionBuffer } from './performanceQuestionBuffer';
 

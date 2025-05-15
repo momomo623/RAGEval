@@ -8,8 +8,8 @@ import {
   PlusOutlined, PlayCircleOutlined, EyeOutlined, SyncOutlined,
   CheckCircleOutlined, CloseCircleOutlined, FileTextOutlined, ExclamationCircleOutlined
 } from '@ant-design/icons';
-import { accuracyService } from '../../../services/accuracy.service';
-import { executeAccuracyTest, TestProgress } from '../../../services/accuracyExecutorNew';
+import { accuracyService } from '@services/accuracy/accuracy.service';
+import { executeAccuracyTest, TestProgress } from '@services/accuracy/accuracyExecutorNew';
 import { TimeAgo } from '../../../components/common/TimeAgo';
 import styles from './AccuracyTests.module.css';
 import { datasetService } from '../../../services/dataset.service';

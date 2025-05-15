@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Form, Input, Select, Button, InputNumber, Card, message, Spin, Switch, Space, Tooltip } from 'antd';
 import { QuestionCircleOutlined } from '@ant-design/icons';
-import { AccuracyTestCreate, accuracyService } from '../../../services/accuracy.service';
+import { AccuracyTestCreate, accuracyService } from '@services/accuracy/accuracy.service';
 import { datasetService } from '../../../services/dataset.service';
 import { AccuracyPromptGenerator } from './prompt';
 import { useConfigContext } from '../../../contexts/ConfigContext';

@@ -4,9 +4,6 @@
  * 该模块提供了统一的RAG（检索增强生成）系统请求接口，支持多种RAG系统类型，
  * 包括RAGFlow、Dify和自定义RAG系统。所有请求均采用流式响应方式，提供更好的用户体验。
  *
- * @module ragRequestService
- * @author 模型评测团队
- * @version 1.0.0
  */
 
 import { message } from 'antd';

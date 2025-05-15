@@ -8,8 +8,8 @@ import {
   PlayCircleOutlined, PlusOutlined, SyncOutlined,
   CheckCircleOutlined, CloseCircleOutlined, EyeOutlined
 } from '@ant-design/icons';
-import { performanceService } from '../../../services/performance.service';
-import { executePerformanceTest, TestProgress } from '../../../services/performanceExecutorNew';
+import { performanceService } from '@services/performance/performance.service';
+import { executePerformanceTest, TestProgress } from '@services/performance/performanceExecutorNew';
 import { TimeAgo } from '../../../components/common/TimeAgo';
 import styles from './PerformanceTests.module.css';
 import { CreatePerformanceTestForm } from './CreatePerformanceTestForm';

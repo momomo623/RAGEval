@@ -10,7 +10,7 @@ import {
 } from '@ant-design/icons';
 import { TimeAgo } from '../../../components/common/TimeAgo';
 import styles from './PerformanceTests.module.css';
-import { performanceService } from '../../../services/performance.service';
+import { performanceService } from '@services/performance/performance.service';
 import { datasetService } from '../../../services/dataset.service';
 import { api } from '../../../utils/api';
 import { ConfigManager, RAGConfig } from '../../../utils/configManager';

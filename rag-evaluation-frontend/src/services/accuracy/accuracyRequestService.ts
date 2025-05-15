@@ -4,12 +4,9 @@
  * 该模块提供了精度评测的核心功能，包括LLM评测请求和结果解析。
  * 它封装了与LLM交互的逻辑，提供统一的评测接口。
  * 
- * @module accuracyRequestService
- * @author 模型评测团队
- * @version 1.0.0
  */
 
-import { LLMClient } from '../pages/Settings/LLMTemplates/llm-request';
+import { LLMClient } from '@pages/Settings/LLMTemplates/llm-request';
 import * as yaml from 'js-yaml';
 
 /**

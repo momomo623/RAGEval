@@ -10,7 +10,7 @@ import {
 } from '@ant-design/icons';
 import { TimeAgo } from '../../../components/common/TimeAgo';
 import styles from './AccuracyTests.module.css';
-import { accuracyService } from '../../../services/accuracy.service';
+import { accuracyService } from '@services/accuracy/accuracy.service';
 import { datasetService } from '../../../services/dataset.service';
 import { CSVLink } from 'react-csv';
 

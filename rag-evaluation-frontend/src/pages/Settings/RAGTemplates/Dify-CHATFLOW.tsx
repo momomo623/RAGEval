@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Modal, Form, Input, Button, Collapse, message } from 'antd';
 import { labelWithTip } from '../utils';
-import { ragRequestService } from '../../../services/ragRequestService';
+import { ragRequestService } from './ragRequestService';
 import chatflow1 from './img/chat_flow_1.png';
 import { PhotoProvider, PhotoView } from 'react-photo-view';
 import 'react-photo-view/dist/react-photo-view.css';

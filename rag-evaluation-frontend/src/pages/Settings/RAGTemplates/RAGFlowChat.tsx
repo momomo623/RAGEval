@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Modal, Form, Input, Button, Collapse, Alert, message } from 'antd';
 import { labelWithTip } from '../utils';
-import { ragRequestService } from '../../../services/ragRequestService';
+import { ragRequestService } from './ragRequestService';
 import ragflowKey from './img/ragflow-key.png';
 import ragflowKey_1 from './img/ragflow_chat_1.png';
 import ragflowKey_2 from './img/ragflow_chat_2.png';

@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Modal, Form, Input, Button, Collapse, message } from 'antd';
 import { labelWithTip } from '../utils';
-import { ragRequestService } from '../../../services/ragRequestService';
+import { ragRequestService } from './ragRequestService';
 import flow1 from './img/flow_1.png';
 import flow2 from './img/flow_2.png';
 import { PhotoProvider, PhotoView } from 'react-photo-view';

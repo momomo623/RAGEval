@@ -10,7 +10,7 @@
  * @version 1.0.0
  */
 
-import { api } from '../utils/api';
+import { api } from '@utils/api';
 
 /**
  * 精度测试问题缓冲区管理器类
