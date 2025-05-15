@@ -141,3 +141,27 @@ def get_performance_test_qa_pairs(
         skip=skip, 
         limit=size
     )
+
+@router.put("/{test_id}/interrupt", response_model=schemas.performance.PerformanceTestOut)
+def mark_test_interrupted(
+    test_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(deps.get_db)
+):
+    """标记测试为中断状态"""
+    test = performance_service.mark_test_interrupted(db, test_id)
+    if not test:
+        raise HTTPException(status_code=404, detail="测试不存在")
+    return test
+
+@router.post("/{test_id}/reset", response_model=schemas.performance.PerformanceTestOut)
+def reset_test(
+    test_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(deps.get_db)
+):
+    """重置测试状态"""
+    test = performance_service.reset_test(db, test_id)
+    if not test:
+        raise HTTPException(status_code=404, detail="测试不存在")
+    return test

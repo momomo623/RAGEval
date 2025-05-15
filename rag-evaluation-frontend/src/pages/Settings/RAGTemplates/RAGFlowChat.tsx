@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
-import { Modal, Form, Input, Button, Collapse, Alert } from 'antd';
+import { Modal, Form, Input, Button, Collapse, Alert, message } from 'antd';
 import { labelWithTip } from '../utils';
-import { handleTestAndSaveGeneric } from './rag-request';
+import { ragRequestService } from '../../../services/ragRequestService';
 import ragflowKey from './img/ragflow-key.png';
 import ragflowKey_1 from './img/ragflow_chat_1.png';
 import ragflowKey_2 from './img/ragflow_chat_2.png';
@@ -33,13 +33,38 @@ const RAGFlowChat: React.FC<RAGFlowChatProps> = ({
     }
   }, [open, initialValues, form]);
 
-  const handleTestAndSave = () =>
-    handleTestAndSaveGeneric({
-      form,
-      setLoading,
-      onSave,
-      key: 'ragflow_chat',
-    });
+  const handleTestAndSave = async () => {
+    try {
+      // 1. 验证表单
+      const values = await form.validateFields();
+
+      // 2. 设置加载状态
+      setLoading(true);
+      message.loading({ content: '正在测试连接...', key: 'testConnection' });
+
+      // 3. 测试配置
+      const result = await ragRequestService.testConfig(values, 'ragflow_chat');
+
+      // 4. 处理测试结果
+      if (result.success) {
+        message.success({ content: '测试成功!', key: 'testConnection' });
+        onSave(values);
+      } else {
+        message.error({ content: `测试失败: ${result.error}`, key: 'testConnection' });
+      }
+    } catch (err: any) {
+      // 5. 处理其他错误
+      message.destroy('testConnection');
+
+      const errorMessage = err.message
+        ? `错误: ${err.message}`
+        : '发生未知错误，请检查网络连接或联系管理员';
+
+      message.error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <Modal
@@ -108,29 +133,29 @@ const RAGFlowChat: React.FC<RAGFlowChatProps> = ({
           <PhotoProvider>
             <div style={{ marginBottom: 12 }}>
               <PhotoView src={ragflowKey_1}>
-                <img 
-                  src={ragflowKey_1} 
-                  alt="" 
-                  style={{ 
-                    width: '100%', 
-                    maxWidth: 400, 
-                    borderRadius: 6, 
+                <img
+                  src={ragflowKey_1}
+                  alt=""
+                  style={{
+                    width: '100%',
+                    maxWidth: 400,
+                    borderRadius: 6,
                     boxShadow: '0 1px 4px #e0e0e0',
-                    cursor: 'pointer' 
-                  }} 
+                    cursor: 'pointer'
+                  }}
                 />
               </PhotoView>
               <PhotoView src={ragflowKey_2}>
-                <img 
-                  src={ragflowKey_2} 
-                  alt="" 
-                  style={{ 
-                    width: '100%', 
-                    maxWidth: 400, 
-                    borderRadius: 6, 
+                <img
+                  src={ragflowKey_2}
+                  alt=""
+                  style={{
+                    width: '100%',
+                    maxWidth: 400,
+                    borderRadius: 6,
                     boxShadow: '0 1px 4px #e0e0e0',
-                    cursor: 'pointer' 
-                  }} 
+                    cursor: 'pointer'
+                  }}
                 />
               </PhotoView>
               <div style={{ color: '#888', fontSize: 13 }}>如上图，获取Chat ID的方法说明</div>
@@ -142,16 +167,16 @@ const RAGFlowChat: React.FC<RAGFlowChatProps> = ({
           <PhotoProvider>
             <div style={{ marginBottom: 12 }}>
               <PhotoView src={ragflowKey}>
-                <img 
-                  src={ragflowKey} 
-                  alt="API密钥获取示例" 
-                  style={{ 
-                    width: '100%', 
-                    maxWidth: 400, 
-                    borderRadius: 6, 
+                <img
+                  src={ragflowKey}
+                  alt="API密钥获取示例"
+                  style={{
+                    width: '100%',
+                    maxWidth: 400,
+                    borderRadius: 6,
                     boxShadow: '0 1px 4px #e0e0e0',
-                    cursor: 'pointer' 
-                  }} 
+                    cursor: 'pointer'
+                  }}
                 />
               </PhotoView>
               <div style={{ color: '#888', fontSize: 13 }}>如上图，获取API密钥的方法说明</div>

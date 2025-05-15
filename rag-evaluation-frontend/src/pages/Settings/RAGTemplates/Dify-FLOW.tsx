@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
-import { Modal, Form, Input, Button, Collapse } from 'antd';
+import { Modal, Form, Input, Button, Collapse, message } from 'antd';
 import { labelWithTip } from '../utils';
-import { handleTestAndSaveGeneric } from './rag-request';
+import { ragRequestService } from '../../../services/ragRequestService';
 import flow1 from './img/flow_1.png';
 import flow2 from './img/flow_2.png';
 import { PhotoProvider, PhotoView } from 'react-photo-view';
@@ -33,17 +33,45 @@ const DifyFlow: React.FC<{
     onSave(newValues);
   };
 
-  const handleTestAndSave = () =>
-    handleTestAndSaveGeneric({
-      form,
-      setLoading,
-      onSave: (values) => {
-        const field = values.inputField || 'query';
-        const newValues = { ...values, inputs: JSON.stringify({ [field]: '{{question}}' }) };
-        onSave(newValues);
-      },
-      key: 'dify_flow',
-    });
+  const handleTestAndSave = async () => {
+    try {
+      // 1. 验证表单
+      const values = await form.validateFields();
+
+      // 2. 设置加载状态
+      setLoading(true);
+      message.loading({ content: '正在测试连接...', key: 'testConnection' });
+
+      // 3. 处理输入字段
+      const field = values.inputField || 'query';
+      const processedValues = {
+        ...values,
+        inputs: JSON.stringify({ [field]: '{{question}}' })
+      };
+
+      // 4. 测试配置
+      const result = await ragRequestService.testConfig(processedValues, 'dify_flow');
+
+      // 5. 处理测试结果
+      if (result.success) {
+        message.success({ content: '测试成功!', key: 'testConnection' });
+        onSave(processedValues);
+      } else {
+        message.error({ content: `测试失败: ${result.error}`, key: 'testConnection' });
+      }
+    } catch (err: any) {
+      // 6. 处理其他错误
+      message.destroy('testConnection');
+
+      const errorMessage = err.message
+        ? `错误: ${err.message}`
+        : '发生未知错误，请检查网络连接或联系管理员';
+
+      message.error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <Modal

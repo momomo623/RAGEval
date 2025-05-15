@@ -126,5 +126,23 @@ export const performanceService = {
   // 取消性能测试
   cancel: async (id: string): Promise<PerformanceTest> => {
     return api.post<PerformanceTest>(`/v1/performance/${id}/cancel`);
-  }
+  },
+
+  markInterrupted: async (id: string): Promise<void> => {
+    try {
+      await api.put(`/v1/performance/${id}/interrupt`);
+    } catch (error) {
+      console.error('标记测试中断失败:', error);
+      throw error;
+    }
+  },
+
+  resetTest: async (id: string): Promise<void> => {
+    try {
+      await api.post(`/performance/${id}/reset`);
+    } catch (error) {
+      console.error('重置测试失败:', error);
+      throw error;
+    }
+  },
 };

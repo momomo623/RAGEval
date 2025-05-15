@@ -30,12 +30,14 @@ class PerformanceTestInDBBase(PerformanceTestBase):
     created_at: datetime
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
-    status: str
+    status: str = Field(..., description="测试状态: created, running, completed, failed, terminated")
     total_questions: int
     processed_questions: int
     success_questions: int
     failed_questions: int
     summary_metrics: Dict[str, Any]
+    interruption_reason: Optional[str] = None
+    interruption_time: Optional[datetime] = None
     
     class Config:
         from_attributes = True

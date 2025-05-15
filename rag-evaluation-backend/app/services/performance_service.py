@@ -256,4 +256,37 @@ class PerformanceService:
     #     """获取项目的所有性能测试记录"""
     #     return self.get_by_project(db=db, project_id=project_id)
 
+    def mark_test_interrupted(self, db: Session, test_id: str) -> Optional[PerformanceTest]:
+        """标记测试为中断状态"""
+        test = self.get(db, id=test_id)
+        if not test:
+            return None
+        
+        if test.status == "running":
+            test.status = "terminated"
+            db.commit()
+            db.refresh(test)
+        
+        return test
+
+    def reset_test(self, db: Session, test_id: str) -> Optional[PerformanceTest]:
+        """重置测试状态"""
+        test = self.get(db, id=test_id)
+        if not test:
+            return None
+        
+        if test.status == "terminated":
+            test.status = "created"
+            test.processed_questions = 0
+            test.success_questions = 0
+            test.failed_questions = 0
+            test.summary_metrics = {}
+            test.started_at = None
+            test.completed_at = None
+            
+            db.commit()
+            db.refresh(test)
+        
+        return test
+
 performance_service = PerformanceService() 

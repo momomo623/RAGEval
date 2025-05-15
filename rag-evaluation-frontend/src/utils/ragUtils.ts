@@ -69,7 +69,7 @@ export const executeRAGRequest = async (
       }
     };
     replaceInObj(requestBody);
-    
+
     // 标准响应处理
     if (!config.isStream) {
       const response = await fetch(config.url, {

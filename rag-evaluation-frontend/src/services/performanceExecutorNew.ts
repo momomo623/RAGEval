@@ -1,44 +1,107 @@
+/**
+ * 性能测试执行器模块
+ *
+ * 该模块提供了执行RAG系统性能测试的功能，支持并发测试、进度跟踪和结果统计。
+ * 使用问题缓冲区管理器实现高效的问题加载和处理，并提供详细的性能指标。
+ *
+ * @module performanceExecutorNew
+ * @author 模型评测团队
+ * @version 1.0.0
+ */
+
 import { api } from '../utils/api';
 import { performanceService } from './performance.service';
-import { ConfigManager } from '../utils/configManager';
 import { ragRequestService } from './ragRequestService';
 import { message } from 'antd';
+import { QuestionBufferManager } from './questionBufferManager';
 
-// 测试进度数据结构
+/**
+ * 测试进度数据结构
+ *
+ * 用于跟踪和报告性能测试的进度和统计信息。
+ */
 export interface TestProgress {
+  /** 测试的总问题数 */
   total: number;
+
+  /** 已完成的问题数 */
   completed: number;
+
+  /** 成功处理的问题数 */
   success: number;
+
+  /** 处理失败的问题数 */
   failed: number;
+
+  /** 平均响应时间（秒） */
   averageResponseTime?: number;
+
+  /** 预计剩余时间（毫秒） */
   remainingTimeEstimate?: number;
+
+  /** 测试开始时间戳 */
   startTime?: number;
+
+  /** 实际总问题数（可能与初始total不同） */
   real_total?: number;
-  elapsedTime?: number; // 新增：已花费的时间（毫秒）
+
+  /** 已花费的时间（毫秒） */
+  elapsedTime?: number;
 }
 
-// 单个测试结果数据结构
+/**
+ * 单个测试结果数据结构
+ *
+ * 记录单个问题测试的详细结果和性能指标。
+ */
 interface TestResult {
+  /** 问题ID */
   questionId: string;
+
+  /** 测试是否成功 */
   success: boolean;
+
+  /** 首次响应时间（秒） */
   firstResponseTime?: number;
+
+  /** 总响应时间（秒） */
   totalResponseTime?: number;
+
+  /** 响应字符数 */
   characterCount?: number;
+
+  /** 每秒处理字符数 */
   charactersPerSecond?: number;
+
+  /** 错误详情（如果失败） */
   errorDetails?: any;
+
+  /** 响应内容 */
   response?: string;
+
+  /** 版本信息 */
   version?: string;
+
+  /** 性能测试ID */
   performance_test_id?: string;
-  // retrievedDocs?: any[];
+
+  /** 问题序号 */
   sequenceNumber: number;
 }
 
 /**
  * 执行单个RAG请求并计时
+ *
+ * 向RAG系统发送单个问题请求，并记录性能指标，包括首次响应时间、
+ * 总响应时间、字符数和每秒字符数等。使用流式请求方式，逐块接收响应。
+ *
+ * @param {any} question - 问题对象，包含问题ID和文本内容
+ * @param {any} test - 测试配置对象，包含RAG系统配置
+ * @returns {Promise<TestResult>} 测试结果对象
  */
 const executeRagRequest = async (question: any, test: any): Promise<TestResult> => {
   try {
-    // 拆分rag_config
+    // 验证RAG配置是否存在
     if (!test.rag_config) {
       message.error('未配置RAG系统');
       return {
@@ -48,42 +111,39 @@ const executeRagRequest = async (question: any, test: any): Promise<TestResult> 
         sequenceNumber: question.sequence_number || 0
       };
     }
-    const [type, name] = test.rag_config.split('/');
-    const configManager = ConfigManager.getInstance();
-    const ragConfig = await configManager.findRAGConfigByTypeAndName(type, name);
-    if (!ragConfig) {
-      message.error('未找到RAG配置，请检查系统设置');
-      return {
-        questionId: question.id,
-        success: false,
-        errorDetails: { message: '未找到RAG配置' },
-        sequenceNumber: question.sequence_number || 0
-      };
-    }
-    // 获取问题文本
+
+    // 从问题对象中获取问题文本，支持多种字段名
     const questionText = question.question_text || question.text || question.content || question.question;
     if (!questionText) {
       throw new Error(`无法获取问题ID ${question.id} 的文本内容`);
     }
-    // 性能统计
+
+    // 初始化性能统计变量
     const startTime = performance.now();
     let firstTokenTime: number | null = null;
     let totalChars = 0;
     let content = '';
     let lastChunkTime = startTime;
 
-
-    for await (const chunk of ragRequestService.streamRequest(ragConfig, questionText)) {
+    // 使用RAG请求服务进行流式请求，并收集性能数据
+    for await (const chunk of ragRequestService.streamRequest(test.rag_config, questionText)) {
       const currentTime = performance.now();
+
+      // 记录首个token的响应时间
       if (firstTokenTime === null) {
         firstTokenTime = currentTime - startTime;
       }
+
+      // 累计响应内容和字符数
       content += chunk;
       totalChars += chunk.length;
       lastChunkTime = currentTime;
     }
+
+    // 计算总响应时间
     const totalTime = lastChunkTime - startTime;
 
+    // 构建并返回测试结果对象
     return {
       questionId: question.id,
       success: true,
@@ -96,7 +156,8 @@ const executeRagRequest = async (question: any, test: any): Promise<TestResult> 
       performance_test_id: question.performance_test_id,
       sequenceNumber: question.sequence_number || 0
     };
-  } catch (error) {
+  } catch (error: any) {
+    // 处理请求过程中的错误
     message.error('RAG请求失败: ' + (error.message || '未知错误'));
     return {
       questionId: question.id,
@@ -109,9 +170,17 @@ const executeRagRequest = async (question: any, test: any): Promise<TestResult> 
 
 /**
  * 保存测试结果到后端
+ *
+ * 将单个问题的测试结果保存到后端数据库，包括性能指标和响应内容。
+ * 即使保存失败，也不会中断测试流程，只会记录错误日志。
+ *
+ * @param {any} test - 测试配置对象
+ * @param {TestResult} result - 测试结果对象
+ * @returns {Promise<void>}
  */
 const saveTestResult = async (test: any, result: TestResult): Promise<void> => {
   try {
+    // 向后端API发送测试结果数据
     await api.post('/v1/rag-answers', {
       performance_test_id: test.id,
       question_id: result.questionId,
@@ -121,25 +190,34 @@ const saveTestResult = async (test: any, result: TestResult): Promise<void> => {
       characters_per_second: result.charactersPerSecond,
       answer: result.response,
       version: test.version,
-      // retrieved_documents: result.retrievedDocs,
       sequence_number: result.sequenceNumber,
       success: result.success,
       error_details: result.errorDetails
     });
   } catch (error) {
+    // 记录错误但不中断测试流程
     console.error('保存测试结果失败:', error);
     // 测试本身的失败不应该因为保存失败而中断
   }
 };
 
 /**
- * 使用缓冲区管理器实现有限并发
+ * 使用缓冲区管理器实现有限并发的测试执行
+ *
+ * 该函数是性能测试的核心执行逻辑，使用问题缓冲区管理器和并发工作线程
+ * 高效地执行多个RAG请求，并跟踪进度和性能指标。
+ *
+ * @param {any} test - 测试配置对象
+ * @param {QuestionBufferManager} questionBuffer - 问题缓冲区管理器实例
+ * @param {Function} progressCallback - 进度更新回调函数
+ * @returns {Promise<void>} 完成测试的Promise
  */
 const executeWithBufferedQuestions = async (
   test: any,
   questionBuffer: QuestionBufferManager,
   progressCallback?: (progress: TestProgress) => void
 ): Promise<void> => {
+  // 存储所有测试结果
   const results: TestResult[] = [];
   const startTime = performance.now();
 
@@ -155,14 +233,19 @@ const executeWithBufferedQuestions = async (
     remainingTimeEstimate: 0
   };
 
-  // 更新进度的函数
+  /**
+   * 更新进度信息并计算相关指标
+   *
+   * @param {Partial<TestProgress>} update - 要更新的进度字段
+   */
   const updateProgress = (update: Partial<TestProgress>) => {
+    // 更新进度对象
     Object.assign(progress, update);
 
     // 计算已用时间
     progress.elapsedTime = performance.now() - startTime;
 
-    // 计算平均响应时间
+    // 计算平均响应时间（仅考虑成功的请求）
     if (results.length > 0) {
       const successfulResults = results.filter(r => r.totalResponseTime);
       if (successfulResults.length > 0) {
@@ -170,7 +253,7 @@ const executeWithBufferedQuestions = async (
       }
     }
 
-    // 计算预计剩余时间
+    // 计算预计剩余时间（基于已完成的平均时间）
     if (progress.completed > 0 && progress.total > 0) {
       const avgTimePerItem = progress.elapsedTime / progress.completed;
       const remainingItems = progress.total - progress.completed;
@@ -183,30 +266,38 @@ const executeWithBufferedQuestions = async (
     }
   };
 
-  // 设置问题缓冲区加载完成后的回调
+  // 设置问题缓冲区加载完成后的回调，更新总问题数
   questionBuffer.onAllQuestionsLoaded = (totalCount: number) => {
     console.log(`已确认实际问题总数: ${totalCount}`);
     updateProgress({ total: totalCount });
   };
 
+  // 跟踪处理状态的变量
   let processedQuestionCount = 0;
   let activeRequests = 0;
   let allQuestionsProcessed = false;
 
-  // 处理单个问题的函数
+  /**
+   * 处理单个问题的函数
+   *
+   * @param {any} question - 要处理的问题对象
+   * @returns {Promise<void>}
+   */
   const processQuestion = async (question: any): Promise<void> => {
     if (!question) return;
 
     try {
+      // 添加序列号
       const questionWithSeq = {
         ...question,
         sequence_number: ++processedQuestionCount
       };
 
+      // 执行RAG请求并获取结果
       const result = await executeRagRequest(questionWithSeq, test);
       results.push(result);
 
-      // 更新进度
+      // 更新进度信息
       updateProgress({
         completed: processedQuestionCount,
         success: results.filter(r => r.success).length,
@@ -218,6 +309,7 @@ const executeWithBufferedQuestions = async (
 
     } catch (error) {
       console.error('处理问题失败:', error);
+      // 更新失败计数
       updateProgress({
         completed: processedQuestionCount,
         failed: results.filter(r => !r.success).length + 1
@@ -227,23 +319,33 @@ const executeWithBufferedQuestions = async (
 
   // 使用Promise来控制测试完成
   return new Promise((resolve, reject) => {
-    // 检查是否应该继续测试
+    /**
+     * 检查是否应该继续测试
+     *
+     * @returns {boolean} 是否应继续测试
+     */
     const shouldContinueTesting = () => {
+      // 如果达到最大问题数限制，停止测试
       if (test.max_questions && processedQuestionCount >= test.max_questions) {
         return false;
       }
 
+      // 如果所有问题都已处理，停止测试
       return !allQuestionsProcessed;
     };
 
-    // 创建工作线程，每个线程负责处理多个问题
+    /**
+     * 工作线程函数，负责处理多个问题
+     *
+     * @returns {Promise<void>}
+     */
     const worker = async () => {
       // 只要应该继续测试，就保持工作
       while (shouldContinueTesting()) {
         activeRequests++;
 
         try {
-          // 获取下一个问题
+          // 从缓冲区获取下一个问题
           const question = questionBuffer.getNextQuestion();
 
           if (question) {
@@ -258,6 +360,7 @@ const executeWithBufferedQuestions = async (
             await new Promise(r => setTimeout(r, 500));
           }
         } finally {
+          // 无论成功失败，都减少活动请求计数
           activeRequests--;
         }
       }
@@ -285,8 +388,18 @@ const executeWithBufferedQuestions = async (
   });
 };
 
+// QuestionBufferManager已在文件顶部导入
+
 /**
- * 执行性能测试的主函数 - 使用缓冲区管理
+ * 执行性能测试的主函数
+ *
+ * 这是性能测试的入口函数，负责初始化测试环境、加载问题、执行测试和报告结果。
+ * 支持两种模式：使用预加载的问题列表或从数据集动态加载问题。
+ *
+ * @param {any} test - 测试配置对象，包含ID、数据集ID、并发数等
+ * @param {any[]} questions - 可选的预加载问题列表
+ * @param {Function} progressCallback - 进度更新回调函数
+ * @returns {Promise<boolean>} 测试是否成功完成
  */
 export const executePerformanceTest = async (
   test: any,
@@ -306,7 +419,7 @@ export const executePerformanceTest = async (
     }
 
     // 用于保存和更新进度的对象
-    const progressState = {
+    const progressState: TestProgress = {
       total: 0,
       completed: 0,
       success: 0,
@@ -315,12 +428,16 @@ export const executePerformanceTest = async (
       real_total: 0
     };
 
-    // 创建更新进度的内部函数
+    /**
+     * 更新进度状态并触发回调
+     *
+     * @param {Partial<TestProgress>} update - 要更新的进度字段
+     */
     const updateProgress = (update: Partial<TestProgress>) => {
       // 更新内部状态
       Object.assign(progressState, update);
 
-      // 调用回调
+      // 调用回调通知UI更新
       if (progressCallback) {
         progressCallback({...progressState});
       }
@@ -329,25 +446,34 @@ export const executePerformanceTest = async (
     // 开始测试前通知后端
     await performanceService.start({ performance_test_id: test.id });
 
-    // 获取RAG配置
-    // const ragConfig = getRagConfig();
-    // if (!ragConfig) {
-    //   throw new Error('性能测试需要RAG系统配置，请先配置RAG系统');
-    // }
-
-    // 如果提供了问题列表，则使用老的并发方式
+    // 根据是否提供了预加载问题列表，选择不同的执行路径
     if (questions && questions.length > 0) {
+      // 路径1: 使用预加载的问题列表
       console.log(`使用预加载的 ${questions.length} 个问题执行测试`);
-      // 更新总数
+
+      // 更新总问题数
       updateProgress({ total: questions.length });
 
-      await executeWithConcurrencyLimit(
+      // 创建问题缓冲区并预加载问题
+      const questionBuffer = new QuestionBufferManager(
+        test.dataset_id,
+        test.concurrency,
+        (totalQuestions) => {
+          updateProgress({ total: totalQuestions });
+        }
+      );
+
+      // 手动添加预加载的问题到缓冲区
+      questions.forEach(q => questionBuffer['questions'].push(q));
+
+      // 执行测试
+      await executeWithBufferedQuestions(
         test,
-        questions,
-        // ragConfig,
+        questionBuffer,
         (progress) => updateProgress(progress)
       );
     } else {
+      // 路径2: 从数据集动态加载问题
       console.log(`使用缓冲区管理器从数据集 ${test.dataset_id} 加载问题`);
 
       // 创建问题缓冲区管理器
@@ -393,7 +519,6 @@ export const executePerformanceTest = async (
       await executeWithBufferedQuestions(
         test,
         questionBuffer,
-        // ragConfig,
         (progress) => updateProgress(progress)
       );
     }
@@ -404,7 +529,7 @@ export const executePerformanceTest = async (
     await performanceService.complete(test.id);
 
     return true;
-  } catch (error) {
+  } catch (error: any) {
     console.error('执行性能测试失败:', error);
 
     // 向后端报告失败
@@ -420,221 +545,3 @@ export const executePerformanceTest = async (
     return false;
   }
 };
-
-// 添加批量加载和缓冲管理功能
-
-// 定义问题缓冲区管理器
-class QuestionBufferManager {
-  private questions: any[] = [];
-  private loading: boolean = false;
-  private currentPage: number = 1;
-  private pageSize: number = 100; // 可根据实际情况调整
-  private datasetId: string;
-  private concurrency: number;
-  private bufferMultiplier: number = 5; // 缓冲区大小为并发数的倍数
-  private onAllQuestionsLoaded?: (total: number) => void;
-  private hasMoreData: boolean = true;
-
-  constructor(datasetId: string, concurrency: number, onAllQuestionsLoaded?: (total: number) => void) {
-    this.datasetId = datasetId;
-    this.concurrency = concurrency;
-    this.onAllQuestionsLoaded = onAllQuestionsLoaded;
-    this.pageSize = Math.max(50, concurrency * 2); // 每页至少加载并发数的2倍
-  }
-
-  // 添加初始化方法，在开始加载问题前获取总数
-  public async initialize(): Promise<number> {
-    if (!this.datasetId) {
-      console.error('缺少数据集ID，无法初始化');
-      return 0;
-    }
-
-    try {
-      // 只请求第一页但设置pageSize=1，目的是只获取总数而不加载太多数据
-      const response = await api.get(`/api/v1/datasets-questions/${this.datasetId}/questions`, {
-        params: {
-          page: 1,
-          size: 1  // 只获取一条记录，减少数据传输
-        }
-      });
-
-      // 获取总问题数
-      const totalCount = response.total || 0;
-      console.log(`初始化：获取到数据集总问题数: ${totalCount}`);
-
-      // 通知总数
-      if (this.onAllQuestionsLoaded && totalCount > 0) {
-        this.onAllQuestionsLoaded(totalCount);
-      }
-
-      return totalCount;
-    } catch (error) {
-      console.error('初始化获取问题总数失败:', error);
-      return 0;
-    }
-  }
-
-  // 获取下一个可用的问题
-  getNextQuestion(): any | null {
-    // 检查缓冲区是否需要补充
-    this.checkAndLoadMore();
-
-    // 返回缓冲区中的下一个问题
-    if (this.questions.length > 0) {
-      return this.questions.shift();
-    }
-    return null;
-  }
-
-  // 检查并预加载更多问题
-  private async checkAndLoadMore(): void {
-    // 当缓冲区中的问题数量低于阈值(并发数的2倍)且尚未开始加载更多且仍有更多数据时
-    if (this.questions.length < this.concurrency * 2 && !this.loading && this.hasMoreData) {
-      this.loadMoreQuestions();
-    }
-  }
-
-  // 加载更多问题
-  private async loadMoreQuestions(): Promise<void> {
-    if (this.loading || !this.hasMoreData) return;
-
-    this.loading = true;
-    console.log(`正在加载更多问题，数据集ID: ${this.datasetId}, 当前页: ${this.currentPage}, 页大小: ${this.pageSize}`);
-
-    try {
-      // 检查datasetId是否存在
-      if (!this.datasetId) {
-        console.error('缺少数据集ID，无法加载问题');
-        this.hasMoreData = false;
-        return;
-      }
-
-      // 调整API路径，确保使用正确的端点格式
-      const response = await api.get(`/api/v1/datasets-questions/${this.datasetId}/questions`, {
-        params: {
-          page: this.currentPage,
-          size: this.pageSize
-        }
-      });
-
-      // 添加详细日志，检查响应格式
-      console.log('问题API响应:', response);
-
-      // 提取问题数据
-      let newQuestions = [];
-      if (response && response.items) {
-        // 根据响应结构提取问题列表
-        newQuestions = response.items;
-      }
-
-      // 如果响应中包含total字段，更新real_total
-      if (response && response.total !== undefined) {
-        // 通知执行器更新实际问题总数
-        if (this.onAllQuestionsLoaded) {
-          this.onAllQuestionsLoaded(response.total);
-        }
-      }
-
-      console.log(`获取到 ${newQuestions.length} 个新问题, 样例:`, newQuestions[0]);
-
-      // 添加到缓冲区
-      this.questions.push(...newQuestions);
-      console.log(`缓冲区中的问题数: ${this.questions.length}`);
-
-      // 检查是否还有更多数据
-      this.hasMoreData = newQuestions.length >= this.pageSize;
-
-      if (newQuestions.length === 0) {
-        console.warn('API未返回任何问题，可能是API路径错误或数据集为空');
-        this.tryAlternativeAPI();
-      }
-
-      // 更新页码
-      this.currentPage++;
-
-      // 如果已加载所有数据，通知调用者
-      if (!this.hasMoreData && this.onAllQuestionsLoaded) {
-        const totalQuestions = response.total || this.questions.length;
-        console.log(`已加载所有问题，总数: ${totalQuestions}`);
-        this.onAllQuestionsLoaded(totalQuestions);
-      }
-    } catch (error) {
-      console.error('加载问题失败:', error);
-    } finally {
-      this.loading = false;
-    }
-  }
-
-  // 尝试替代API路径
-  private async tryAlternativeAPI(): Promise<void> {
-    try {
-      console.log('尝试替代API路径...');
-
-      // 尝试其他可能的路径格式
-      const path = `/v1/datasets-questions/${this.datasetId}/questions`
-
-        try {
-          console.log(`尝试API路径: ${path}`);
-          const altResponse = await api.get(path, {
-            params: { page: 1, page_size: this.pageSize }
-          });
-
-          if (altResponse?.data?.items?.length > 0 ||
-              Array.isArray(altResponse?.data) && altResponse.data.length > 0 ||
-              altResponse?.data?.questions?.length > 0) {
-
-            console.log(`找到有效的API路径: ${path}`);
-            return; // 成功找到有效路径
-          }
-        } catch (e) {
-          console.log(`路径 ${path} 无效`);
-        }
-
-      console.error('无法找到有效的问题API路径');
-    } catch (error) {
-      console.error('替代API尝试失败:', error);
-    }
-  }
-
-  // 获取缓冲区中剩余的问题数量
-  getRemainingCount(): number {
-    return this.questions.length;
-  }
-
-  // 是否还有更多数据可加载
-  hasMore(): boolean {
-    return this.hasMoreData;
-  }
-
-  // 重置缓冲区
-  reset(): void {
-    this.questions = [];
-    this.currentPage = 1;
-    this.hasMoreData = true;
-    this.loading = false;
-  }
-
-  public async getNextQuestions(count: number): Promise<any[]> {
-    // 确保缓冲区中有足够的问题
-    if (this.questions.length < count && this.hasMoreData && !this.loading) {
-      await this.loadMoreQuestions();
-    }
-
-    // 获取并从缓冲区中移除问题
-    const result = this.questions.splice(0, count);
-
-    // 打印日志查看问题对象结构
-    if (result.length > 0) {
-      console.log('从缓冲区获取的第一个问题对象:', JSON.stringify(result[0], null, 2));
-    }
-
-    // 如果缓冲区变得太小，异步加载更多
-    if (this.questions.length < this.bufferThreshold && this.hasMoreData && !this.loading) {
-      this.loadMoreQuestions().catch(error => {
-        console.error('缓冲区问题加载失败:', error);
-      });
-    }
-
-    return result;
-  }
-}

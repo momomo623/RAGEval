@@ -9,43 +9,34 @@ import {
   CheckCircleOutlined, CloseCircleOutlined, EyeOutlined
 } from '@ant-design/icons';
 import { performanceService } from '../../../services/performance.service';
-import { executePerformanceTest, TestProgress } from '../../../services/performanceExecutor';
+import { executePerformanceTest, TestProgress } from '../../../services/performanceExecutorNew';
 import { TimeAgo } from '../../../components/common/TimeAgo';
 import styles from './PerformanceTests.module.css';
 import { CreatePerformanceTestForm } from './CreatePerformanceTestForm';
 import { datasetService } from '../../../services/dataset.service';
-import { useConfigContext } from '../../../contexts/ConfigContext';
 // import ConfigButton from '../../../components/ConfigButton';
 import { PerformanceTestDetail } from './PerformanceTestDetail';
 import { ConfigManager, RAGConfig } from '../../../utils/configManager';
 import { useNavigate } from 'react-router-dom';
 
 const { Title, Text } = Typography;
-const { Option } = Select;
 
 interface PerformanceTestsManagerProps {
   projectId: string;
 }
 
 export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = ({ projectId }) => {
-  const [view, setView] = useState<'list' | 'create' | 'detail'>('list');
   const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
-  const [selectedDatasetInfo, setSelectedDatasetInfo] = useState<any>(null);
   const [selectedRagSystemInfo, setSelectedRagSystemInfo] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [tests, setTests] = useState<any[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
-  const [form] = Form.useForm();
   const [runningTestId, setRunningTestId] = useState<string | null>(null);
   const [progress, setProgress] = useState<TestProgress | null>(null);
   const progressRef = useRef<TestProgress | null>(null);
   const updateTimeoutRef = useRef<NodeJS.Timeout>();
-  const [testQuestions, setTestQuestions] = useState<any[]>([]);
-  const { getRAGConfig } = useConfigContext();
-  const [showConfigWarning, setShowConfigWarning] = useState(false);
   const [detailVisible, setDetailVisible] = useState(false);
   const [isConfigured, setIsConfigured] = useState(false);
-  const [stoppingTest, setStoppingTest] = useState(false);
   const [datasets, setDatasets] = useState<any[]>([]);
   const navigate = useNavigate();
 
@@ -73,6 +64,25 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
     };
 
     fetchDatasets();
+
+    // 检查是否有运行中的测试
+    const checkRunningTests = async () => {
+      try {
+        const runningTests = tests.filter(test => test.status === 'running');
+        if (runningTests.length > 0) {
+          // 将运行中的测试标记为中断
+          for (const test of runningTests) {
+            await performanceService.markInterrupted(test.id);
+          }
+          // 刷新测试列表
+          fetchTests();
+        }
+      } catch (error) {
+        console.error('检查运行中测试失败:', error);
+      }
+    };
+
+    checkRunningTests();
   }, [projectId]);
 
   const fetchTests = async () => {
@@ -88,45 +98,7 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
     }
   };
 
-  const handleCreate = async () => {
-    try {
-      const values = await form.validateFields();
-      const newTest = await performanceService.create({
-        project_id: projectId,
-        name: values.name,
-        description: values.description,
-        concurrency: values.concurrency,
-        dataset_id: values.dataset_id
-      });
-      setModalVisible(false);
-      form.resetFields();
-      message.success("创建性能测试成功");
-      fetchTests();
-    } catch (error) {
-      console.error("创建性能测试失败:", error);
-      message.error("创建性能测试失败");
-    }
-  };
 
-  const fetchTestQuestions = async (test: any) => {
-    try {
-      // 首先获取测试关联的数据集ID
-      const datasetId = test.dataset_id;
-
-      if (!datasetId) {
-        message.error("测试没有关联数据集");
-        return [];
-      }
-
-      // 使用datasetService获取该数据集的问题
-      const result = await datasetService.getQuestions(datasetId);
-      return result.questions || [];
-    } catch (error) {
-      console.error("获取测试问题失败:", error);
-      message.error("获取测试问题失败");
-      return [];
-    }
-  };
 
   const handleProgressUpdate = useCallback((newProgress: TestProgress) => {
     progressRef.current = newProgress;
@@ -162,10 +134,14 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
       setProgress(null);
 
       if (!isConfigured) {
-        setShowConfigWarning(true);
         setRunningTestId(null);
         message.warning('未配置RAG系统，请先配置RAG系统才能使用性能测试功能');
         return;
+      }
+
+      // 如果测试状态为中断，先重置测试
+      if (test.status === 'interrupted') {
+        await performanceService.resetTest(test.id);
       }
 
       const success = await executePerformanceTest(
@@ -188,20 +164,11 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
     }
   };
 
-  const handleCreateNew = () => {
-    setView('create');
-  };
 
   const handleViewDetail = (id: string) => {
     // 查找当前测试
     const test = tests.find(t => t.id === id);
     if (test) {
-      // 查找数据集信息
-      const dataset = datasets.find((d: any) => d.id === test.dataset_id);
-
-      if (dataset) {
-        setSelectedDatasetInfo(dataset);
-      }
 
       // 设置RAG系统信息
       if (test.rag_config) {
@@ -215,15 +182,6 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
     setDetailVisible(true);
   };
 
-  const handleBackToList = () => {
-    setView('list');
-    setSelectedTestId(null);
-  };
-
-  const handleCreateSuccess = (testId: string) => {
-    setSelectedTestId(testId);
-    setView('detail');
-  };
 
   const formatTime = (milliseconds: number): string => {
     if (!milliseconds || isNaN(milliseconds)) return '计算中...';
@@ -243,22 +201,6 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
     }
   };
 
-  const handleStopTest = async () => {
-    if (!runningTestId) return;
-
-    try {
-      setStoppingTest(true);
-      await performanceService.cancel(runningTestId);
-      message.success('已停止测试');
-      fetchTests(); // 刷新测试列表以更新状态
-    } catch (error) {
-      console.error('停止测试失败:', error);
-      message.error('停止测试失败');
-    } finally {
-      setStoppingTest(false);
-      setRunningTestId(null);
-    }
-  };
 
   return (
     <div className={styles.container}>
@@ -389,13 +331,18 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
                   color = 'error';
                   icon = <CloseCircleOutlined />;
                   break;
+                case 'terminated':
+                  color = 'warning';
+                  icon = <CloseCircleOutlined />;
+                  break;
               }
 
               return (
                 <Tag color={color} icon={icon} style={{ whiteSpace: 'nowrap' }}>
                   {status === 'completed' ? '已完成' :
                    status === 'running' ? '运行中' :
-                   status === 'failed' ? '失败' : status}
+                   status === 'failed' ? '失败' :
+                   status === 'terminated' ? '已中断' : status}
                 </Tag>
               );
             }
@@ -474,8 +421,8 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
               );
             }
           },
-        
-        
+
+
           {
             title: '成功率',
             key: 'success_rate',
@@ -500,7 +447,7 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
               return '-';
             },
           },
-          
+
           {
             title: '创建时间',
             dataIndex: 'created_at',
@@ -564,7 +511,6 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
         testId={selectedTestId}
         onClose={() => {
           setDetailVisible(false);
-          setSelectedDatasetInfo(null);
           setSelectedRagSystemInfo(null);
         }}
         datasets={datasets}
