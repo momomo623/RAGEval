@@ -246,7 +246,7 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
           </div>
 
           <Progress
-            percent={Math.round((progress.completed / (progress.total || 1)) * 100)}
+            percent={Math.round(((progress.success + progress.failed) / (progress.total || 1)) * 100)}
             status="active"
             strokeColor={{
               '0%': '#108ee9',

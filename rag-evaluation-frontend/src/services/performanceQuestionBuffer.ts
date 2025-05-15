@@ -1,13 +1,12 @@
 /**
  * 问题缓冲区管理器模块
  *
- * 该模块提供了高效的问题数据加载和缓存管理功能，用于性能测试和精度测试场景。
+ * 该模块提供了高效的问题数据加载和缓存管理功能，用于性能测试场景。
  * 通过分页加载和预加载机制，减少内存占用并提高测试执行效率。
- * 支持版本过滤和其他高级查询功能。
  *
  * @module questionBufferManager
  * @author 模型评测团队
- * @version 1.1.0
+ * @version 1.0.0
  */
 
 import { api } from '../utils/api';
@@ -19,7 +18,7 @@ import { api } from '../utils/api';
  * 支持分页加载、预加载和自动补充缓冲区等功能，
  * 确保在性能测试过程中始终有足够的问题可用。
  */
-export class QuestionBufferManager {
+export class PerformanceQuestionBuffer {
   /** 缓冲区中的问题列表 */
   private questions: any[] = [];
 
@@ -43,12 +42,6 @@ export class QuestionBufferManager {
 
   /** 是否还有更多数据可加载 */
   private hasMoreData: boolean = true;
-
-  /** 版本过滤 */
-  private version?: string;
-
-  /** 已加载的总问题数 */
-  private totalLoaded: number = 0;
 
   /**
    * 缓冲区阈值计算属性
@@ -74,7 +67,6 @@ export class QuestionBufferManager {
    * @param {string} datasetId - 数据集ID，用于从API加载问题
    * @param {number} concurrency - 并发请求数，影响缓冲区大小和预加载策略
    * @param {Function} onAllQuestionsLoaded - 当所有问题加载完成时的回调函数
-   * @param {string} [version] - 可选的版本过滤参数
    */
   constructor(
     datasetId: string,
@@ -85,7 +77,6 @@ export class QuestionBufferManager {
     this.datasetId = datasetId;
     this.concurrency = concurrency;
     this.onAllQuestionsLoaded = onAllQuestionsLoaded;
-    this.version = version;
     // 每页至少加载并发数的2倍，确保有足够的问题可供处理
     this.pageSize = Math.max(50, concurrency * 2);
   }
@@ -105,20 +96,12 @@ export class QuestionBufferManager {
     }
 
     try {
-      // 构建请求参数
-      const params: any = {
-        page: 1,
-        size: 1  // 只获取一条记录，减少数据传输
-      };
-
-      // 如果指定了版本，添加版本参数
-      if (this.version) {
-        params.version = this.version;
-      }
-
       // 只请求第一页但设置pageSize=1，目的是只获取总数而不加载太多数据
       const response = await api.get(`/api/v1/datasets-questions/${this.datasetId}/questions`, {
-        params
+        params: {
+          page: 1,
+          size: 1  // 只获取一条记录，减少数据传输
+        }
       });
 
       // 获取总问题数
@@ -129,9 +112,6 @@ export class QuestionBufferManager {
       if (this.onAllQuestionsLoaded && totalCount > 0) {
         this.onAllQuestionsLoaded(totalCount);
       }
-
-      // 加载第一批问题
-      await this.loadMoreQuestions();
 
       return totalCount;
     } catch (error) {
@@ -195,20 +175,12 @@ export class QuestionBufferManager {
         return;
       }
 
-      // 构建请求参数
-      const params: any = {
-        page: this.currentPage,
-        size: this.pageSize
-      };
-
-      // 如果指定了版本，添加版本参数
-      if (this.version) {
-        params.version = this.version;
-      }
-
       // 调整API路径，确保使用正确的端点格式
       const response = await api.get(`/api/v1/datasets-questions/${this.datasetId}/questions`, {
-        params
+        params: {
+          page: this.currentPage,
+          size: this.pageSize
+        }
       });
 
       // 添加详细日志，检查响应格式
@@ -233,31 +205,26 @@ export class QuestionBufferManager {
 
       // 添加到缓冲区
       this.questions.push(...newQuestions);
-      this.totalLoaded += newQuestions.length;
-      console.log(`缓冲区中的问题数: ${this.questions.length}, 总加载数: ${this.totalLoaded}`);
+      console.log(`缓冲区中的问题数: ${this.questions.length}`);
 
       // 检查是否还有更多数据
-      if (response && (response as any).total !== undefined && (response as any).pages !== undefined) {
-        // 使用API返回的总数和页数信息进行精确判断
-        this.hasMoreData = this.totalLoaded < (response as any).total && this.currentPage <= (response as any).pages;
+      this.hasMoreData = newQuestions.length >= this.pageSize;
 
-        // 如果已是最后一页，设置总数
-        if (this.currentPage > (response as any).pages && this.onAllQuestionsLoaded) {
-          console.log(`已加载所有问题，总数: ${(response as any).total}`);
-          this.onAllQuestionsLoaded((response as any).total);
-        }
-      } else {
-        // 退回到原来的判断逻辑，作为备选
-        this.hasMoreData = newQuestions.length >= this.pageSize;
-
-        if (newQuestions.length < this.pageSize && this.onAllQuestionsLoaded) {
-          console.log(`已加载所有问题，总数: ${this.totalLoaded}`);
-          this.onAllQuestionsLoaded(this.totalLoaded);
-        }
-      }
+      // 如果没有获取到问题，尝试替代API路径
+      // if (newQuestions.length === 0) {
+      //   console.warn('API未返回任何问题，可能是API路径错误或数据集为空');
+      //   this.tryAlternativeAPI();
+      // }
 
       // 更新页码，为下一次加载做准备
       this.currentPage++;
+
+      // 如果已加载所有数据，通知调用者
+      if (!this.hasMoreData && this.onAllQuestionsLoaded) {
+        const totalQuestions = (response as any).total || this.questions.length;
+        console.log(`已加载所有问题，总数: ${totalQuestions}`);
+        this.onAllQuestionsLoaded(totalQuestions);
+      }
     } catch (error) {
       console.error('加载问题失败:', error);
     } finally {
@@ -365,5 +332,29 @@ export class QuestionBufferManager {
     }
 
     return result;
+  }
+
+  /**
+   * 手动添加问题到缓冲区
+   *
+   * 用于直接添加预加载的问题，而不是从API加载
+   *
+   * @param {any} question - 要添加的问题对象
+   */
+  public addQuestion(question: any): void {
+    if (question) {
+      this.questions.push(question);
+    }
+  }
+
+  /**
+   * 手动加载更多问题
+   *
+   * 强制执行一次问题加载，用于错误恢复场景
+   *
+   * @returns {Promise<void>}
+   */
+  public async manualLoadMoreQuestions(): Promise<void> {
+    return this.loadMoreQuestions();
   }
 }

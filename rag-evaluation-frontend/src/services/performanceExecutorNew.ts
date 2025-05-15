@@ -13,7 +13,7 @@ import { api } from '../utils/api';
 import { performanceService } from './performance.service';
 import { ragRequestService } from './ragRequestService';
 import { message } from 'antd';
-import { QuestionBufferManager } from './questionBufferManager';
+import { PerformanceQuestionBuffer } from './performanceQuestionBuffer';
 
 /**
  * 测试进度数据结构
@@ -214,7 +214,7 @@ const saveTestResult = async (test: any, result: TestResult): Promise<void> => {
  */
 const executeWithBufferedQuestions = async (
   test: any,
-  questionBuffer: QuestionBufferManager,
+  questionBuffer: PerformanceQuestionBuffer,
   progressCallback?: (progress: TestProgress) => void
 ): Promise<void> => {
   // 存储所有测试结果
@@ -230,7 +230,8 @@ const executeWithBufferedQuestions = async (
     startTime: performance.now(),
     elapsedTime: 0,
     averageResponseTime: 0,
-    remainingTimeEstimate: 0
+    remainingTimeEstimate: 0,
+    real_total: 0
   };
 
   /**
@@ -269,7 +270,10 @@ const executeWithBufferedQuestions = async (
   // 设置问题缓冲区加载完成后的回调，更新总问题数
   questionBuffer.onAllQuestionsLoaded = (totalCount: number) => {
     console.log(`已确认实际问题总数: ${totalCount}`);
-    updateProgress({ total: totalCount });
+    updateProgress({
+      total: totalCount,
+      real_total: totalCount
+    });
   };
 
   // 跟踪处理状态的变量
@@ -298,10 +302,13 @@ const executeWithBufferedQuestions = async (
       results.push(result);
 
       // 更新进度信息
+      const successCount = results.filter(r => r.success).length;
+      const failedCount = results.filter(r => !r.success).length;
+
       updateProgress({
-        completed: processedQuestionCount,
-        success: results.filter(r => r.success).length,
-        failed: results.filter(r => !r.success).length
+        completed: successCount + failedCount, // 确保completed等于success+failed
+        success: successCount,
+        failed: failedCount
       });
 
       // 保存结果到后端
@@ -310,9 +317,13 @@ const executeWithBufferedQuestions = async (
     } catch (error) {
       console.error('处理问题失败:', error);
       // 更新失败计数
+      const successCount = results.filter(r => r.success).length;
+      const failedCount = results.filter(r => !r.success).length + 1; // 加1是因为当前错误
+
       updateProgress({
-        completed: processedQuestionCount,
-        failed: results.filter(r => !r.success).length + 1
+        completed: successCount + failedCount, // 确保completed等于success+failed
+        success: successCount,
+        failed: failedCount
       });
     }
   };
@@ -455,16 +466,17 @@ export const executePerformanceTest = async (
       updateProgress({ total: questions.length });
 
       // 创建问题缓冲区并预加载问题
-      const questionBuffer = new QuestionBufferManager(
+      const questionBuffer = new PerformanceQuestionBuffer(
         test.dataset_id,
         test.concurrency,
-        (totalQuestions) => {
+        (totalQuestions: number) => {
           updateProgress({ total: totalQuestions });
-        }
+        },
+        test.version  // 版本过滤
       );
 
       // 手动添加预加载的问题到缓冲区
-      questions.forEach(q => questionBuffer['questions'].push(q));
+      questions.forEach(q => questionBuffer.addQuestion(q));
 
       // 执行测试
       await executeWithBufferedQuestions(
@@ -477,18 +489,24 @@ export const executePerformanceTest = async (
       console.log(`使用缓冲区管理器从数据集 ${test.dataset_id} 加载问题`);
 
       // 创建问题缓冲区管理器
-      const questionBuffer = new QuestionBufferManager(
+      const questionBuffer = new PerformanceQuestionBuffer(
         test.dataset_id,
         test.concurrency,
-        (totalQuestions) => {
+        (totalQuestions: number) => {
           console.log(`缓冲区加载的总问题数: ${totalQuestions}`);
           // 当所有问题加载完毕时更新总数
-          updateProgress({ total: totalQuestions });
-        }
+          updateProgress({
+            total: totalQuestions,
+            real_total: totalQuestions
+          });
+        },
+        test.version  // 版本过滤
       );
 
       // 先初始化，获取总问题数
+      console.log(`开始初始化问题缓冲区，数据集ID: ${test.dataset_id}`);
       const totalQuestions = await questionBuffer.initialize();
+      console.log(`初始化完成，总问题数: ${totalQuestions}`);
 
       // 初始化进度对象，使用获取到的真实总数
       const progress: TestProgress = {
@@ -505,15 +523,85 @@ export const executePerformanceTest = async (
         progressCallback({...progress});
       }
 
+      // 检查缓冲区是否加载了问题
+      const remainingCount = questionBuffer.getRemainingCount();
+      const hasMore = questionBuffer.hasMore();
+
+      console.log(`缓冲区状态: 已加载问题数=${remainingCount}, 是否有更多=${hasMore}`);
+
       // 确保缓冲区至少加载了一个问题，否则抛出错误
-      if (questionBuffer.getRemainingCount() === 0 && !questionBuffer.hasMore()) {
-        throw new Error(`未能从数据集 ${test.dataset_id} 加载任何问题`);
+      if (remainingCount === 0 && !hasMore) {
+        console.log('缓冲区为空，尝试使用不同的方法加载问题...');
+
+        // 尝试直接使用API加载问题
+        try {
+          console.log(`尝试直接从API加载数据集 ${test.dataset_id} 的问题...`);
+
+          // 构建请求参数
+          const params: any = {
+            page: 1,
+            size: 50  // 尝试加载更多问题
+          };
+
+          if (test.version) {
+            params.version = test.version;
+          }
+
+          console.log('直接API请求参数:', params);
+
+          // 直接调用API
+          const response = await api.get(`/api/v1/datasets-questions/${test.dataset_id}/questions`, {
+            params
+          });
+
+          console.log('直接API响应:', response);
+
+          // 检查是否有问题
+          if (response && (response as any).items && (response as any).items.length > 0) {
+            const items = (response as any).items;
+            console.log(`直接API调用成功，获取到 ${items.length} 个问题`);
+
+            // 添加问题到缓冲区
+            items.forEach((item: any) => questionBuffer.addQuestion(item));
+
+            // 更新进度
+            updateProgress({
+              total: items.length,
+              real_total: items.length
+            });
+          } else {
+            console.error('直接API调用成功，但没有返回任何问题');
+            throw new Error(`数据集 ${test.dataset_id} 中没有问题，请检查数据集是否为空`);
+          }
+        } catch (directApiError) {
+          console.error('直接API调用失败:', directApiError);
+
+          // 尝试手动加载一次，作为最后的尝试
+          try {
+            console.log('尝试通过缓冲区管理器手动加载问题...');
+            await questionBuffer.manualLoadMoreQuestions();
+
+            // 再次检查
+            if (questionBuffer.getRemainingCount() === 0 && !questionBuffer.hasMore()) {
+              console.error('所有加载尝试都失败，无法获取任何问题');
+              throw new Error(`未能从数据集 ${test.dataset_id} 加载任何问题，请检查数据集是否为空或API是否正常。详细错误: ${directApiError.message}`);
+            }
+          } catch (loadError) {
+            console.error('手动加载问题失败:', loadError);
+            throw new Error(`未能从数据集 ${test.dataset_id} 加载任何问题: ${loadError.message}`);
+          }
+        }
       }
 
       console.log(`初始加载了 ${questionBuffer.getRemainingCount()} 个问题，开始执行测试`);
 
       // 设置初始总数为已加载的问题数
-      updateProgress({ total: questionBuffer.getRemainingCount() });
+      // 重新获取最新的问题数量
+      const currentQuestionCount = questionBuffer.getRemainingCount();
+      updateProgress({
+        total: currentQuestionCount,
+        real_total: currentQuestionCount
+      });
 
       // 执行带缓冲区的测试
       await executeWithBufferedQuestions(

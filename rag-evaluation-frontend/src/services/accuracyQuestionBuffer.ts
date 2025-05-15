@@ -1,45 +1,45 @@
 /**
- * 问题缓冲区管理器模块
+ * 精度测试问题缓冲区管理器模块
  *
- * 该模块提供了高效的问题数据加载和缓存管理功能，用于性能测试和精度测试场景。
+ * 该模块提供了高效的问题数据加载和缓存管理功能，专门用于精度测试场景。
  * 通过分页加载和预加载机制，减少内存占用并提高测试执行效率。
- * 支持版本过滤和其他高级查询功能。
+ * 支持版本过滤和只加载有RAG结果的问题。
  *
- * @module questionBufferManager
+ * @module accuracyQuestionBuffer
  * @author 模型评测团队
- * @version 1.1.0
+ * @version 1.0.0
  */
 
 import { api } from '../utils/api';
 
 /**
- * 问题缓冲区管理器类
+ * 精度测试问题缓冲区管理器类
  *
- * 用于高效地从数据集加载问题，并提供缓冲功能。
- * 支持分页加载、预加载和自动补充缓冲区等功能，
- * 确保在性能测试过程中始终有足够的问题可用。
+ * 该类负责从API加载问题数据，并提供高效的缓冲区管理，
+ * 支持分页加载、预加载和并发访问，专为精度测试场景优化。
+ * 支持版本过滤和只加载有RAG结果的问题。
  */
-export class QuestionBufferManager {
-  /** 缓冲区中的问题列表 */
-  private questions: any[] = [];
-
-  /** 是否正在加载数据的标志 */
-  private loading: boolean = false;
-
-  /** 当前加载的页码 */
-  private currentPage: number = 1;
-
-  /** 每页加载的问题数量 */
-  private pageSize: number = 100;
-
+export class AccuracyQuestionBuffer {
   /** 数据集ID */
   private datasetId: string;
 
-  /** 并发请求数 */
-  private concurrency: number;
+  /** 问题缓冲区 */
+  questions: any[] = []; // 注意：这里改为public，以便外部访问
 
-  /** 缓冲区大小倍数（相对于并发数） */
-  private bufferMultiplier: number = 5;
+  /** 当前页码 */
+  private currentPage: number = 1;
+
+  /** 每页大小 */
+  private pageSize: number = 50;
+
+  /** 并发数 */
+  private concurrency: number = 5;
+
+  /** 缓冲区阈值，当问题数低于此值时触发加载 */
+  private bufferThreshold: number = 10;
+
+  /** 是否正在加载数据 */
+  private loading: boolean = false;
 
   /** 是否还有更多数据可加载 */
   private hasMoreData: boolean = true;
@@ -50,44 +50,37 @@ export class QuestionBufferManager {
   /** 已加载的总问题数 */
   private totalLoaded: number = 0;
 
-  /**
-   * 缓冲区阈值计算属性
-   *
-   * 当缓冲区中的问题数量低于此阈值时，会触发加载更多问题的操作。
-   * 默认为并发数的2倍，确保有足够的问题可供并发处理。
-   *
-   * @returns {number} 缓冲区阈值
-   */
-  private get bufferThreshold(): number {
-    return this.concurrency * 2;
-  }
+  /** 是否只加载有RAG结果的问题 */
+  private onlyWithRagResults: boolean = true;
 
-  /**
-   * 当所有问题加载完成时的回调函数
-   * 用于通知外部组件更新总问题数和进度信息
-   */
+  /** 当所有问题加载完成时的回调函数 */
   public onAllQuestionsLoaded?: (total: number) => void;
 
   /**
-   * 创建问题缓冲区管理器实例
+   * 创建精度测试问题缓冲区管理器实例
    *
    * @param {string} datasetId - 数据集ID，用于从API加载问题
    * @param {number} concurrency - 并发请求数，影响缓冲区大小和预加载策略
    * @param {Function} onAllQuestionsLoaded - 当所有问题加载完成时的回调函数
    * @param {string} [version] - 可选的版本过滤参数
+   * @param {boolean} [onlyWithRagResults=true] - 是否只加载有RAG结果的问题
    */
   constructor(
     datasetId: string,
     concurrency: number,
     onAllQuestionsLoaded?: (total: number) => void,
-    version?: string
+    version?: string,
+    onlyWithRagResults: boolean = true
   ) {
     this.datasetId = datasetId;
     this.concurrency = concurrency;
     this.onAllQuestionsLoaded = onAllQuestionsLoaded;
     this.version = version;
+    this.onlyWithRagResults = onlyWithRagResults;
     // 每页至少加载并发数的2倍，确保有足够的问题可供处理
     this.pageSize = Math.max(50, concurrency * 2);
+    // 缓冲区阈值设置为并发数的2倍
+    this.bufferThreshold = concurrency * 2;
   }
 
   /**
@@ -100,7 +93,7 @@ export class QuestionBufferManager {
    */
   public async initialize(): Promise<number> {
     if (!this.datasetId) {
-      console.error('缺少数据集ID，无法初始化');
+      console.error('缺少数据集ID，无法初始化精度测试问题缓冲区');
       return 0;
     }
 
@@ -116,6 +109,13 @@ export class QuestionBufferManager {
         params.version = this.version;
       }
 
+      // 如果需要只加载有RAG结果的问题
+      if (this.onlyWithRagResults) {
+        params.has_rag_results = true;
+      }
+
+      console.log('精度测试问题API请求参数:', params);
+
       // 只请求第一页但设置pageSize=1，目的是只获取总数而不加载太多数据
       const response = await api.get(`/api/v1/datasets-questions/${this.datasetId}/questions`, {
         params
@@ -123,7 +123,7 @@ export class QuestionBufferManager {
 
       // 获取总问题数
       const totalCount = (response as any).total || 0;
-      console.log(`初始化：获取到数据集总问题数: ${totalCount}`);
+      console.log(`精度测试初始化：获取到数据集总问题数: ${totalCount}`);
 
       // 通知总数
       if (this.onAllQuestionsLoaded && totalCount > 0) {
@@ -135,7 +135,7 @@ export class QuestionBufferManager {
 
       return totalCount;
     } catch (error) {
-      console.error('初始化获取问题总数失败:', error);
+      console.error('精度测试初始化获取问题总数失败:', error);
       return 0;
     }
   }
@@ -185,12 +185,12 @@ export class QuestionBufferManager {
     if (this.loading || !this.hasMoreData) return;
 
     this.loading = true;
-    console.log(`正在加载更多问题，数据集ID: ${this.datasetId}, 当前页: ${this.currentPage}, 页大小: ${this.pageSize}`);
+    console.log(`精度测试正在加载更多问题，数据集ID: ${this.datasetId}, 当前页: ${this.currentPage}, 页大小: ${this.pageSize}`);
 
     try {
       // 检查datasetId是否存在
       if (!this.datasetId) {
-        console.error('缺少数据集ID，无法加载问题');
+        console.error('缺少数据集ID，无法加载精度测试问题');
         this.hasMoreData = false;
         return;
       }
@@ -206,13 +206,20 @@ export class QuestionBufferManager {
         params.version = this.version;
       }
 
+      // 如果需要只加载有RAG结果的问题
+      if (this.onlyWithRagResults) {
+        params.has_rag_results = true;
+      }
+
+      console.log('精度测试加载更多问题API请求参数:', params);
+
       // 调整API路径，确保使用正确的端点格式
       const response = await api.get(`/api/v1/datasets-questions/${this.datasetId}/questions`, {
         params
       });
 
       // 添加详细日志，检查响应格式
-      console.log('问题API响应:', response);
+      console.log('精度测试问题API响应:', response);
 
       // 提取问题数据
       let newQuestions = [];
@@ -229,12 +236,12 @@ export class QuestionBufferManager {
         }
       }
 
-      console.log(`获取到 ${newQuestions.length} 个新问题, 样例:`, newQuestions[0]);
+      console.log(`精度测试获取到 ${newQuestions.length} 个新问题, 样例:`, newQuestions[0]);
 
       // 添加到缓冲区
       this.questions.push(...newQuestions);
       this.totalLoaded += newQuestions.length;
-      console.log(`缓冲区中的问题数: ${this.questions.length}, 总加载数: ${this.totalLoaded}`);
+      console.log(`精度测试缓冲区中的问题数: ${this.questions.length}, 总加载数: ${this.totalLoaded}`);
 
       // 检查是否还有更多数据
       if (response && (response as any).total !== undefined && (response as any).pages !== undefined) {
@@ -243,7 +250,7 @@ export class QuestionBufferManager {
 
         // 如果已是最后一页，设置总数
         if (this.currentPage > (response as any).pages && this.onAllQuestionsLoaded) {
-          console.log(`已加载所有问题，总数: ${(response as any).total}`);
+          console.log(`精度测试已加载所有问题，总数: ${(response as any).total}`);
           this.onAllQuestionsLoaded((response as any).total);
         }
       } else {
@@ -251,7 +258,7 @@ export class QuestionBufferManager {
         this.hasMoreData = newQuestions.length >= this.pageSize;
 
         if (newQuestions.length < this.pageSize && this.onAllQuestionsLoaded) {
-          console.log(`已加载所有问题，总数: ${this.totalLoaded}`);
+          console.log(`精度测试已加载所有问题，总数: ${this.totalLoaded}`);
           this.onAllQuestionsLoaded(this.totalLoaded);
         }
       }
@@ -259,51 +266,12 @@ export class QuestionBufferManager {
       // 更新页码，为下一次加载做准备
       this.currentPage++;
     } catch (error) {
-      console.error('加载问题失败:', error);
+      console.error('精度测试加载问题失败:', error);
     } finally {
       // 无论成功失败，都重置loading状态
       this.loading = false;
     }
   }
-
-  // /**
-  //  * 尝试替代API路径
-  //  *
-  //  * 当主API路径无法获取问题时，尝试使用替代路径。
-  //  * 这是一个容错机制，用于处理不同API格式的情况。
-  //  *
-  //  * @returns {Promise<void>}
-  //  */
-  // private async tryAlternativeAPI(): Promise<void> {
-  //   try {
-  //     console.log('尝试替代API路径...');
-
-  //     // 尝试其他可能的路径格式
-  //     const path = `/v1/datasets-questions/${this.datasetId}/questions`;
-
-  //     try {
-  //       console.log(`尝试API路径: ${path}`);
-  //       const altResponse = await api.get(path, {
-  //         params: { page: 1, page_size: this.pageSize }
-  //       });
-
-  //       // 检查不同格式的响应是否包含有效数据
-  //       if ((altResponse as any)?.data?.items?.length > 0 ||
-  //           Array.isArray((altResponse as any)?.data) && (altResponse as any).data.length > 0 ||
-  //           (altResponse as any)?.data?.questions?.length > 0) {
-
-  //         console.log(`找到有效的API路径: ${path}`);
-  //         return; // 成功找到有效路径
-  //       }
-  //     } catch (e) {
-  //       console.log(`路径 ${path} 无效`);
-  //     }
-
-  //     console.error('无法找到有效的问题API路径');
-  //   } catch (error) {
-  //     console.error('替代API尝试失败:', error);
-  //   }
-  // }
 
   /**
    * 获取缓冲区中剩余的问题数量
@@ -337,33 +305,44 @@ export class QuestionBufferManager {
     this.currentPage = 1;
     this.hasMoreData = true;
     this.loading = false;
+    this.totalLoaded = 0;
   }
 
   /**
-   * 获取指定数量的问题
+   * 获取已加载的总问题数
    *
-   * 批量获取问题，用于并发处理场景。
-   * 如果缓冲区中的问题不足，会尝试加载更多问题。
-   *
-   * @param {number} count - 需要获取的问题数量
-   * @returns {Promise<any[]>} 问题数组
+   * @returns {number} 已加载的总问题数
    */
-  public async getNextQuestions(count: number): Promise<any[]> {
-    // 确保缓冲区中有足够的问题
-    if (this.questions.length < count && this.hasMoreData && !this.loading) {
-      await this.loadMoreQuestions();
-    }
+  getTotalLoaded(): number {
+    return this.totalLoaded;
+  }
 
-    // 获取并从缓冲区中移除问题
-    const result = this.questions.splice(0, count);
+  /**
+   * 获取并发数
+   *
+   * @returns {number} 并发数
+   */
+  getConcurrency(): number {
+    return this.concurrency;
+  }
 
-    // 如果缓冲区变得太小，异步加载更多
-    if (this.questions.length < this.bufferThreshold && this.hasMoreData && !this.loading) {
-      this.loadMoreQuestions().catch(error => {
-        console.error('缓冲区问题加载失败:', error);
-      });
-    }
+  /**
+   * 添加问题到缓冲区
+   *
+   * @param {any} question - 要添加的问题
+   */
+  addQuestion(question: any): void {
+    this.questions.push(question);
+  }
 
-    return result;
+  /**
+   * 手动加载更多问题
+   *
+   * 公开的方法，用于手动触发加载更多问题的操作。
+   *
+   * @returns {Promise<void>}
+   */
+  public async manualLoadMoreQuestions(): Promise<void> {
+    return this.loadMoreQuestions();
   }
 }

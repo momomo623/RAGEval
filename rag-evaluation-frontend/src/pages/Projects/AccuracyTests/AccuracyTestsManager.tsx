@@ -9,7 +9,7 @@ import {
   CheckCircleOutlined, CloseCircleOutlined, FileTextOutlined, ExclamationCircleOutlined
 } from '@ant-design/icons';
 import { accuracyService } from '../../../services/accuracy.service';
-import { executeAccuracyTest, TestProgress } from '../../../services/accuracyExecutor';
+import { executeAccuracyTest, TestProgress } from '../../../services/accuracyExecutorNew';
 import { TimeAgo } from '../../../components/common/TimeAgo';
 import styles from './AccuracyTests.module.css';
 import { datasetService } from '../../../services/dataset.service';
@@ -135,7 +135,7 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
 
       // 添加数据检查和日志
       const questions = result;
-   
+
 
       return questions;
     } catch (error) {
@@ -149,11 +149,11 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
   useEffect(() => {
     if (isFirstRun.current) {
       isFirstRun.current = false;
-      
+
       const checkRunningTests = async () => {
         try {
           const runningTests = await accuracyService.checkRunningTests(projectId);
-          
+
           if (runningTests.length > 0) {
             Modal.confirm({
               title: '发现未完成的测试',
@@ -219,7 +219,7 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
       setRunningTestId(test.id);
       setSelectedTestId(test.id);
       setProgress(null);
-      
+
       let progressState = {
         total: 0,
         completed: 0,
@@ -227,7 +227,7 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
         failed: 0,
         startTime: performance.now()
       };
-      
+
       const testConfig = {
         ...test,
         batch_settings: {
@@ -236,7 +236,7 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
         }
       };
 
-      await executeAccuracyTest(
+      const success = await executeAccuracyTest(
         testConfig,
         [],
         (progress) => {
@@ -249,16 +249,31 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
         },
         selectedModelId
       );
-      
-      // 更新测试状态为已完成
-      await accuracyService.updateTestStatus(test.id, 'completed');
-      message.success('精度测试执行完成');
+
+      // executeAccuracyTest 内部已经调用了 accuracyService.complete
+      // 不需要再次更新状态
+      if (success) {
+        message.success('精度测试执行完成');
+      } else {
+        message.warning('精度测试执行完成，但有部分问题处理失败');
+      }
       await fetchTests();
-    } catch (error) {
+    } catch (error: any) {
       console.error('执行精度测试失败:', error);
       message.error('执行精度测试失败: ' + (error.message || '未知错误'));
-      // 如果测试失败，更新状态为失败
-      await accuracyService.updateTestStatus(test.id, 'failed');
+
+      // executeAccuracyTest 内部已经调用了 accuracyService.fail
+      // 不需要再次更新状态，除非是其他类型的错误
+      if (!error.message?.includes('测试执行失败')) {
+        try {
+          await accuracyService.fail(test.id, {
+            message: error.message || '未知错误',
+            stack: error.stack
+          });
+        } catch (reportError) {
+          console.error('报告精度测试失败状态失败:', reportError);
+        }
+      }
     } finally {
       setRunningTestId(null);
     }

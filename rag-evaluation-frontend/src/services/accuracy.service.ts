@@ -86,7 +86,7 @@ export const accuracyService = {
 
   getDatasetRagVersions: async (datasetId: string): Promise<string[]> => {
     return api.get<string[]>(`/v1/rag-answers/versions/dataset/${datasetId}`);
-  }, 
+  },
   // 创建精度测试
   create: async (data: AccuracyTestCreate): Promise<AccuracyTest> => {
     console.log('create accuracy test', data);
@@ -110,24 +110,48 @@ export const accuracyService = {
 
   // 完成精度测试
   complete: async (id: string): Promise<AccuracyTest> => {
-    return api.post<AccuracyTest>(`/v1/accuracy/${id}/complete`);
+    try {
+      return await api.post<AccuracyTest>(`/v1/accuracy/${id}/complete`);
+    } catch (error: any) {
+      // 如果错误是因为测试已完成，则忽略错误
+      if (error.response?.data?.detail?.includes('测试状态为completed')) {
+        console.log('测试已经处于完成状态，无需再次标记');
+        // 获取当前测试状态并返回
+        return await api.get<AccuracyTest>(`/v1/accuracy/${id}`);
+      }
+      // 其他错误则抛出
+      throw error;
+    }
   },
 
   // 标记测试为失败
   fail: async (id: string, errorDetails: any): Promise<AccuracyTest> => {
-    return api.post<AccuracyTest>(`/v1/accuracy/${id}/fail`, errorDetails);
+    try {
+      return await api.post<AccuracyTest>(`/v1/accuracy/${id}/fail`, errorDetails);
+    } catch (error: any) {
+      // 如果错误是因为测试已完成或已失败，则忽略错误
+      if (error.response?.data?.detail?.includes('测试状态为') &&
+          (error.response?.data?.detail?.includes('completed') ||
+           error.response?.data?.detail?.includes('failed'))) {
+        console.log('测试已经处于完成或失败状态，无需再次标记');
+        // 获取当前测试状态并返回
+        return await api.get<AccuracyTest>(`/v1/accuracy/${id}`);
+      }
+      // 其他错误则抛出
+      throw error;
+    }
   },
 
   // 提交评测项结果
   submitItemResults: async (testId: string, items: any[]): Promise<boolean> => {
     return api.post<boolean>(`/v1/accuracy/${testId}/items`, items);
   },
-  
+
   // 创建人工评测任务
   createHumanAssignment: async (testId: string, data: any): Promise<any> => {
     return api.post(`/v1/accuracy/${testId}/human-assignments`, data);
   },
-  
+
   // 获取人工评测任务列表
   getHumanAssignments: async (testId: string): Promise<any[]> => {
     return api.get(`/v1/accuracy/${testId}/human-assignments`);
@@ -141,15 +165,15 @@ export const accuracyService = {
     score?: number | null
   }): Promise<any> => {
     const queryParams = new URLSearchParams();
-    
+
     if (params?.limit) {
       queryParams.append('limit', params.limit.toString());
     }
-    
+
     if (params?.offset !== undefined) {
       queryParams.append('offset', params.offset.toString());
     }
-    
+
     if (params?.status) {
       queryParams.append('status', params.status);
     }
@@ -157,7 +181,7 @@ export const accuracyService = {
     if (params?.score !== null && params?.score !== undefined) {
       queryParams.append('score', params.score.toString());
     }
-    
+
     const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
     return api.get<any>(`/v1/accuracy/${testId}/items${queryString}`);
   },
@@ -181,4 +205,4 @@ export const accuracyService = {
   async updateTestStatus(testId: string, status: string): Promise<void> {
     await api.put(`/accuracy/${testId}/status`, { status });
   }
-}; 
+};
