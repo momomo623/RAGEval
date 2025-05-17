@@ -365,13 +365,13 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
           },
           {
             title: '问题数',
-            dataIndex: 'processed_questions',
-            key: 'processed_questions',
+            dataIndex: 'total_questions',
+            key: 'total_questions',
             width: 90,
-            render: (processed_questions) => (
-              <Tooltip title={`处理问题数：${processed_questions}`}>
+            render: (total_questions, record) => (
+              <Tooltip title={`总问题数：${total_questions}，已处理：${record.processed_questions}`}>
                 <Tag style={{ minWidth: '45px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                  {processed_questions}
+                  {total_questions}
                 </Tag>
               </Tooltip>
             )
@@ -428,7 +428,7 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
             key: 'success_rate',
             width: 90,
             render: (_: any, record: any) => {
-              if (record.status === 'completed' && record.total_questions > 0) {
+              if (record.status === 'completed' && record.processed_questions > 0) {
                 const successRate = (record.success_questions / record.processed_questions * 100).toFixed(0);
                 return <Tag color="green" style={{ minWidth: '40px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                   {successRate}%</Tag>;

@@ -87,7 +87,7 @@ export const CreatePerformanceTestForm: React.FC<CreatePerformanceTestFormProps>
           layout="vertical"
           onFinish={handleSubmit}
           initialValues={{
-            name: `性能测试-${new Date().toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric' })}`,
+            name: `${new Date().toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric' })} - 性能测试`,
             concurrency: 1,
           }}
         >

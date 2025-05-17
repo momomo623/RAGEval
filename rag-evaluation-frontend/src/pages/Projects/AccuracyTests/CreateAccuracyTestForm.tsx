@@ -189,7 +189,7 @@ export const CreateAccuracyTestForm: React.FC<CreateAccuracyTestFormProps> = ({
           layout="vertical"
           onFinish={handleSubmit}
           initialValues={{
-            name: `精度测试-${new Date().toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric' })}`,
+            name: `${new Date().toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric' })} - 精度测试`,
             evaluation_type: 'ai',
             scoring_method: 'five_scale'
           }}
