@@ -187,7 +187,6 @@ class AccuracyTest(BaseModel):
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     created_by: Optional[UUID] = None
-    interruption_reason: Optional[str] = None
 
     class Config:
         from_attributes = True 

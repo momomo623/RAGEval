@@ -554,7 +554,6 @@ class AccuracyService:
         
         if test and test.status == "running":
             test.status = "interrupted"
-            test.interruption_reason = reason
             test.completed_at = datetime.utcnow()
             self.db.commit()
             return test
@@ -582,7 +581,6 @@ class AccuracyService:
                 test.results_summary = None
                 test.started_at = None
                 test.completed_at = None
-                test.interruption_reason = None
                 
             self.db.commit()
             return True

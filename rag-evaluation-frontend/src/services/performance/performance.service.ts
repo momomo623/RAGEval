@@ -145,4 +145,14 @@ export const performanceService = {
       throw error;
     }
   },
+
+  // 添加检查运行中测试的方法
+  checkRunningTests: async (projectId: string): Promise<PerformanceTest[]> => {
+    return api.get<PerformanceTest[]>(`/v1/performance/project/${projectId}/running-tests`);
+  },
+
+  // 修改标记中断的方法
+  markTestInterrupted: async (testId: string, reason: string): Promise<PerformanceTest> => {
+    return api.post<PerformanceTest>(`/v1/performance/${testId}/interrupt`, { reason });
+  },
 };

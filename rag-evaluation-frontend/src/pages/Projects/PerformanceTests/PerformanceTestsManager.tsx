@@ -39,6 +39,7 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
   const [isConfigured, setIsConfigured] = useState(false);
   const [datasets, setDatasets] = useState<any[]>([]);
   const navigate = useNavigate();
+  const isFirstRun = useRef(true);
 
   useEffect(() => {
     // 使用ConfigManager检查RAG系统配置
@@ -52,7 +53,7 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
 
   useEffect(() => {
     fetchTests();
-
+    
     // 加载项目关联的数据集
     const fetchDatasets = async () => {
       try {
@@ -66,23 +67,36 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
     fetchDatasets();
 
     // 检查是否有运行中的测试
-    const checkRunningTests = async () => {
-      try {
-        const runningTests = tests.filter(test => test.status === 'running');
-        if (runningTests.length > 0) {
-          // 将运行中的测试标记为中断
-          for (const test of runningTests) {
-            await performanceService.markInterrupted(test.id);
-          }
-          // 刷新测试列表
-          fetchTests();
-        }
-      } catch (error) {
-        console.error('检查运行中测试失败:', error);
-      }
-    };
+    if (isFirstRun.current) {
+      isFirstRun.current = false;
 
-    checkRunningTests();
+      const checkRunningTests = async () => {
+        try {
+          const runningTests = await performanceService.checkRunningTests(projectId);
+
+          if (runningTests.length > 0) {
+            Modal.confirm({
+              title: '发现未完成的测试',
+              content: `发现${runningTests.length}个未完成的测试，是否将其标记为中断状态？`,
+              onOk: async () => {
+                for (const test of runningTests) {
+                  await performanceService.markTestInterrupted(
+                    test.id,
+                    '页面刷新导致评测中断'
+                  );
+                }
+                fetchTests();
+              }
+            });
+          }
+        } catch (error) {
+          console.error('检查运行中测试失败:', error);
+          message.error('检查运行中测试失败');
+        }
+      };
+
+      checkRunningTests();
+    }
   }, [projectId]);
 
   const fetchTests = async () => {
@@ -97,8 +111,6 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
       setLoading(false);
     }
   };
-
-
 
   const handleProgressUpdate = useCallback((newProgress: TestProgress) => {
     progressRef.current = newProgress;
@@ -129,21 +141,45 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
     }
 
     try {
-      setRunningTestId(test.id);
-      setSelectedTestId(test.id);
-      setProgress(null);
-
-      if (!isConfigured) {
-        setRunningTestId(null);
-        message.warning('未配置RAG系统，请先配置RAG系统才能使用性能测试功能');
-        return;
-      }
-
       // 如果测试状态为中断，先重置测试
       if (test.status === 'interrupted') {
-        await performanceService.resetTest(test.id);
+        Modal.confirm({
+          title: '重新执行中断的测试',
+          content: '重新执行将清除已完成的评测结果，是否继续？',
+          destroyOnClose: true,
+          onOk: async () => {
+            try {
+              // 重置测试项
+              await performanceService.resetTest(test.id);
+              // 开始新的测试
+              startNewTest(test);
+            } catch (error) {
+              console.error('重置测试失败:', error);
+              message.error('重置测试失败');
+            }
+          }
+        });
+      } else {
+        startNewTest(test);
       }
+    } catch (error) {
+      console.error('运行测试失败:', error);
+      message.error('运行测试失败: ' + (error as any).message);
+    }
+  };
 
+  const startNewTest = async (test: any) => {
+    setRunningTestId(test.id);
+    setSelectedTestId(test.id);
+    setProgress(null);
+
+    if (!isConfigured) {
+      setRunningTestId(null);
+      message.warning('未配置RAG系统，请先配置RAG系统才能使用性能测试功能');
+      return;
+    }
+
+    try {
       const success = await executePerformanceTest(
         test,
         [], // 传递空数组，让函数使用缓冲区方式
@@ -164,7 +200,6 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
     }
   };
 
-
   const handleViewDetail = (id: string) => {
     // 查找当前测试
     const test = tests.find(t => t.id === id);
@@ -181,7 +216,6 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
     setSelectedTestId(id);
     setDetailVisible(true);
   };
-
 
   const formatTime = (milliseconds: number): string => {
     if (!milliseconds || isNaN(milliseconds)) return '计算中...';
@@ -200,7 +234,6 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
       return `${formattedMinutes}:${formattedSeconds}`;
     }
   };
-
 
   return (
     <div className={styles.container}>
@@ -331,7 +364,7 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
                   color = 'error';
                   icon = <CloseCircleOutlined />;
                   break;
-                case 'terminated':
+                case 'interrupted':
                   color = 'warning';
                   icon = <CloseCircleOutlined />;
                   break;
@@ -342,7 +375,7 @@ export const PerformanceTestsManager: React.FC<PerformanceTestsManagerProps> = (
                   {status === 'completed' ? '已完成' :
                    status === 'running' ? '运行中' :
                    status === 'failed' ? '失败' :
-                   status === 'terminated' ? '已中断' : status}
+                   status === 'interrupted' ? '已中断' : status}
                 </Tag>
               );
             }

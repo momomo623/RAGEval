@@ -11,9 +11,6 @@ import {
 import { TimeAgo } from '../../../components/common/TimeAgo';
 import styles from './PerformanceTests.module.css';
 import { performanceService } from '@services/performance/performance.service';
-import { datasetService } from '../../../services/dataset.service';
-import { api } from '../../../utils/api';
-import { ConfigManager, RAGConfig } from '../../../utils/configManager';
 
 const { Title, Text } = Typography;
 
@@ -66,10 +63,7 @@ export const PerformanceTestDetail: React.FC<PerformanceTestDetailProps> = ({
           setDatasetInfo(dataset);
 
           // 在成功获取测试数据后，判断是否需要加载问答对
-          if (response && response.status === 'completed') {
-            console.log("测试已完成，加载问答对列表");
-            fetchQAPairs(testId, 1, pagination.pageSize);
-          }
+          fetchQAPairs(testId, 1, pagination.pageSize);
         })
         .catch(error => {
           console.error("API调用失败:", error);
@@ -97,13 +91,19 @@ export const PerformanceTestDetail: React.FC<PerformanceTestDetailProps> = ({
         color = 'error';
         icon = <CloseCircleOutlined />;
         break;
+        case 'interrupted'  :
+        color = 'warning';
+        icon = <CloseCircleOutlined />;
+      
+        break;
     }
 
     return (
       <Tag color={color} icon={icon}>
         {status === 'completed' ? '已完成' :
          status === 'running' ? '运行中' :
-         status === 'failed' ? '失败' : status}
+         status === 'failed' ? '失败' :
+                   status === 'interrupted' ? '已中断' : status}
       </Tag>
     );
   };
@@ -374,7 +374,32 @@ export const PerformanceTestDetail: React.FC<PerformanceTestDetailProps> = ({
               </Card>
             </Col>
           </Row>
-
+                {testData.status !== 'completed'
+                && (
+                  <>
+                <Divider orientation="left">测试进行中 - 请全部测试完毕后查看</Divider>
+                <div className={styles.progressContainer}>
+                  <Progress
+                  style={{marginLeft: '20px'}}
+                    type="circle"
+                    // percent={qaPairs ? parseFloat((qaPairs.length*1.0 / testData.total_questions).toFixed(2)) : 0}
+                    percent={Number(((qaPairs.length * 1.0 / testData.total_questions) * 100).toFixed(2))}
+                    format={percent => (
+                      <div>
+                        <Text strong>{percent}%</Text>
+                        <Text type="secondary" style={{ display: 'block' }}>
+                          {qaPairs.length} / {testData.total_questions} 问题
+                        </Text>
+                      </div>
+                    )}
+                    status="active"
+                    width={120}
+                  />
+</div>
+                  </>
+               
+)
+                }
           {testData.status === 'completed' && testData.summary_metrics && (
             <>
               <Divider orientation="left">性能指标</Divider>

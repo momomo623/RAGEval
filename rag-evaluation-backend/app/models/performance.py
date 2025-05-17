@@ -31,4 +31,4 @@ class PerformanceTest(Base):
     failed_questions = Column(Integer, default=0, nullable=False)
     
     summary_metrics = Column(JSONB, default={}, nullable=False)
-    rag_config = Column(String(200), nullable=True) 
+    rag_config = Column(String(200), nullable=True)

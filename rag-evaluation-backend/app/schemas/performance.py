@@ -36,8 +36,6 @@ class PerformanceTestInDBBase(PerformanceTestBase):
     success_questions: int
     failed_questions: int
     summary_metrics: Dict[str, Any]
-    interruption_reason: Optional[str] = None
-    interruption_time: Optional[datetime] = None
     
     class Config:
         from_attributes = True

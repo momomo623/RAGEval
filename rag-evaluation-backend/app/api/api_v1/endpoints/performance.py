@@ -1,5 +1,5 @@
 from typing import Any, List, Optional
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.orm import Session
 
 from app import schemas, models
@@ -54,7 +54,6 @@ def start_performance_test(
         *,
         db: Session = Depends(deps.get_db),
         start_request: schemas.performance.StartPerformanceTestRequest,
-        background_tasks: BackgroundTasks,
         current_user: User = Depends(get_current_user),
 ) -> Any:
     """开始执行性能测试"""
@@ -72,13 +71,6 @@ def start_performance_test(
         db=db, performance_test_id=start_request.performance_test_id
     )
 
-    # 在后台执行测试
-    # 注意：实际执行代码会在前端完成，后端只负责状态管理
-    background_tasks.add_task(
-        performance_service.complete_performance_test,
-        db=db,
-        performance_test_id=start_request.performance_test_id
-    )
 
     return test
 
@@ -142,14 +134,15 @@ def get_performance_test_qa_pairs(
         limit=size
     )
 
-@router.put("/{test_id}/interrupt", response_model=schemas.performance.PerformanceTestOut)
-def mark_test_interrupted(
+@router.post("/{test_id}/interrupt")
+async def interrupt_test(
     test_id: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(deps.get_db)
+    reason: dict = Body(...),
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    """标记测试为中断状态"""
-    test = performance_service.mark_test_interrupted(db, test_id)
+    """将测试标记为中断状态"""
+    test = performance_service.mark_test_interrupted(db, test_id, reason.get("reason", "页面刷新导致评测中断"))
     if not test:
         raise HTTPException(status_code=404, detail="测试不存在")
     return test
@@ -165,3 +158,11 @@ def reset_test(
     if not test:
         raise HTTPException(status_code=404, detail="测试不存在")
     return test
+
+@router.get("/project/{project_id}/running-tests")
+async def get_running_tests(
+    project_id: str,
+    db: Session = Depends(deps.get_db)
+):
+    """获取项目中运行中的测试"""
+    return performance_service.check_running_tests(project_id, db)
