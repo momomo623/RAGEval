@@ -59,7 +59,9 @@ class ProjectOut(ProjectBase):
             return value
 
 class ProjectDetail(ProjectOut):
-    dimensions: List[Dict[str, Any]] = []
+    datasets: List[Dict[str, Any]] = []
+    accuracy_tests: List[Dict[str, Any]] = []
+    performance_tests: List[Dict[str, Any]] = []
 
 class ProjectWithDimensions(ProjectOut):
-    dimensions: List[EvaluationDimension] = [] 
+    evaluation_dimensions: List[EvaluationDimension] = []

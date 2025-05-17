@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import get_current_user, get_current_active_admin, get_db
 from app.models.user import User
 from app.schemas.dataset import (
     DatasetCreate,
@@ -32,6 +32,41 @@ from app.models.question import Question
 from app.models.dataset import Dataset
 
 router = APIRouter()
+
+@router.get("/admin", response_model=List[DatasetOut])
+def read_all_datasets(
+    *,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_admin),
+) -> Any:
+    """
+    获取所有数据集（仅管理员可访问）
+    """
+    # 查询所有数据集
+    datasets = db.query(Dataset).all()
+
+    # 为每个数据集添加问题数量，并转换UUID为字符串
+    result = []
+    for dataset in datasets:
+        question_count = db.query(func.count(Question.id)).filter(
+            Question.dataset_id == dataset.id
+        ).scalar()
+
+        dataset_dict = {
+            "id": str(dataset.id),
+            "user_id": str(dataset.user_id),
+            "name": dataset.name,
+            "description": dataset.description,
+            "is_public": dataset.is_public,
+            "tags": dataset.tags or [],
+            "dataset_metadata": dataset.dataset_metadata or {},
+            "question_count": question_count,
+            "created_at": dataset.created_at,
+            "updated_at": dataset.updated_at
+        }
+        result.append(dataset_dict)
+
+    return result
 
 @router.post("", response_model=DatasetOut)
 def create_dataset_api(
@@ -252,6 +287,8 @@ def read_public_datasets(
         "pages": pages
     }
 
+
+
 @router.get("/{dataset_id}", response_model=DatasetDetail)
 def read_dataset(
     *,
@@ -296,25 +333,24 @@ def update_dataset_api(
     current_user: User = Depends(get_current_user)
 ) -> Any:
     """
-    更新数据集信息
+    更新数据集
     """
     dataset = get_dataset(db, dataset_id=dataset_id)
     if not dataset:
         raise HTTPException(status_code=404, detail="数据集未找到")
 
-    # 严格检查所有权 - 只有创建者可以修改，即使是管理员也不行
-    if str(dataset.user_id) != str(current_user.id):
-        raise HTTPException(status_code=403, detail="您不是此数据集的所有者，无权修改")
+    # 检查权限
+    if str(dataset.user_id) != str(current_user.id) and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="无权修改此数据集")
 
-    # 更新数据集
-    dataset = update_dataset(db, dataset_id=dataset_id, obj_in=dataset_in)
+    dataset = update_dataset(db, db_obj=dataset, obj_in=dataset_in)
 
     # 获取问题数量
     question_count = db.query(func.count(Question.id)).filter(
         Question.dataset_id == dataset.id
     ).scalar()
 
-    # 返回响应
+    # 手动转换返回值，确保UUID被转换为字符串
     return {
         "id": str(dataset.id),
         "user_id": str(dataset.user_id),
@@ -357,6 +393,8 @@ def delete_dataset_api(
 
     delete_dataset(db, dataset_id=dataset_id)
     return {"detail": "数据集已删除"}
+
+
 
 @router.post("/link/{project_id}", response_model=dict)
 def link_datasets_to_project(

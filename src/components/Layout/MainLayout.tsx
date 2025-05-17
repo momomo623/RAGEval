@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Layout, Menu, Button, Dropdown, Avatar, Spin } from 'antd';
-import {
-  HomeOutlined,
-  DatabaseOutlined,
-  SettingOutlined,
+import { 
+  HomeOutlined, 
+  DatabaseOutlined, 
+  SettingOutlined, 
   UserOutlined,
   CrownOutlined
 } from '@ant-design/icons';
@@ -29,7 +29,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const location = useLocation();
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [loading, setLoading] = useState(true);
-
+  
   const currentPath = location.pathname;
 
   useEffect(() => {
@@ -52,7 +52,21 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     navigate('/login');
   };
 
-  // 用户下拉菜单项在 Dropdown 组件中直接定义
+  const userMenuItems = [
+    {
+      key: '1',
+      label: '个人设置',
+      onClick: () => navigate('/user/settings'),
+    },
+    {
+      type: 'divider',
+    },
+    {
+      key: '2',
+      label: '退出登录',
+      onClick: handleLogout,
+    },
+  ];
 
   // 导航菜单项
   const menuItems = [
@@ -73,23 +87,29 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       {
         key: '/admin',
         icon: <CrownOutlined />,
-        label: '管理控制台',
-        onClick: () => navigate('/admin')
-      },
-      {
-        key: '/admin/users',
-        label: '用户管理',
-        onClick: () => navigate('/admin/users')
-      },
-      {
-        key: '/admin/datasets',
-        label: '所有数据集',
-        onClick: () => navigate('/admin/datasets')
-      },
-      {
-        key: '/admin/projects',
-        label: '所有项目',
-        onClick: () => navigate('/admin/projects')
+        label: '管理员',
+        children: [
+          {
+            key: '/admin',
+            label: '仪表盘',
+            onClick: () => navigate('/admin')
+          },
+          {
+            key: '/admin/users',
+            label: '用户管理',
+            onClick: () => navigate('/admin/users')
+          },
+          {
+            key: '/admin/datasets',
+            label: '所有数据集',
+            onClick: () => navigate('/admin/datasets')
+          },
+          {
+            key: '/admin/projects',
+            label: '所有项目',
+            onClick: () => navigate('/admin/projects')
+          }
+        ]
       }
     ] : [])
   ];
@@ -105,58 +125,30 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             <div className={styles.logo} onClick={() => navigate('/dashboard')}>
               RAG评测系统
             </div>
-            <Menu
-              mode="horizontal"
-              selectedKeys={[
-                currentPath.startsWith('/datasets') ? '/datasets' :
-                currentPath.startsWith('/admin/users') ? '/admin/users' :
-                currentPath.startsWith('/admin/datasets') ? '/admin/datasets' :
-                currentPath.startsWith('/admin/projects') ? '/admin/projects' :
-                currentPath.startsWith('/admin') ? '/admin' :
-                currentPath
-              ]}
+            <Menu 
+              mode="horizontal" 
+              selectedKeys={[currentPath.startsWith('/datasets') ? '/datasets' : 
+                            currentPath.startsWith('/admin') ? '/admin' : currentPath]}
               className={styles.mainMenu}
               items={menuItems}
-              overflowedIndicator={null} // 移除溢出指示器
-              disabledOverflow={true} // 禁用溢出行为
             />
           </div>
           <div className={styles.rightContent}>
-            <Button
+            <Button 
               type="text"
               icon={<SettingOutlined />}
               className={styles.notificationBtn}
               onClick={() => navigate('/user/settings')}
               title="系统设置"
             />
-            <Dropdown
-              menu={{
-                items: [
-                  {
-                    key: '1',
-                    label: '个人设置',
-                    onClick: () => navigate('/user/settings'),
-                  },
-                  {
-                    key: 'divider',
-                    type: 'divider',
-                  },
-                  {
-                    key: '2',
-                    label: '退出登录',
-                    onClick: handleLogout,
-                  },
-                ]
-              }}
-              trigger={['click']}
-            >
+            <Dropdown menu={{ items: userMenuItems }} trigger={['click']}>
               <div className={styles.userInfo}>
                 {loading ? (
                   <Spin size="small" />
                 ) : (
                   <>
-                    <Avatar
-                      icon={<UserOutlined />}
+                    <Avatar 
+                      icon={<UserOutlined />} 
                       className={styles.avatar}
                     />
                     <span className={styles.userName}>{displayName}</span>

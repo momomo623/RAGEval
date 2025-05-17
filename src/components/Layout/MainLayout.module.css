@@ -19,14 +19,11 @@
   margin: 0 auto;
   padding: 0 16px;
   height: 100%;
-  width: 100%;
 }
 
 .logoAndNav {
   display: flex;
   align-items: center;
-  flex: 1;
-  overflow: visible;
 }
 
 .logo {
@@ -39,14 +36,6 @@
 
 .mainMenu {
   border-bottom: none;
-  flex: 1;
-  white-space: nowrap;
-}
-
-/* 确保菜单项不会被压缩 */
-.mainMenu :global(.ant-menu-item) {
-  padding: 0 16px;
-  margin: 0 4px;
 }
 
 .rightContent {
@@ -81,15 +70,14 @@
 }
 
 .content {
-  /*padding: 24px;*/
+  padding: 24px;
   background: #f5f6fa;
 }
 
 .contentContainer {
-  /*background: #fff;*/
+  background: #fff;
   padding: 24px;
   border-radius: 4px;
-  padding-top: 0px;
   max-width: 1400px;
   margin: 0 auto;
   min-height: 80vh;
