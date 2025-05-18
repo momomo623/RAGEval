@@ -2,12 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Card, Button, Upload, Spin, Form, InputNumber, Select, Radio, Divider, message, Table, Progress, Alert, Checkbox, Slider, Modal, Tooltip, Input, Badge, Space, Collapse, Typography, Empty, Row, Col } from 'antd';
 import { UploadOutlined, FileTextOutlined, CheckCircleOutlined, CloseCircleOutlined, ReloadOutlined, FullscreenOutlined, DeleteOutlined, EyeOutlined, WarningOutlined, InfoCircleOutlined, QuestionCircleOutlined, SettingOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { useConfigContext } from '../../contexts/ConfigContext';
 import { questionGeneratorService, SplitterType, FailedRequestRecord } from '../../services/QuestionGeneratorService';
 import { TextChunk, GenerationParams, GeneratedQA, ProgressInfo } from '../../types/question-generator';
 import styles from './QuestionGeneration.module.css';
 import { ConfigManager, ModelConfig } from '@utils/configManager';
-import { LLMClient } from '../../pages/Settings/LLMTemplates/llm-request';
 
 const { Option } = Select;
 const { Column } = Table;
@@ -25,7 +23,6 @@ interface FileContent {
 
 const QuestionGenerationContent: React.FC<QuestionGenerationContentProps> = ({ datasetId, onGenerationComplete }) => {
   const navigate = useNavigate();
-  const { getLLMConfig } = useConfigContext();
   const [form] = Form.useForm();
 
   const [isConfigured, setIsConfigured] = useState(false);

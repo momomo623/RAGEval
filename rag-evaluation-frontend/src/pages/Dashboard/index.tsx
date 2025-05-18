@@ -9,7 +9,6 @@ import styles from './Dashboard.module.css';
 
 const { Title, Text, Paragraph } = Typography;
 const { confirm } = Modal;
-const { Option } = Select;
 const { TextArea } = Input;
 
 const Dashboard: React.FC = () => {
@@ -473,27 +472,6 @@ const Dashboard: React.FC = () => {
             />
           </Form.Item>
 
-          {/* <Form.Item
-            name="evaluation_method"
-            label="评测方式"
-          >
-            <Select>
-              <Option value="auto">自动评测</Option>
-              <Option value="manual">人工评测</Option>
-              <Option value="hybrid">混合评测</Option>
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            name="scoring_scale"
-            label="评分规则"
-          >
-            <Select>
-              <Option value="1-3">三分量表（较差/一般/优秀）</Option>
-              <Option value="binary">二元评分（正确/错误）</Option>
-              <Option value="1-5">五分量表（1-5分）</Option>
-            </Select>
-          </Form.Item> */}
         </Form>
       </Modal>
     </div>

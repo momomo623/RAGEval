@@ -105,9 +105,9 @@ const CustomRAG: React.FC<{
         </Form.Item>
         <Form.Item
           name="requestTemplate"
-          label={labelWithTip('请求模板', '使用{{question}}作为问题占位符')}
+          label={labelWithTip('请求体', '使用{{question}}作为问题占位符')}
           rules={[
-            { required: true, message: '请输入请求模板' },
+            { required: true, message: '请输入请求体' },
             {
               validator: (_, value) => {
                 try {

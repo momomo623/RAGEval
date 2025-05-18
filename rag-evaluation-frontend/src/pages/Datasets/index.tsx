@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Layout, Typography, Button, Card, Tag, Row, Col, Input, 
-  Select, Pagination, Empty, Spin, message, Dropdown, Menu,
+import {
+  Layout, Typography, Button, Card, Tag, Row, Col, Input,
+  Select, Pagination, Empty, Spin, message, Dropdown,
   Modal
 } from 'antd';
-import { 
-  PlusOutlined, SearchOutlined, SettingOutlined, 
+import {
+  PlusOutlined, SearchOutlined, SettingOutlined,
   EllipsisOutlined, ExclamationCircleOutlined,
   EyeOutlined, LockOutlined, EditOutlined, DeleteOutlined,
   BookOutlined, TagOutlined, QuestionOutlined
@@ -13,10 +13,10 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { Dataset } from '../../types/dataset';
 import { datasetService } from '../../services/dataset.service';
+import EditDatasetModal from './components/EditDatasetModal';
 import styles from './Datasets.module.css';
 
 const { Title, Text, Paragraph } = Typography;
-const { Option } = Select;
 const { confirm } = Modal;
 
 const DatasetsPage: React.FC = () => {
@@ -30,7 +30,9 @@ const DatasetsPage: React.FC = () => {
   const [filterType, setFilterType] = useState<string>('all');
   const [filterTags, setFilterTags] = useState<string | undefined>(undefined);
   const [searchKeyword, setSearchKeyword] = useState<string | undefined>(undefined);
-  
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [currentDataset, setCurrentDataset] = useState<Dataset | null>(null);
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -38,8 +40,8 @@ const DatasetsPage: React.FC = () => {
   }, [currentPage, pageSize, filterType, filterTags, filterTag, searchKeyword, searchText]);
 
   const fetchDatasets = async (
-    page: number, 
-    size: number, 
+    page: number,
+    size: number,
     filterType: string = 'all',
     tags?: string,
     search?: string
@@ -53,7 +55,7 @@ const DatasetsPage: React.FC = () => {
         tags,
         search
       });
-      
+
       setDatasets(response.datasets);
       setTotal(response.total);
     } catch (error) {
@@ -72,8 +74,9 @@ const DatasetsPage: React.FC = () => {
     navigate(`/datasets/${id}`);
   };
 
-  const handleEditDataset = (id: string) => {
-    navigate(`/datasets/${id}/edit`);
+  const handleEditDataset = (dataset: Dataset) => {
+    setCurrentDataset(dataset);
+    setIsEditModalVisible(true);
   };
 
   const handleDeleteDataset = (dataset: Dataset) => {
@@ -120,22 +123,46 @@ const DatasetsPage: React.FC = () => {
   };
 
   const renderDatasetCard = (dataset: Dataset) => {
-    const menu = (
-      <Menu>
-        <Menu.Item key="edit" icon={<EditOutlined />} onClick={() => handleEditDataset(dataset.id)}>
-          编辑数据集
-        </Menu.Item>
-        <Menu.Item key="delete" icon={<DeleteOutlined />} onClick={() => handleDeleteDataset(dataset)}>
-          删除数据集
-        </Menu.Item>
-      </Menu>
-    );
+    const menuItems = [
+      {
+        key: 'edit',
+        icon: <EditOutlined />,
+        label: '编辑数据集',
+        onClick: (info: any) => {
+          // 阻止事件冒泡到卡片
+          if (info && info.domEvent) {
+            info.domEvent.stopPropagation();
+          }
+          handleEditDataset(dataset);
+        }
+      },
+      {
+        key: 'delete',
+        icon: <DeleteOutlined />,
+        label: '删除数据集',
+        onClick: (info: any) => {
+          // 阻止事件冒泡到卡片
+          if (info && info.domEvent) {
+            info.domEvent.stopPropagation();
+          }
+          handleDeleteDataset(dataset);
+        }
+      }
+    ];
 
     return (
-      <Card 
-        className={styles.datasetCard} 
+      <Card
+        className={styles.datasetCard}
         hoverable
-        onClick={() => handleViewDataset(dataset.id)}
+        onClick={(e) => {
+          // 检查点击事件的目标元素，确保不是在下拉菜单区域点击
+          const target = e.target as HTMLElement;
+          const isDropdownClick = target.closest('.ant-dropdown') ||
+                                 target.closest('.ant-dropdown-trigger');
+          if (!isDropdownClick) {
+            handleViewDataset(dataset.id);
+          }
+        }}
       >
         <div className={styles.cardHeader}>
           <div className={styles.cardIcon}>
@@ -152,22 +179,27 @@ const DatasetsPage: React.FC = () => {
               )}
             </div>
           </div>
-          <Dropdown 
-            overlay={menu} 
-            trigger={['click']} 
+          <Dropdown
+            menu={{ items: menuItems }}
+            trigger={['click']}
             placement="bottomRight"
+            dropdownRender={(menu) => (
+              <div onClick={(e) => e.stopPropagation()}>
+                {menu}
+              </div>
+            )}
           >
-            <Button 
-              type="text" 
-              icon={<EllipsisOutlined />} 
+            <Button
+              type="text"
+              icon={<EllipsisOutlined />}
               onClick={(e) => e.stopPropagation()}
             />
           </Dropdown>
         </div>
 
         {dataset.description && (
-          <Paragraph 
-            ellipsis={{ rows: 2 }} 
+          <Paragraph
+            ellipsis={{ rows: 2 }}
             className={styles.cardDescription}
           >
             {dataset.description}
@@ -214,16 +246,17 @@ const DatasetsPage: React.FC = () => {
 
       <div className={styles.filterBar}>
         <div className={styles.leftFilters}>
-          <Select 
-            defaultValue="all" 
-            style={{ width: 130 }} 
+          <Select
+            defaultValue="all"
+            style={{ width: 130 }}
             onChange={handleFilterTypeChange}
-          >
-            <Option value="all">所有数据集</Option>
-            <Option value="my">我的数据集</Option>
-            <Option value="public">公开数据集</Option>
-            <Option value="private">私有数据集</Option>
-          </Select>
+            options={[
+              { value: 'all', label: '所有数据集' },
+              { value: 'my', label: '我的数据集' },
+              { value: 'public', label: '公开数据集' },
+              { value: 'private', label: '私有数据集' }
+            ]}
+          />
           <Input
             placeholder="输入标签搜索"
             allowClear
@@ -264,8 +297,8 @@ const DatasetsPage: React.FC = () => {
                 </Col>
               ))}
               <Col xs={24} sm={12} md={8} lg={6}>
-                <Card 
-                  className={styles.newDatasetCard} 
+                <Card
+                  className={styles.newDatasetCard}
                   onClick={handleCreateDataset}
                 >
                   <div className={styles.newDatasetContent}>
@@ -292,8 +325,8 @@ const DatasetsPage: React.FC = () => {
             </div>
           </>
         ) : (
-          <Empty 
-            description="暂无数据集" 
+          <Empty
+            description="暂无数据集"
             image={Empty.PRESENTED_IMAGE_SIMPLE}
           >
             <Button type="primary" onClick={handleCreateDataset}>
@@ -302,8 +335,20 @@ const DatasetsPage: React.FC = () => {
           </Empty>
         )}
       </div>
+
+      {/* 编辑数据集弹窗 */}
+      <EditDatasetModal
+        visible={isEditModalVisible}
+        open={isEditModalVisible}
+        dataset={currentDataset}
+        onCancel={() => setIsEditModalVisible(false)}
+        onSuccess={() => {
+          setIsEditModalVisible(false);
+          fetchDatasets(currentPage, pageSize, filterType, filterTags || filterTag, searchKeyword || searchText);
+        }}
+      />
     </Layout.Content>
   );
 };
 
-export default DatasetsPage; 
+export default DatasetsPage;

@@ -187,7 +187,7 @@ export async function requestCustomRAG(config: any, question: string, configType
       ? JSON.parse(config.requestHeaders || '{}')
       : prepareRequestHeaders(config, configType);
 
-    // 获取请求模板
+    // 获取请求体
     let requestTemplate = JSON.parse(config.requestTemplate || '{}');
 
     // 确保Dify请求包含必要的参数
@@ -268,7 +268,7 @@ export async function requestCustomRAG(config: any, question: string, configType
 
 // Dify-Chatflow请求
 export async function requestDifyChatflow(config: any, question: string) {
-  // 组装请求模板
+  // 组装请求体
   const requestTemplate = {
     "inputs": {},
     "query": "{{question}}",
@@ -304,7 +304,7 @@ export async function requestDifyFlow(config: any, question: string) {
     }
   }
 
-  // 组装请求模板
+  // 组装请求体
   const requestTemplate = {
     "inputs": inputs,
     "response_mode": "streaming",
@@ -431,7 +431,7 @@ export async function* streamRAGResponse(config: any, question: string) {
       ? prepareRequestHeaders(config, config.type)
       : JSON.parse(config.requestHeaders || '{}');
 
-    // 获取请求模板
+    // 获取请求体
     let requestTemplate = JSON.parse(config.requestTemplate || '{}');
 
     // 确保Dify请求包含必要的参数

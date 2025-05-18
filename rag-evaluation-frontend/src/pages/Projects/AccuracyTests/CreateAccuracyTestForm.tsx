@@ -4,7 +4,6 @@ import { QuestionCircleOutlined } from '@ant-design/icons';
 import { AccuracyTestCreate, accuracyService } from '@services/accuracy/accuracy.service';
 import { datasetService } from '../../../services/dataset.service';
 import { AccuracyPromptGenerator } from './prompt';
-import { useConfigContext } from '../../../contexts/ConfigContext';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -27,17 +26,8 @@ export const CreateAccuracyTestForm: React.FC<CreateAccuracyTestFormProps> = ({
   const [weights, setWeights] = useState<Record<string, number>>({ '事实准确性': 1.0 });
   const [useCustomPrompt, setUseCustomPrompt] = useState(false);
   
-  // 添加配置上下文
-  const { getLLMConfig } = useConfigContext();
-  const config = getLLMConfig();
-  // useEffect(() => {
-  //   // 检查LLM配置
-  //   const llmConfig = getLLMConfig();
-  // }, [getLLMConfig]);
-
-      
   // 添加版本相关状态
-  const [versions, setVersions] = useState<string[]>([]);
+  const [versions, setVersions] = useState<any[]>([]);
   const [versionLoading, setVersionLoading] = useState(false);
   
   // 加载数据集
@@ -235,7 +225,7 @@ export const CreateAccuracyTestForm: React.FC<CreateAccuracyTestFormProps> = ({
               loading={versionLoading}
               disabled={!form.getFieldValue('dataset_id') || versionLoading}
             >
-              {versions.map(version => (
+              {versions.map((version) => (
                 <Option key={version.version} value={version.version}>{version.version} ({version.count}个问题)</Option>
               ))}
             </Select>

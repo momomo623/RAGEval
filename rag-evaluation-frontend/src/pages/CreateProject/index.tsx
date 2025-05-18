@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Form, Input, Button, Card, Checkbox, Radio, Space, Typography, Select, Divider, message } from 'antd';
+import { Form, Input, Button, Card, Typography, Divider, message } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { projectService, CreateProjectRequest } from '../../services/project.service';
@@ -7,7 +7,6 @@ import styles from './CreateProject.module.css';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
-const { Option } = Select;
 
 const CreateProject: React.FC = () => {
   const [form] = Form.useForm();
@@ -99,63 +98,6 @@ const CreateProject: React.FC = () => {
           </div>
 
           <Divider />
-
-          {/* <div className={styles.section}>
-            <Title level={4}>评测配置</Title>
-            <Text type="secondary">选择评测维度和方式</Text>
-
-            <Form.Item 
-              label="评测维度" 
-              required
-              className={styles.formItem}
-            >
-              <Space direction="vertical" className={styles.checkboxGroup}>
-                <Form.Item name="accuracy" valuePropName="checked" noStyle>
-                  <Checkbox>准确性</Checkbox>
-                </Form.Item>
-                <Text type="secondary">评估回答与标准答案的事实一致性</Text>
-                
-                <Form.Item name="relevance" valuePropName="checked" noStyle>
-                  <Checkbox>相关性</Checkbox>
-                </Form.Item>
-                <Text type="secondary">评估回答与问题的匹配度</Text>
-                
-                <Form.Item name="completeness" valuePropName="checked" noStyle>
-                  <Checkbox>完整性</Checkbox>
-                </Form.Item>
-                <Text type="secondary">评估回答的信息覆盖度</Text>
-                
-                <Form.Item name="conciseness" valuePropName="checked" noStyle>
-                  <Checkbox>简洁性</Checkbox>
-                </Form.Item>
-                <Text type="secondary">评估回答是否无冗余信息</Text>
-              </Space>
-            </Form.Item>
-
-            <Form.Item
-              name="evaluation_method"
-              label="评测方式"
-              className={styles.formItem}
-            >
-              <Select>
-                <Option value="auto">自动评测</Option>
-                <Option value="manual">人工评测</Option>
-                <Option value="hybrid">混合评测</Option>
-              </Select>
-            </Form.Item>
-
-            <Form.Item
-              name="scoring_scale"
-              label="评分规则"
-              className={styles.formItem}
-            >
-              <Select>
-                <Option value="1-3">三分量表（较差/一般/优秀）</Option>
-                <Option value="binary">二元评分（正确/错误）</Option>
-                <Option value="1-5">五分量表（1-5分）</Option>
-              </Select>
-            </Form.Item>
-          </div> */}
 
           <div className={styles.formActions}>
             <Button onClick={() => navigate('/dashboard')}>取消</Button>

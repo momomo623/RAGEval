@@ -5,8 +5,8 @@ import {
   Select, Tabs, Spin
 } from 'antd';
 import { 
-  ArrowLeftOutlined, UploadOutlined, InboxOutlined,
-  FileExcelOutlined, FileTextOutlined, QuestionCircleOutlined
+  ArrowLeftOutlined, InboxOutlined,
+  FileExcelOutlined
 } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import { RcFile } from 'antd/lib/upload';
@@ -17,7 +17,6 @@ import styles from './ImportData.module.css';
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
 const { Option } = Select;
-const { TabPane } = Tabs;
 const { Dragger } = Upload;
 
 const ImportDataPage: React.FC = () => {

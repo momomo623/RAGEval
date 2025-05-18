@@ -11,7 +11,6 @@ import styles from './CreateDataset.module.css';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
-const { Option } = Select;
 
 const CreateDatasetPage: React.FC = () => {
   const [form] = Form.useForm();
@@ -20,17 +19,8 @@ const CreateDatasetPage: React.FC = () => {
   const [tags, setTags] = useState<string[]>([]);
   const [inputVisible, setInputVisible] = useState(false);
   const [inputValue, setInputValue] = useState('');
-  const [fileList, setFileList] = useState<any[]>([]);
   
   const navigate = useNavigate();
-
-  // 使用 Form.useWatch 正确监听表单值变化
-  // const isPublic = Form.useWatch('is_public', form);
-  
-  // 监听公开状态变化
-  // useEffect(() => {
-  //   console.log('公开状态变化:', isPublic);
-  // }, [isPublic]);
 
   const handleSubmit = async (values: any) => {
 
@@ -109,11 +99,6 @@ const CreateDatasetPage: React.FC = () => {
           initialValues={{
             is_public: false
           }}
-          // onValuesChange={(changedValues) => {
-          //   if ('is_public' in changedValues) {
-          //     console.log('公开状态改变为:', changedValues.is_public);
-          //   }
-          // }}
         >
           <div className={styles.section}>
             <Title level={4}>基本信息</Title>
@@ -194,38 +179,6 @@ const CreateDatasetPage: React.FC = () => {
 
           <Divider />
 
-          {/* <div className={styles.section}>
-            <Title level={4}>数据导入选项</Title>
-            <Text type="secondary">选择如何添加问答数据</Text>
-
-            <div className={styles.importOptions}>
-              <Radio.Group 
-                value={importOption} 
-                onChange={(e) => setImportOption(e.target.value)}
-              >
-                <Space direction="vertical" className={styles.radioSpace}>
-                  <Radio value="empty">
-                    <div>
-                      <Text strong>创建空数据集</Text>
-                      <div className={styles.optionDescription}>创建空数据集后，可以手动添加问答对或通过导入功能批量添加</div>
-                    </div>
-                  </Radio>
-                  <Radio value="file">
-                    <div>
-                      <Text strong>从Excel/CSV导入</Text>
-                      <div className={styles.optionDescription}>上传Excel或CSV文件，批量导入问答对数据</div>
-                    </div>
-                  </Radio>
-                  <Radio value="generate">
-                    <div>
-                      <Text strong>基于大模型生成问答对</Text>
-                      <div className={styles.optionDescription}>使用大模型基于文档或文本自动生成问答对</div>
-                    </div>
-                  </Radio>
-                </Space>
-              </Radio.Group>
-            </div>
-          </div> */}
 
           <div className={styles.formActions}>
             <Button onClick={() => navigate('/datasets')}>取消</Button>

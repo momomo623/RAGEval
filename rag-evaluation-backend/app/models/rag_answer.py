@@ -52,7 +52,7 @@ class ApiConfig(Base):
     endpoint_url = Column(String(255), nullable=False)
     auth_type = Column(String(20), default="none")  # none, api_key, basic, oauth
     auth_config = Column(JSONB)  # 认证配置
-    request_template = Column(JSONB)  # 请求模板
+    request_template = Column(JSONB)  # 请求体
     headers = Column(JSONB)  # 请求头
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now()) 

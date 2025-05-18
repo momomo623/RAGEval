@@ -14,11 +14,8 @@ import { datasetService } from '../../../services/dataset.service';
 import { Dataset } from '../../../types/dataset';
 import { api } from '../../../utils/api';
 import styles from './ProjectDetail.module.css';
-// import ConfigButton from '../../../components/ConfigButton';
-// import { useConfigContext } from '../../../contexts/ConfigContext';
 import { PerformanceTestsManager } from '../PerformanceTests/PerformanceTestsManager';
 import { AccuracyTestsManager } from '../AccuracyTests/AccuracyTestsManager';
-// import { ConfigManager, RAGConfig } from '../../../utils/configManager';
 
 const { Title, Text, Paragraph } = Typography;
 const { TabPane } = Tabs;
@@ -27,13 +24,11 @@ const { confirm } = Modal;
 const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  // const { getLLMConfig, getRAGConfig } = useConfigContext();
 
   const [loading, setLoading] = useState(true);
   const [project, setProject] = useState<any>(null);
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [activeTab, setActiveTab] = useState('overview');
-  // const [isConfigured, setIsConfigured] = useState(false);
   const [accuracyTestCount, setAccuracyTestCount] = useState(0);
   const [performanceTestCount, setPerformanceTestCount] = useState(0);
 
@@ -43,15 +38,6 @@ const ProjectDetailPage: React.FC = () => {
     }
   }, [id]);
 
-  // 检查配置的useEffect已不再需要
-  // useEffect(() => {
-  //   const checkConfig = async () => {
-  //     const configManager = ConfigManager.getInstance();
-  //     const configs = await configManager.getAllConfigs<RAGConfig>('rag');
-  //     setIsConfigured(configs.length > 0);
-  //   };
-  //   checkConfig();
-  // }, []);
 
   const fetchProjectDetail = async () => {
     try {
@@ -145,19 +131,6 @@ const ProjectDetailPage: React.FC = () => {
     setActiveTab(key);
   };
 
-  // 启动新评测功能已移至其他组件
-  // const handleStartEvaluation = () => {
-  //   const llmConfig = getLLMConfig();
-  //   const ragConfig = getRAGConfig();
-  //
-  //   if (!llmConfig || !ragConfig) {
-  //     // 提示用户配置
-  //     return;
-  //   }
-  //
-  //   // 开始评测逻辑...
-  //   console.log('使用配置进行评测:', { llmConfig, ragConfig });
-  // };
 
   // 查看评测报告
   const handleViewReports = () => {
@@ -228,20 +201,6 @@ const ProjectDetailPage: React.FC = () => {
           <Descriptions.Item label="创建时间">{new Date(project.created_at).toLocaleString()}</Descriptions.Item>
           <Descriptions.Item label="最后更新">{new Date(project.updated_at).toLocaleString()}</Descriptions.Item>
 
-          {/* <Descriptions.Item label="评分方式">
-            {{
-              'binary': '二元评分 (0/1)',
-              '1-3': '三分制 (1-3)',
-              '1-5': '五分制 (1-5)'
-            }[project.scoring_scale] || project.scoring_scale}
-          </Descriptions.Item> */}
-          {/* <Descriptions.Item label="项目状态">
-            {{
-              'created': <Tag color="blue">新建</Tag>,
-              'in_progress': <Tag color="orange">进行中</Tag>,
-              'completed': <Tag color="green">已完成</Tag>
-            }[project.status] || <Tag>{project.status}</Tag>}
-          </Descriptions.Item> */}
           <Descriptions.Item label="描述" span={3}>{project.description || '无描述'}</Descriptions.Item>
         </Descriptions>
       </Card>

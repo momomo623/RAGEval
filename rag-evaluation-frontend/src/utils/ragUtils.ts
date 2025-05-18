@@ -56,7 +56,7 @@ export const executeRAGRequest = async (
   let fullContent = '';
   
   try {
-    // 替换请求模板中的问题
+    // 替换请求体中的问题
     let requestBody = JSON.parse(JSON.stringify(config.requestTemplate));
     // 递归替换问题占位符
     const replaceInObj = (obj: any) => {

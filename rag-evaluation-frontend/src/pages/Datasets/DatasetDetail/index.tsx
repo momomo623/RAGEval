@@ -1,42 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Layout, Typography, Button, Card, Tag, Spin, message,
-  Table, Space, Input, Select, Modal, Menu, Dropdown,
-  Tooltip, Checkbox, Row, Col, Divider, Tabs, Breadcrumb,
-  Form, Popconfirm, Radio, Empty
+  Layout, Typography, Button, Card, Spin, message,
+  Modal, Tabs, Breadcrumb, Form, Select
 } from 'antd';
 import { 
-  ArrowLeftOutlined, EditOutlined, DeleteOutlined, DownloadOutlined,
-  PlusOutlined, ExclamationCircleOutlined, LinkOutlined, UploadOutlined,
-  SearchOutlined, FilterOutlined, EyeOutlined, LockOutlined, CopyOutlined,
-  QuestionOutlined
+  ExclamationCircleOutlined, 
 } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DatasetDetail, Question } from '../../../types/dataset';
 import { datasetService } from '../../../services/dataset.service';
 import { ragAnswerService } from '../../../services/rag-answer.service';
 import styles from './DatasetDetail.module.css';
-import TextArea from 'antd/es/input/TextArea';
 import QuestionGenerationContent from '../../QuestionGeneration/QuestionGenerationContent';
 
-const { Title, Text, Paragraph } = Typography;
-const { Option } = Select;
+// 导入子组件
+import DatasetHeader from './components/DatasetHeader';
+import QuestionListTab from './components/QuestionListTab';
+import RelatedProjectsTab from './components/RelatedProjectsTab';
+import AddQuestionModal from './components/AddQuestionModal';
+import RagAnswerModal from './components/RagAnswerModal';
+
+const { Title, Text } = Typography;
 const { TabPane } = Tabs;
 const { confirm } = Modal;
 
-interface QuestionWithRag extends Question {
-  rag_answers?: Array<{
-    id: string;
-    answer: string;
-    version: string;
-    collection_method: string;
-    created_at: string;
-    first_response_time?: number;
-    total_response_time?: number;
-    character_count?: number;
-    characters_per_second?: number;
-  }>;
-}
 
 const DatasetDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -63,7 +50,6 @@ const DatasetDetailPage: React.FC = () => {
   const [addTabMode, setAddTabMode] = useState<'single' | 'batch'>('single');
   const [delimiterType, setDelimiterType] = useState<'tab' | 'symbol'>('tab');
   const [includeRagAnswer, setIncludeRagAnswer] = useState<boolean>(false);
-  const [ragVersion, setRagVersion] = useState<string>('v1');
   const [form] = Form.useForm();
   const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([]);
   const [isRagAnswerModalVisible, setIsRagAnswerModalVisible] = useState(false);
@@ -74,7 +60,6 @@ const DatasetDetailPage: React.FC = () => {
   
   useEffect(() => {
     if (id) {
-      // fetchDatasetDetail(id);
       fetchQuestions(id, {
         page: currentPage,
         size: pageSize,
@@ -84,6 +69,7 @@ const DatasetDetailPage: React.FC = () => {
       });
     }
   }, [id, currentPage, pageSize, searchText, categoryFilter, difficultyFilter]);
+
   useEffect(() => {
     if (id) {
       fetchDatasetDetail(id);
@@ -166,10 +152,6 @@ const DatasetDetailPage: React.FC = () => {
     navigate(`/datasets/${id}/import`);
   };
   
-  const handleExportData = () => {
-    message.info('导出功能正在开发中');
-  };
-  
   const handleAddQuestion = () => {
     setIsAddModalVisible(true);
   };
@@ -177,21 +159,6 @@ const DatasetDetailPage: React.FC = () => {
   const handleSearch = (value: string) => {
     setSearchText(value);
     setCurrentPage(1);
-  };
-  
-  const handleCategoryFilterChange = (value: string) => {
-    setCategoryFilter(value === 'all' ? undefined : value);
-    setCurrentPage(1);
-  };
-  
-  const handleDifficultyFilterChange = (value: string) => {
-    setDifficultyFilter(value === 'all' ? undefined : value);
-    setCurrentPage(1);
-  };
-  
-  const handleTableChange = (pagination: any) => {
-    setCurrentPage(pagination.current);
-    setPageSize(pagination.pageSize);
   };
   
   const handleSelectChange = (selectedRowKeys: React.Key[]) => {
@@ -227,40 +194,6 @@ const DatasetDetailPage: React.FC = () => {
       }
     });
   };
-  
-  const handleCopyDataset = () => {
-    Modal.confirm({
-      title: '复制到我的数据集',
-      content: (
-        <div>
-          <p>您将创建此数据集的个人副本，包括其中所有问题。</p>
-          <Input 
-            placeholder="新数据集名称（可选）" 
-            id="new-dataset-name"
-          />
-        </div>
-      ),
-      onOk: async () => {
-        try {
-          const nameInput = document.getElementById('new-dataset-name') as HTMLInputElement;
-          if (!dataset) {
-            message.error('数据集信息不存在');
-            return;
-          }
-          const newName = nameInput?.value || `${dataset.name} (复制)`;
-          
-          const newDataset = await datasetService.copyDataset(dataset.id, newName);
-          message.success('数据集已复制到您的账户');
-          navigate(`/datasets/${newDataset.id}`);
-        } catch (error) {
-          console.error('复制数据集失败:', error);
-          message.error('复制数据集失败，请重试');
-        }
-      }
-    });
-  };
-  
-  const isEditing = (record: Question) => record.id === editingKey;
   
   const edit = (record: Question) => {
     form.setFieldsValue({
@@ -434,135 +367,6 @@ const DatasetDetailPage: React.FC = () => {
     }
   };
   
-  // 添加表格样式
-  const tableStyle = {
-    width: '100%',
-    overflow: 'auto'
-  };
-  
-  const renderRagAnswers = (ragAnswers: any[], questionId: string) => {
-    // 确保ragAnswers是数组
-    if (!ragAnswers) {
-      ragAnswers = [];
-    }
-    
-    // 当没有RAG回答时显示更友好的界面
-    if (ragAnswers.length === 0) {
-      return (
-        <div className={styles.ragAnswersContainer}>
-          <div className={styles.emptyRagContainer}>
-            <div className={styles.emptyRagIcon}>
-              <QuestionOutlined />
-            </div>
-            <div className={styles.emptyRagText}>
-              该问题还没有RAG回答
-            </div>
-            <Button 
-              type="primary" 
-              icon={<PlusOutlined />}
-              onClick={() => showAddRagAnswerModal(questionId)}
-            >
-              添加RAG回答
-            </Button>
-          </div>
-        </div>
-      );
-    }
-    
-    // 按版本分组
-    const versionGroups = ragAnswers.reduce((groups: any, answer: any) => {
-      const version = answer.version || '未知版本';
-      if (!groups[version]) {
-        groups[version] = [];
-      }
-      groups[version].push(answer);
-      return groups;
-    }, {});
-    
-    return (
-      <div className={styles.ragAnswersContainer}>
-        <div className={styles.ragAnswersHeader}>
-          <span style={{fontSize: '16px', fontWeight: 'bold'}}>RAG系统回答 ({ragAnswers.length}个)</span>
-          <Button 
-            type="primary" 
-            size="small" 
-            icon={<PlusOutlined />}
-            onClick={() => showAddRagAnswerModal(questionId)}
-          >
-            添加RAG回答
-          </Button>
-        </div>
-        
-        <Tabs type="card" size="small">
-          {Object.entries(versionGroups).map(([version, answers]) => {
-            const answerArray = Array.isArray(answers) ? answers : [];
-            return (
-              <TabPane tab={`${version} (${answerArray.length})`} key={version}>
-                {answerArray.map((answer) => (
-                  <Card 
-                    key={answer.id} 
-                    size="small" 
-                    className={styles.ragAnswerCard}
-                    title={
-                      <div className={styles.ragAnswerHeader}>
-                        <span>版本: {answer.version || '未知'}</span>
-                        <span>收集方式: {answer.collection_method}</span>
-                        <span>时间: {new Date(answer.created_at).toLocaleString()}</span>
-                        <div className={styles.ragAnswerActions}>
-                          <Button 
-                            type="link" 
-                            icon={<EditOutlined />} 
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              showEditRagAnswerModal(answer, questionId);
-                            }}
-                          >
-                            编辑
-                          </Button>
-                          <Popconfirm
-                            title="确定要删除此RAG回答吗?"
-                            onConfirm={(e) => {
-                              e?.stopPropagation();
-                              handleDeleteRagAnswer(answer.id, questionId);
-                            }}
-                            onCancel={(e) => e?.stopPropagation()}
-                          >
-                            <Button 
-                              type="link" 
-                              danger 
-                              icon={<DeleteOutlined />} 
-                              size="small"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              删除
-                            </Button>
-                          </Popconfirm>
-                        </div>
-                      </div>
-                    }
-                  >
-                    <div className={styles.ragAnswerContent}>
-                      {answer.answer}
-                    </div>
-                    {answer.first_response_time && (
-                      <div className={styles.ragAnswerPerformance}>
-                        <Tag color="blue">首次响应: {answer.first_response_time.toFixed(2)}秒</Tag>
-                        <Tag color="green">总响应时间: {answer.total_response_time?.toFixed(2)}秒</Tag>
-                        <Tag color="purple">字符数: {answer.character_count}</Tag>
-                        <Tag color="orange">生成速度: {answer.characters_per_second?.toFixed(2)}字/秒</Tag>
-                      </div>
-                    )}
-                  </Card>
-                ))}
-              </TabPane>
-            );
-          })}
-        </Tabs>
-      </div>
-    );
-  };
-  
   // 显示添加 RAG 回答模态框
   const showAddRagAnswerModal = (questionId: string) => {
     setCurrentQuestionId(questionId);
@@ -588,14 +392,14 @@ const DatasetDetailPage: React.FC = () => {
     try {
       const values = await ragAnswerForm.validateFields();
       
-      // 创建请求数据对象，使用 answer 而不是 answer
+      // 创建请求数据对象
       const requestData = editingRagAnswer ? {
-        answer: values.answer,  // 更新时使用 answer
+        answer: values.answer,
         version: values.version,
         collection_method: values.collection_method,
         question_id: currentQuestionId
       } : {
-        answer: values.answer,      // 创建时使用 answer
+        answer: values.answer,
         version: values.version,
         collection_method: values.collection_method,
         question_id: currentQuestionId
@@ -647,177 +451,6 @@ const DatasetDetailPage: React.FC = () => {
       console.error('删除RAG回答失败:', error);
       message.error('删除失败，请重试');
     }
-  };
-  
-  const columns = [
-    {
-      title: '序号',
-      dataIndex: 'index',
-      key: 'index',
-      width: 60,
-      // 居中
-      align: 'center',
-      render: (_: any, __: any, index: number) => (currentPage - 1) * pageSize + index + 1,
-    },
-    {
-      title: '问题',
-      dataIndex: 'question_text',
-      key: 'question_text',
-      width: 300,
-      ellipsis: true,
-      render: (text: string, record: QuestionWithRag) => {
-        if (isEditing(record)) {
-          return (
-            <Form.Item
-              name="question_text"
-              style={{ margin: 0 }}
-              rules={[{ required: true, message: '请输入问题' }]}
-            >
-              <Input.TextArea autoSize />
-            </Form.Item>
-          );
-        }
-        
-        return (
-          <div 
-            className={styles.questionContainer}
-            onClick={() => {
-              // 无论是否有RAG回答，点击都可以展开
-              if (expandedRowKeys.includes(record.id)) {
-                setExpandedRowKeys([]);
-              } else {
-                setExpandedRowKeys([record.id]);
-              }
-            }}
-          >
-            <div className={styles.questionText}>
-              <Tooltip title={text} placement="topLeft" overlayStyle={{ maxWidth: '600px' }}>
-                <span>{text}</span>
-              </Tooltip>
-            </div>
-            {/* 改为始终显示RAG标签，只是根据有无回答来区分样式 */}
-            <Tag 
-              color={record.rag_answers?.length ? "blue" : "default"} 
-              className={styles.ragBadge}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (expandedRowKeys.includes(record.id)) {
-                  setExpandedRowKeys([]);
-                } else {
-                  setExpandedRowKeys([record.id]);
-                }
-              }}
-            >
-              {record.rag_answers?.length ? (
-                <>
-                  <span className={styles.ragCount}>{record.rag_answers.length}</span>
-                  <span className={styles.ragLabel}>RAG</span>
-                </>
-              ) : (
-                <span className={styles.ragLabel}>添加RAG</span>
-              )}
-            </Tag>
-          </div>
-        );
-      },
-    },
-    {
-      title: '标准答案',
-      width: 350,
-      dataIndex: 'standard_answer',
-      key: 'standard_answer',
-      ellipsis: true,
-      render: (text: string, record: Question) => {
-        if (isEditing(record)) {
-          return (
-            <Form.Item
-              name="standard_answer"
-              style={{ margin: 0 }}
-              rules={[{ required: true, message: '请输入标准答案' }]}
-            >
-              <Input.TextArea autoSize />
-            </Form.Item>
-          );
-        }
-        return (
-          <Tooltip title={text} placement="topLeft" overlayStyle={{ maxWidth: '600px' }}>
-            <span>{text}</span>
-          </Tooltip>
-        );
-      },
-    },
-    {
-      title: '难度',
-      dataIndex: 'difficulty',
-      key: 'difficulty',
-      width: 100,
-      render: (text) => {
-        const difficultyMap = {
-          'easy': '简单',
-          'medium': '中等',
-          'hard': '困难'
-        };
-        return difficultyMap[text] || text;
-      }
-    },
-    {
-      title: '分类',
-      dataIndex: 'category',
-      key: 'category',
-      width: 100,
-      render: (text) => {
-        const categoryMap = {
-          'factoid': '事实型',
-          'conceptual': '概念型',
-          'procedural': '程序型',
-          'comparative': '比较型'
-        };
-        return categoryMap[text] || text;
-      }
-    },
-    
-    {
-      title: '操作',
-      key: 'action',
-      width: 140, // 减小宽度
-      fixed: 'right',
-      render: (_: any, record: Question) => {
-        const editable = isEditing(record);
-        return editable ? (
-          <span>
-            <Button 
-              type="link" 
-              onClick={() => save(record.id)} 
-              style={{ marginRight: 8 }}
-            >
-              保存
-            </Button>
-            <Button type="link" onClick={cancel}>取消</Button>
-          </span>
-        ) : (
-          <Space>
-            <Button 
-              type="link" 
-              disabled={editingKey !== ''} 
-              onClick={() => edit(record)}
-            >
-              编辑
-            </Button>
-            <Popconfirm
-              title="确定要删除此问题吗?"
-              onConfirm={() => handleDeleteQuestion(record.id)}
-            >
-              <Button type="link" danger>删除</Button>
-            </Popconfirm>
-          </Space>
-        );
-      }
-    },
-  ];
-  
-  const rowSelection = {
-    selectedRowKeys,
-    onChange: handleSelectChange,
   };
   
   const handlePageChange = (page: number, pageSize?: number) => {
@@ -872,6 +505,8 @@ const DatasetDetailPage: React.FC = () => {
     }
   };
   
+
+  
   if (loading) {
     return (
       <div className={styles.loadingContainer}>
@@ -907,221 +542,76 @@ const DatasetDetailPage: React.FC = () => {
         <Breadcrumb.Item>{dataset.name}</Breadcrumb.Item>
       </Breadcrumb>
       
-      <div className={styles.pageHeader}>
-        <div className={styles.titleSection}>
-          <div className={styles.titleInfo}>
-            <Title level={2}>{dataset.name}</Title>
-            <div className={styles.titleMeta}>
-              {dataset.is_public ? (
-                <Tag color="green" icon={<EyeOutlined />}>公开</Tag>
-              ) : (
-                <Tag color="default" icon={<LockOutlined />}>私有</Tag>
-              )}
-              <Text type="secondary">
-                {dataset.question_count} 个问题 | 创建于 {new Date(dataset.created_at).toLocaleDateString()}
-              </Text>
-            </div>
-          </div>
-          <div className={styles.actionButtons}>
-            <Space>
-              {isOwner ? (
-                /* 所有者可以编辑和删除 */
-                <>
-                  <Button 
-                    icon={<EditOutlined />} 
-                    onClick={handleEditDataset}
-                  >
-                    编辑
-                  </Button>
-                  <Button 
-                    icon={<DeleteOutlined />} 
-                    danger
-                    onClick={handleDeleteDataset}
-                  >
-                    删除
-                  </Button>
-                  <Dropdown 
-                    overlay={
-                      <Menu>
-                        <Menu.Item key="import" icon={<UploadOutlined />} onClick={handleImportData}>
-                          导入数据
-                        </Menu.Item>
-                        <Menu.Item key="export" icon={<DownloadOutlined />} onClick={handleExport}>
-                          导出数据
-                        </Menu.Item>
-                      </Menu>
-                    }
-                  >
-                    <Button>
-                      更多 <DownloadOutlined />
-                    </Button>
-                  </Dropdown>
-                </>
-              ) : (
-                /* 非所有者只能查看和复制 */
-                <>
-                  {/* {dataset.is_public && (
-                    <Button 
-                      type="primary"
-                      icon={<CopyOutlined />} 
-                      onClick={handleCopyDataset}
-                    >
-                      复制到我的数据集
-                    </Button>
-                  )} */}
-                  <Button 
-                    icon={<DownloadOutlined />} 
-                    onClick={handleExport}
-                  >
-                    导出数据
-                  </Button>
-                </>
-              )}
-            </Space>
-          </div>
-        </div>
-        
-        {dataset.description && (
-          <Paragraph className={styles.description}>
-            {dataset.description}
-          </Paragraph>
-        )}
-        
-        {dataset.tags && dataset.tags.length > 0 && (
-          <div className={styles.tags}>
-            {dataset.tags.map((tag, index) => (
-              <Tag key={index} color="blue">{tag}</Tag>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* 数据集头部信息 */}
+      <DatasetHeader 
+        dataset={dataset}
+        isOwner={isOwner}
+        onEditDataset={handleEditDataset}
+        onDeleteDataset={handleDeleteDataset}
+        onImportData={handleImportData}
+        onExportData={handleExport}
+      />
       
       <Card className={styles.contentCard}>
         <Tabs defaultActiveKey="questions" activeKey={activeTabKey} onChange={handleTabChange}>
           <TabPane tab="问题列表" key="questions">
-            <div className={styles.tableHeader}>
-              <div className={styles.tableActions}>
-                <Button 
-                  type="primary" 
-                  icon={<PlusOutlined />}
-                  onClick={handleAddQuestion}
-                >
-                  添加问题
-                </Button>
-                {selectedRowKeys.length > 0 && (
-                  <Button 
-                    danger 
-                    icon={<DeleteOutlined />} 
-                    onClick={handleBatchDelete}
-                  >
-                    删除所选 ({selectedRowKeys.length})
-                  </Button>
-                )}
-              </div>
-              <div className={styles.tableFilters}>
-                {/* <Select 
-                  defaultValue="all" 
-                  style={{ width: 120 }} 
-                  onChange={handleCategoryFilterChange}
-                >
-                  <Option value="all">所有分类</Option>
-                  <Option value="factual">事实型</Option>
-                  <Option value="conceptual">概念型</Option>
-                  <Option value="procedural">操作型</Option>
-                </Select>
-                <Select 
-                  defaultValue="all" 
-                  style={{ width: 120 }} 
-                  onChange={handleDifficultyFilterChange}
-                >
-                  <Option value="all">所有难度</Option>
-                  <Option value="easy">简单</Option>
-                  <Option value="medium">中等</Option>
-                  <Option value="hard">困难</Option>
-                </Select> */}
-                <Input.Search
-                  placeholder="搜索问题"
-                  allowClear
-                  onSearch={handleSearch}
-                  style={{ width: 250 }}
-                />
-              </div>
-            </div>
-            
-            {!questionsLoading && questions.length > 0 ? (
-              <div className={styles.tableContainer}>
-                <Form form={form}>
-                  <Table
-                    rowSelection={rowSelection}
-                    columns={columns as any}
-                    dataSource={questions as QuestionWithRag[]}
-                    rowKey="id"
-                    pagination={{
-                      current: currentPage,
-                      pageSize: pageSize,
-                      total: total,
-                      onChange: handlePageChange,
-                      showSizeChanger: true,
-                      onShowSizeChange: handlePageSizeChange
-                    }}
-                    expandable={{
-                      expandedRowKeys,
-                      onExpand: (expanded, record) => {
-                        setExpandedRowKeys(expanded ? [record.id] : []);
-                      },
-                      expandedRowRender: (record: QuestionWithRag) => 
-                        renderRagAnswers(record.rag_answers || [], record.id),
-                      showExpandColumn: false,
-                    }}
-                    scroll={{ x: 950 }}
-                  />
-                </Form>
-              </div>
-            ) : (
-              <Empty description={questionsLoading ? "加载中..." : "暂无数据"} />
-            )}
+            <QuestionListTab 
+              questions={questions}
+              questionsLoading={questionsLoading}
+              total={total}
+              currentPage={currentPage}
+              pageSize={pageSize}
+              searchText={searchText}
+              categoryFilter={categoryFilter}
+              difficultyFilter={difficultyFilter}
+              selectedRowKeys={selectedRowKeys}
+              editingKey={editingKey}
+              expandedRowKeys={expandedRowKeys}
+              form={form}
+              onAddQuestion={handleAddQuestion}
+              onSearch={handleSearch}
+              onSelectChange={handleSelectChange}
+              onBatchDelete={handleBatchDelete}
+              onEdit={edit}
+              onSave={save}
+              onCancel={cancel}
+              onDeleteQuestion={handleDeleteQuestion}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+              onExpandedRowsChange={setExpandedRowKeys}
+              showAddRagAnswerModal={showAddRagAnswerModal}
+              showEditRagAnswerModal={showEditRagAnswerModal}
+              handleDeleteRagAnswer={handleDeleteRagAnswer}
+            />
           </TabPane>
+          
           <TabPane tab="关联项目" key="projects">
-            <div className={styles.projectsContainer}>
-              {dataset.projects && dataset.projects.length > 0 ? (
-                <div className={styles.projectList}>
-
-                  {(dataset.projects || []).map(project => (
-                    <Card key={project.id} className={styles.projectCard}>
-                      <div className={styles.projectInfo}>
-                        <Title level={5}>{project.name}</Title>
-                      </div>
-                      <div className={styles.projectActions}>
-                        <Button 
-                          type="link" 
-                          onClick={() => navigate(`/projects/${project.id}`)}
-                        >
-                          查看项目
-                        </Button>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <div className={styles.emptyProjects}>
-                  <Text type="secondary">该数据集尚未与任何项目关联</Text>
-                </div>
-              )}
-            </div>
+            <RelatedProjectsTab dataset={dataset} />
           </TabPane>
 
           {/* AI生成问答对 */}
           <TabPane tab="AI生成问答对" key="generate-qa">
-            {dataset && id && <QuestionGenerationContent datasetId={id} onGenerationComplete={fetchQuestions} />}
+            {dataset && id && (
+              <QuestionGenerationContent
+                datasetId={id}
+                onGenerationComplete={() => {
+                  fetchQuestions(id, {
+                    page: currentPage,
+                    size: pageSize,
+                    search: searchText,
+                    category: categoryFilter,
+                    difficulty: difficultyFilter
+                  });
+                }}
+              />
+            )}
           </TabPane>
-
         </Tabs>
       </Card>
       
-      <Modal
-        title="添加新问题"
+      {/* 添加问题模态框 */}
+      <AddQuestionModal 
         visible={isAddModalVisible}
-        onOk={handleAddSubmit}
         onCancel={() => {
           setIsAddModalVisible(false);
           addForm.resetFields();
@@ -1129,260 +619,29 @@ const DatasetDetailPage: React.FC = () => {
           setBatchPreview([]);
           setIncludeRagAnswer(false);
         }}
-        width={800}
-        okText="添加"
-        cancelText="取消"
-      >
-        <Tabs defaultActiveKey="single" onChange={(key) => setAddTabMode(key as 'single' | 'batch')}>
-          <TabPane tab="单个添加" key="single">
-            <Form
-              form={addForm}
-              layout="vertical"
-            >
-              <Row gutter={24}>
-                <Col span={12}>
-                  <Form.Item
-                    name="question_text"
-                    label="问题"
-                    rules={[{ required: true, message: '请输入问题' }]}
-                  >
-                    <TextArea rows={4} placeholder="请输入问题内容" />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item
-                    name="standard_answer"
-                    label="标准答案"
-                    
-                    rules={[{ required: true, message: '请输入标准答案' }]}
-                  >
-                    <TextArea rows={4} placeholder="请输入标准答案" />
-                  </Form.Item>
-                </Col>
-
-    
-
-
-              </Row>
-              
-              <Row gutter={16}>
-                <Col span={8}>
-                  <Form.Item
-                    name="category"
-                    label="分类"
-                    initialValue="事实型"
-                  >
-                    <Select>
-                      <Option value="事实型">事实型</Option>
-                      <Option value="概念型">概念型</Option>
-                      <Option value="程序型">程序型</Option>
-                      <Option value="比较型">比较型</Option>
-                    </Select>
-                  </Form.Item>
-                </Col>
-                
-                <Col span={8}>
-                  <Form.Item
-                    name="difficulty"
-                    label="难度"
-                    initialValue="medium"
-                  >
-                    <Select>
-                      <Option value="easy">简单</Option>
-                      <Option value="medium">中等</Option>
-                      <Option value="hard">困难</Option>
-                    </Select>
-                  </Form.Item>
-                </Col>
-                
-                <Col span={8}>
-                  <Form.Item
-                    name="tags"
-                    label="标签"
-                  >
-                    <Select mode="tags" placeholder="添加标签">
-                      <Option value="important">重要</Option>
-                      <Option value="api">API</Option>
-                      <Option value="feature">功能</Option>
-                      <Option value="all">可自定义输入</Option>
-                    </Select>
-                  </Form.Item>
-                </Col>
-              </Row>
-              
-              <Divider>
-                <Checkbox 
-                  checked={includeRagAnswer} 
-                  onChange={(e) => setIncludeRagAnswer(e.target.checked)}
-                >
-                  包含RAG系统回答
-                </Checkbox>
-              </Divider>
-              
-              {includeRagAnswer && (
-                <div className={styles.ragAnswerSection}>
-                  <Row gutter={24}>
-                    <Col span={18}>
-                      <Form.Item
-                        name="rag_answer"
-                        label="RAG系统回答"
-                      >
-                        <TextArea rows={4} placeholder="请输入RAG系统的回答内容" />
-                      </Form.Item>
-                    </Col>
-                    <Col span={6}>
-                      <Form.Item
-                        name="rag_version"
-                        label="版本"
-                        initialValue="v1"
-                      >
-                        <Input placeholder="版本号，如v1" />
-                      </Form.Item>
-                    </Col>
-                  </Row>
-                </div>
-              )}
-            </Form>
-          </TabPane>
-          
-          <TabPane tab="批量添加" key="batch">
-            <div className={styles.batchAddContainer}>
-              <div className={styles.batchInstructions}>
-                <Title level={5}>批量添加说明</Title>
-                <div >
-                  <Radio.Group 
-                    value={delimiterType} 
-                    onChange={(e) => setDelimiterType(e.target.value)}
-                    style={{ marginBottom: '8px' }}
-                  >
-                    <Radio value="tab">Tab分隔（支持表格直接复制）</Radio>
-                    <Radio value="symbol">@@符号分隔</Radio>
-                  </Radio.Group>
-                  
-                  <Checkbox 
-                    checked={includeRagAnswer} 
-                    onChange={(e) => setIncludeRagAnswer(e.target.checked)}
-                    style={{ marginLeft: '16px' }}
-                  >
-                    包含RAG回答字段
-                  </Checkbox>
-                </div>  
-                
-                <Text>每行一个问题，格式为：</Text>
-                {includeRagAnswer ? (
-                  <Text>问题<span style={{color: 'red'}}>{delimiterType === 'tab' ? '[Tab]' : '@@'}</span>标准答案<span style={{color: 'red'}}>{delimiterType === 'tab' ? '[Tab]' : '@@'}</span>分类<span style={{color: 'red'}}>{delimiterType === 'tab' ? '[Tab]' : '@@'}</span>难度<span style={{color: 'red'}}>{delimiterType === 'tab' ? '[Tab]' : '@@'}</span>RAG回答<span style={{color: 'red'}}>{delimiterType === 'tab' ? '[Tab]' : '@@'}</span>版本</Text>
-                ) : (
-                  <Text>问题<span style={{color: 'red'}}>{delimiterType === 'tab' ? '[Tab]' : '@@'}</span>标准答案<span style={{color: 'red'}}>{delimiterType === 'tab' ? '[Tab]' : '@@'}</span>分类<span style={{color: 'red'}}>{delimiterType === 'tab' ? '[Tab]' : '@@'}</span>难度</Text>
-                )}
-                <Text type="secondary">。分类、难度{includeRagAnswer ? '和版本' : ''}可以省略，将使用默认值。</Text>
-                {/* <Text type="secondary">Tab分隔支持从Excel或表格直接复制</Text> */}
-              </div>
-              
-              <Form.Item
-                label="批量输入问题"
-                required
-              >
-                <TextArea 
-                  rows={10} 
-                  value={batchQuestions}
-                  onChange={(e) => handleBatchTextChange(e.target.value)}
-                  placeholder={
-                    includeRagAnswer 
-                      ? `问题1${delimiterType === 'tab' ? '\t' : '@@'}标准答案1${delimiterType === 'tab' ? '\t' : '@@'}分类1${delimiterType === 'tab' ? '\t' : '@@'}难度1${delimiterType === 'tab' ? '\t' : '@@'}RAG回答1${delimiterType === 'tab' ? '\t' : '@@'}v1\n问题2${delimiterType === 'tab' ? '\t' : '@@'}标准答案2${delimiterType === 'tab' ? '\t' : '@@'}分类2${delimiterType === 'tab' ? '\t' : '@@'}难度2${delimiterType === 'tab' ? '\t' : '@@'}RAG回答2${delimiterType === 'tab' ? '\t' : '@@'}v1`
-                      : `问题1${delimiterType === 'tab' ? '\t' : '@@'}标准答案1${delimiterType === 'tab' ? '\t' : '@@'}分类1${delimiterType === 'tab' ? '\t' : '@@'}难度1\n问题2${delimiterType === 'tab' ? '\t' : '@@'}标准答案2${delimiterType === 'tab' ? '\t' : '@@'}分类2${delimiterType === 'tab' ? '\t' : '@@'}难度2`
-                  }
-                />
-              </Form.Item>
-              
-              {batchPreview.length > 0 && (
-                <div className={styles.batchPreview}>
-                  <Divider orientation="left">预览 ({batchPreview.length}个问题)</Divider>
-                  <div className={styles.previewList}>
-                    {batchPreview.slice(0, 5).map((question, index) => (
-                      <div key={index} className={styles.previewItem}>
-                        <div className={styles.previewQuestion}>
-                          <Text strong>问题 {index + 1}:</Text> {question.question_text}
-                        </div>
-                        <div className={styles.previewAnswer}>
-                          <Text type="secondary">标准答案:</Text> {question.standard_answer || '(无)'}
-                        </div>
-                        {question.rag_answer && (
-                          <div className={styles.previewRagAnswer}>
-                            <Text type="secondary">RAG回答:</Text> {question.rag_answer.answer} 
-                            <Tag color="purple" style={{ marginLeft: 8 }}>版本: {question.rag_answer.version}</Tag>
-                          </div>
-                        )}
-                        <div className={styles.previewMeta}>
-                          <Tag color="blue">{question.category || 'general'}</Tag>
-                          <Tag color="orange">{question.difficulty || 'medium'}</Tag>
-                        </div>
-                      </div>
-                    ))}
-                    {batchPreview.length > 5 && (
-                      <div className={styles.previewMore}>
-                        还有 {batchPreview.length - 5} 个问题...
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </TabPane>
-        </Tabs>
-      </Modal>
-
-      {/* RAG 回答编辑模态框 */}
-      <Modal
-        title={editingRagAnswer ? "编辑RAG回答" : "添加RAG回答"}
+        onSubmit={handleAddSubmit}
+        form={addForm}
+        batchQuestions={batchQuestions}
+        batchPreview={batchPreview}
+        includeRagAnswer={includeRagAnswer}
+        setIncludeRagAnswer={setIncludeRagAnswer}
+        addTabMode={addTabMode}
+        setAddTabMode={setAddTabMode}
+        delimiterType={delimiterType}
+        setDelimiterType={setDelimiterType}
+        onBatchTextChange={handleBatchTextChange}
+      />
+      
+      {/* RAG回答编辑模态框 */}
+      <RagAnswerModal 
         visible={isRagAnswerModalVisible}
-        onOk={handleRagAnswerSubmit}
+        editingRagAnswer={editingRagAnswer}
         onCancel={() => setIsRagAnswerModalVisible(false)}
-        width={700}
-        okText={editingRagAnswer ? "更新" : "添加"}
-        cancelText="取消"
-      >
-        <Form
-          form={ragAnswerForm}
-          layout="vertical"
-        >
-          <Form.Item
-            name="answer"
-            label="回答内容"
-            rules={[{ required: true, message: '请输入回答内容' }]}
-          >
-            <TextArea rows={8} placeholder="请输入RAG系统回答内容" />
-          </Form.Item>
-          
-          <Row gutter={24}>
-            <Col span={12}>
-              <Form.Item
-                name="version"
-                label="版本"
-                initialValue="v1"
-                rules={[{ required: true, message: '请输入版本' }]}
-              >
-                <Input placeholder="如：v1, v2, gpt-4等" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="collection_method"
-                label="收集方式"
-                initialValue="manual"
-                rules={[{ required: true, message: '请选择收集方式' }]}
-              >
-                <Select>
-                  <Option value="manual">手动输入</Option>
-                  <Option value="api">API调用</Option>
-                  <Option value="import">导入</Option>
-                </Select>
-              </Form.Item>
-            </Col>
-          </Row>
-        </Form>
-      </Modal>
+        onSubmit={handleRagAnswerSubmit}
+        form={ragAnswerForm}
+      />
     </Layout.Content>
   );
 };
 
-export default DatasetDetailPage; 
+export default DatasetDetailPage;

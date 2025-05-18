@@ -15,8 +15,6 @@ import styles from './AccuracyTests.module.css';
 import { datasetService } from '../../../services/dataset.service';
 import { CreateAccuracyTestForm } from './CreateAccuracyTestForm';
 import { AccuracyTestDetail } from './AccuracyTestDetail';
-import { useConfigContext } from '../../../contexts/ConfigContext';
-// import ConfigButton from '../../../components/ConfigButton';
 import { ConfigManager, RAGConfig, ModelConfig } from '@utils/configManager';
 import { useNavigate } from 'react-router-dom';
 
@@ -37,8 +35,6 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
   const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
   const [runningTestId, setRunningTestId] = useState<string | null>(null);
   const [progress, setProgress] = useState<TestProgress | null>(null);
-  const [testQuestions, setTestQuestions] = useState<any[]>([]);
-  const { getLLMConfig } = useConfigContext();
   const [showConfigWarning, setShowConfigWarning] = useState(false);
   // 添加数据集状态
   const [datasets, setDatasets] = useState<any[]>([]);

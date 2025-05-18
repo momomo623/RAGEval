@@ -304,7 +304,7 @@ export class RAGRequestService {
    * @yields {string} 响应内容片段
    */
   private async* streamDifyChatflow(config: RAGConfig, question: string) {
-    // 组装请求模板
+    // 组装请求体
     const requestTemplate = {
       "inputs": {},
       "query": "{{question}}",
@@ -360,7 +360,7 @@ export class RAGRequestService {
       }
     }
 
-    // 组装请求模板
+    // 组装请求体
     const requestTemplate = {
       "inputs": inputs,
       "response_mode": "streaming",

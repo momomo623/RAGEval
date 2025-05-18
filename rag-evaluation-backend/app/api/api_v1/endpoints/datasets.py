@@ -343,7 +343,7 @@ def update_dataset_api(
     if str(dataset.user_id) != str(current_user.id) and not current_user.is_admin:
         raise HTTPException(status_code=403, detail="无权修改此数据集")
 
-    dataset = update_dataset(db, db_obj=dataset, obj_in=dataset_in)
+    dataset = update_dataset(db, dataset_id=dataset_id, obj_in=dataset_in)
 
     # 获取问题数量
     question_count = db.query(func.count(Question.id)).filter(
