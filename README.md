@@ -44,7 +44,7 @@
 
 > **🌐 测试网址**：[https://rag-eval.chongwenz.cn](https://rag-eval.chongwenz.cn)
 > 
-> **👤 测试账号**：`t1@qq.com` / `1`
+> **👤 测试账号**：`t1@rag.com` / `1`
 >
 > **📺 演示视频**：[快速介绍视频（该视频版本较旧，4月初的版本）](https://www.bilibili.com/video/BV1XLZtYUEgW/?vd_source=45f48aae0c1bdd4da1e70a2f6913ab60#reply114260122277236)
 >
