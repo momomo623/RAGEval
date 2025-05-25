@@ -15,6 +15,7 @@
     <a href="#-快速开始">快速开始</a> •
     <a href="#-核心功能">功能特性</a> •
     <a href="#-在线演示">在线演示</a> •
+    <a href="#-功能截图">功能截图</a> •
     <a href="#-系统架构">系统架构</a> •
     <a href="#-参与贡献">参与贡献</a>
   </p>
@@ -49,6 +50,53 @@
 > **📺 演示视频**：[快速介绍视频（该视频版本较旧，4月初的版本）](https://www.bilibili.com/video/BV1XLZtYUEgW/?vd_source=45f48aae0c1bdd4da1e70a2f6913ab60#reply114260122277236)
 >
 > ⚠️ *注：线上版本可能较旧（当前是5/25日时的版本），建议本地Docker部署体验最新功能*
+
+## 📸 功能截图
+
+### 🔧 系统配置
+<div align="center">
+  <img src="images/系统配置.png" alt="系统配置界面" width="800px"/>
+  <p><em>支持多种大模型API配置和RAG系统接入设置</em></p>
+</div>
+
+### ⚡ 性能测试
+<div align="center">
+  <table>
+    <tr>
+      <td align="center">
+        <img src="images/性能测试ing.png" alt="性能测试进行中" width="400px"/>
+        <br><em>实时性能测试监控</em>
+      </td>
+      <td align="center">
+        <img src="images/性能测试详情.png" alt="性能测试详情" width="400px"/>
+        <br><em>详细的性能指标分析</em>
+      </td>
+    </tr>
+  </table>
+</div>
+
+### 📊 精度评测
+<div align="center">
+  <table>
+    <tr>
+      <td align="center">
+        <img src="images/精度测试ing.png" alt="精度测试进行中" width="400px"/>
+        <br><em>AI自动精度评测过程</em>
+      </td>
+      <td align="center">
+        <img src="images/精度评测详情.png" alt="精度评测详情" width="400px"/>
+        <br><em>多维度精度评测结果</em>
+      </td>
+    </tr>
+  </table>
+</div>
+
+### 🤖AI生成问答对
+<div align="center">
+  <img src="images/AI生成问答对.png" alt="AI生成问答对" width="800px"/>
+  <p><em>支持多种数据格式导入和批量生成</em></p>
+</div>
+
 
 ## ✨ 核心功能
 
