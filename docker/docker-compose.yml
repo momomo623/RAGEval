@@ -1,17 +1,17 @@
 name: rag-evaluation
-version: '1.0'
 
 services:
-  db:
+  # PostgreSQL数据库服务
+  database:
     image: postgres:14
+    container_name: rag-eval-db
     volumes:
       - postgres_data:/var/lib/postgresql/data/
-      - ../docker/sql.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./sql.sql:/docker-entrypoint-initdb.d/init.sql
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=rag_evaluation
-
     ports:
       - "5432:5432"
     healthcheck:
@@ -19,35 +19,53 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
       
+  # FastAPI后端服务
   backend:
     build: 
-      context: ../rag-evaluation-backend
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile.backend
+    container_name: rag-eval-backend
     volumes:
       - ../rag-evaluation-backend:/app
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/rag_evaluation
-      - POSTGRES_SERVER=db
+      - DATABASE_URL=postgresql://postgres:postgres@database:5432/rag_evaluation
+      - POSTGRES_SERVER=database
     ports:
       - "8000:8000"
     depends_on:
-      db:
+      database:
         condition: service_healthy
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
       
-  frontend:
+  # Caddy Web服务器
+  caddy:
     build:
-      context: ../rag-evaluation-frontend
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile.caddy
+    container_name: rag-eval-caddy
     volumes:
-      - ../docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - caddy_logs:/var/log/caddy
     ports:
-      - "3000:80"
+      - "801:80"
+      - "443:443"
     depends_on:
       - backend
     environment:
       - REACT_APP_API_URL=http://localhost:8000
+    restart: unless-stopped
 
 volumes:
   postgres_data:
+    name: rag-eval-postgres-data
+  caddy_data:
+    name: rag-eval-caddy-data
+  caddy_config:
+    name: rag-eval-caddy-config
+  caddy_logs:
+    name: rag-eval-caddy-logs

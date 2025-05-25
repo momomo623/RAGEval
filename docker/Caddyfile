@@ -1,0 +1,72 @@
+# Caddyfile - RAG评估系统Web服务器配置
+# 
+# 使用说明：
+# 1. 默认配置支持localhost访问
+# 2. 如需自定义域名，请取消注释并修改下方域名配置
+# 3. 生产环境建议使用自定义域名以启用HTTPS
+
+# 默认localhost配置（开发环境）
+localhost {
+    # API反向代理 - 匹配所有/api路径
+    handle /api/* {
+        reverse_proxy backend:8000
+    }
+    
+    # 静态文件服务
+    handle {
+        root * /usr/share/caddy
+        file_server
+        
+        # SPA路由支持（React Router等）
+        try_files {path} /index.html
+    }
+    
+    # 日志
+    log {
+        output file /var/log/caddy/access.log
+        format json
+    }
+}
+
+# 自定义域名配置（生产环境）
+# 使用时请取消注释并替换为你的域名
+# your-domain.com {
+#     # 自动HTTPS（Let's Encrypt）
+#     # Caddy会自动处理证书获取和续期
+#     
+#     # API反向代理 - 匹配所有/api路径
+#     handle /api/* {
+#         reverse_proxy backend:8000
+#     }
+#     
+#     # 静态文件服务
+#     handle {
+#         root * /usr/share/caddy
+#         file_server
+#         
+#         # SPA路由支持（React Router等）
+#         try_files {path} /index.html
+#     }
+#     
+#     # 安全头设置
+#     header {
+#         # 安全相关头部
+#         Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+#         X-Content-Type-Options "nosniff"
+#         X-Frame-Options "DENY"
+#         X-XSS-Protection "1; mode=block"
+#         Referrer-Policy "strict-origin-when-cross-origin"
+#         
+#         # 移除服务器信息
+#         -Server
+#     }
+#     
+#     # 压缩
+#     encode gzip
+#     
+#     # 日志
+#     log {
+#         output file /var/log/caddy/access.log
+#         format json
+#     }
+# } 

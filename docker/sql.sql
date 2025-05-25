@@ -48,6 +48,7 @@ comment on column public.users.updated_at is '最后更新时间';
 
 alter table public.users
     owner to postgres;
+INSERT INTO public.users VALUES ('5bddb026-0a9d-4a87-8958-d97860566dc9', 'admin@rag.com', '$2b$12$XsaDwLnTMhtvVihdFQnL8OJC6JW58x9RH47yqEThjp1IRL7Vt2Ama', 'RAGeval', 'RAGeval', NULL, NULL, true, true, '2025-03-31 01:28:56.314153+00', '2025-05-19 02:21:33.474012+00');
 
 create table public.api_keys
 (

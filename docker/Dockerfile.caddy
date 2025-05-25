@@ -1,0 +1,43 @@
+# 多阶段构建 - 构建前端
+FROM node:18-alpine AS frontend-builder
+
+# 设置工作目录
+WORKDIR /app
+
+# 设置npm镜像源
+RUN npm config set registry https://registry.npmmirror.com/
+
+# 复制package文件并安装依赖
+COPY ../rag-evaluation-frontend/package*.json ./
+RUN npm install
+
+# 复制源代码并构建
+COPY ../rag-evaluation-frontend/ .
+RUN npm run build
+
+# 生产阶段 - Caddy服务器
+FROM caddy:2-alpine
+
+# 安装必要的工具
+RUN apk add --no-cache curl
+
+# 从构建阶段复制前端构建产物
+COPY --from=frontend-builder /app/dist /usr/share/caddy
+
+
+# 创建日志目录并设置权限（使用数字ID）
+RUN mkdir -p /var/log/caddy && \
+    chown -R 1000:1000 /var/log/caddy && \
+    chown -R 1000:1000 /usr/share/caddy && \
+    chmod -R 755 /usr/share/caddy
+
+# 暴露端口
+EXPOSE 80 443
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:2019/metrics || exit 1
+
+
+# 启动Caddy
+CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"] 
