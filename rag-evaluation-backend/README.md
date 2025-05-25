@@ -1,4 +1,55 @@
-# RAG评测系统文件功能说明
+# 🔧 RAG评测系统后端 | Backend
+
+基于 FastAPI + Python 3.9+ 构建的高性能后端API服务，提供完整的RAG系统评测功能。
+
+## 🚀 快速开始
+
+### 环境要求
+- Python 3.9+
+- PostgreSQL 14+
+- Redis (可选，用于缓存)
+
+### 本地开发
+
+```bash
+# 1. 创建虚拟环境
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+# 或 venv\Scripts\activate  # Windows
+
+# 2. 安装依赖
+pip install -r requirements.txt
+
+# 3. 启动开发服务器
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+## 📁 项目结构
+
+```
+app/
+├── api/                 # API接口层
+│   ├── api_v1/         # API版本1
+│   │   └── endpoints/  # 具体接口端点
+│   ├── api.py          # 路由注册
+│   └── deps.py         # 依赖注入
+├── core/               # 核心配置
+│   ├── config.py       # 系统配置
+│   └── security.py     # 安全机制
+├── db/                 # 数据库相关
+│   ├── base.py         # 基础设置
+│   ├── create.sql      # 建表脚本
+│   ├── init_db.py      # 初始化脚本
+│   └── seed_db.py      # 数据填充
+├── models/             # 数据模型
+├── schemas/            # 数据模式
+├── services/           # 业务服务层
+├── utils/              # 工具模块
+├── main.py             # 应用入口
+└── requirements.txt    # 依赖列表
+```
+
+## 🧩 核心模块详细说明
 
 ## API层 (app/api/)
 
@@ -76,4 +127,31 @@
 
 - **requirements.txt**: 项目依赖列表，记录所有Python包依赖
 
-这个文件结构反映了一个组织良好的FastAPI应用，采用了清晰的分层架构（API层、服务层、数据层），便于维护和扩展。
+## 🎨 技术栈
+
+- **FastAPI**: 现代化、高性能的Python Web框架
+- **SQLAlchemy**: Python SQL工具包和对象关系映射(ORM)
+- **Pydantic**: 数据验证和设置管理库
+- **PostgreSQL**: 开源关系型数据库
+- **Uvicorn**: ASGI服务器实现
+- **JWT**: JSON Web Token用于身份验证
+- **Asyncio**: 异步编程支持
+
+## 🔧 核心功能
+
+### 🤖 AI智能功能
+- 集成多种大模型API (GPT、Claude等)
+- 基于文档的智能问答对生成
+- 自动评测引擎
+
+### 📊 评测功能
+- 多维度精度评测 (准确性、相关性、完整性)
+- 性能测试 (响应时间、并发测试、吞吐量)
+- 评测结果统计和分析
+
+### 🔐 安全特性
+- JWT身份验证
+- 密码哈希加密
+- API访问控制
+- 数据验证和清理
+
