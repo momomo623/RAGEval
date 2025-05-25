@@ -209,7 +209,7 @@ const ProviderPanel: React.FC = () => {
       defaultConfig = {
         ...defaultConfig,
         name: 'Dify-Chatflow',
-        url: 'https://localhost/v1/chat-messages',
+        url: 'http://localhost/v1/chat-messages',
       };
     }
     if (template.key === 'dify_flow') {
