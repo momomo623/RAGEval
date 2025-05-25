@@ -293,15 +293,15 @@ const Dashboard: React.FC = () => {
           handleEditProject(project);
         }
       },
-      {
-        key: 'duplicate',
-        icon: <CopyOutlined />,
-        label: '复制项目',
-        onClick: (e) => {
-          e.domEvent.stopPropagation(); // 阻止事件冒泡
-          handleDuplicateProject(project);
-        }
-      }
+      // {
+      //   key: 'duplicate',
+      //   icon: <CopyOutlined />,
+      //   label: '复制项目',
+      //   onClick: (e) => {
+      //     e.domEvent.stopPropagation(); // 阻止事件冒泡
+      //     handleDuplicateProject(project);
+      //   }
+      // }
     ];
 
     // 更多操作菜单项

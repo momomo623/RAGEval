@@ -1,4 +1,4 @@
-import { api } from '../../../src/utils/api';
+import { api } from '../../src/utils/api';
 import { message } from 'antd';
 
 // 数据集接口

@@ -31,7 +31,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactElement }) => {
 const AdminRoute = ({ children }: { children: React.ReactElement }) => {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  
+
   useEffect(() => {
     const checkAdminStatus = async () => {
       try {
@@ -44,18 +44,18 @@ const AdminRoute = ({ children }: { children: React.ReactElement }) => {
         setLoading(false);
       }
     };
-    
+
     checkAdminStatus();
   }, []);
-  
+
   if (loading) {
     return <div>加载中...</div>;
   }
-  
+
   if (!isAdmin) {
     return <Navigate to="/dashboard" replace />;
   }
-  
+
   return <MainLayout>{children}</MainLayout>;
 };
 
@@ -64,119 +64,119 @@ const AppRouter = () => {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
-        
+
         {/* 项目相关路由 */}
-        <Route 
-          path="/dashboard" 
+        <Route
+          path="/dashboard"
           element={
             <ProtectedRoute>
               <Dashboard />
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route 
-          path="/projects/create" 
+        <Route
+          path="/projects/create"
           element={
             <ProtectedRoute>
               <CreateProject />
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route 
-          path="/projects/:projectId/datasets" 
+        <Route
+          path="/projects/:projectId/select-datasets"
           element={
             <ProtectedRoute>
               <SelectDatasetsPage />
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route 
-          path="/projects/:id" 
+        <Route
+          path="/projects/:id"
           element={
             <ProtectedRoute>
               <ProjectDetailPage />
             </ProtectedRoute>
-          } 
+          }
         />
-        
+
         {/* 数据集相关路由 */}
-        <Route 
-          path="/datasets" 
+        <Route
+          path="/datasets"
           element={
             <ProtectedRoute>
               <DatasetsPage />
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route 
-          path="/datasets/create" 
+        <Route
+          path="/datasets/create"
           element={
             <ProtectedRoute>
               <CreateDatasetPage />
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route 
-          path="/datasets/:id" 
+        <Route
+          path="/datasets/:id"
           element={
             <ProtectedRoute>
               <DatasetDetailPage />
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route 
-          path="/datasets/:id/import" 
+        <Route
+          path="/datasets/:id/import"
           element={
             <ProtectedRoute>
               <ImportDataPage />
             </ProtectedRoute>
-          } 
+          }
         />
-        
+
         {/* 设置路由 */}
-        <Route 
-          path="/user/settings" 
+        <Route
+          path="/user/settings"
           element={
             <ProtectedRoute>
               <Settings />
             </ProtectedRoute>
-          } 
+          }
         />
-        
+
         {/* 管理员路由 */}
-        <Route 
-          path="/admin" 
+        <Route
+          path="/admin"
           element={
             <AdminRoute>
               <AdminDashboard />
             </AdminRoute>
-          } 
+          }
         />
-        <Route 
-          path="/admin/users" 
+        <Route
+          path="/admin/users"
           element={
             <AdminRoute>
               <UserManagement />
             </AdminRoute>
-          } 
+          }
         />
-        <Route 
-          path="/admin/datasets" 
+        <Route
+          path="/admin/datasets"
           element={
             <AdminRoute>
               <AllDatasets />
             </AdminRoute>
-          } 
+          }
         />
-        <Route 
-          path="/admin/projects" 
+        <Route
+          path="/admin/projects"
           element={
             <AdminRoute>
               <AllProjects />
             </AdminRoute>
-          } 
+          }
         />
-        
+
         {/* 默认路由 */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

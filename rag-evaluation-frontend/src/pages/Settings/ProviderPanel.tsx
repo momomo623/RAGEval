@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Modal, Form, Input, Select, Space, message, Popconfirm, Divider, Typography, Row, Col, Tooltip, Alert } from 'antd';
 import { PlusOutlined, DeleteOutlined, SettingOutlined, InfoCircleOutlined, QuestionCircleOutlined, DownOutlined, RightOutlined, ClearOutlined } from '@ant-design/icons';
-import ReactJson from 'react-json-view';
 import { RAG_TEMPLATES } from './RAGTemplates';
 import DifyChatflow from './RAGTemplates/Dify-CHATFLOW';
 import DifyFlow from './RAGTemplates/Dify-FLOW';
@@ -74,40 +73,6 @@ const logoStyle: React.CSSProperties = {
   borderRadius: 6,
   background: '#f5f6fa',
   boxShadow: '0 1px 4px #e0e0e0',
-};
-
-// JSON编辑器表单项
-const JsonEditorField: React.FC<{
-  value?: string;
-  onChange?: (v: string) => void;
-  placeholder?: string;
-  height?: number;
-}> = ({ value, onChange, placeholder, height = 120 }) => {
-  let json: any = {};
-  let error = false;
-  try {
-    json = value ? JSON.parse(value) : {};
-  } catch {
-    error = true;
-  }
-  return (
-    <div style={{ border: error ? '1px solid #ff4d4f' : '1px solid #d9d9d9', borderRadius: 4, padding: 4, background: '#fafafa', minHeight: height }}>
-      <ReactJson
-        src={json}
-        name={false}
-        displayDataTypes={false}
-        displayObjectSize={false}
-        enableClipboard={false}
-        style={{ fontSize: 13, background: 'transparent' }}
-        onEdit={e => onChange && onChange(JSON.stringify(e.updated_src, null, 2))}
-        onAdd={e => onChange && onChange(JSON.stringify(e.updated_src, null, 2))}
-        onDelete={e => onChange && onChange(JSON.stringify(e.updated_src, null, 2))}
-        collapsed={false}
-      />
-      {error && <div style={{ color: '#ff4d4f', fontSize: 12, marginTop: 4 }}>请输入有效的JSON格式</div>}
-      {!value && <div style={{ color: '#aaa', fontSize: 12, marginTop: 4 }}>{placeholder}</div>}
-    </div>
-  );
 };
 
 // 1. 新增：定义RagConfigModal组件，专门处理rag弹窗内容和保存
@@ -306,39 +271,6 @@ const ProviderPanel: React.FC = () => {
     }
   };
 
-  // 渲染表单内容
-  const renderFormFields = () => {
-    if (modalType === 'model') {
-      return <>
-        <Form.Item name="name" label={labelWithTip('配置名称', '自定义本配置的名称，便于区分多个模型账号')} rules={[{ required: true, message: '请输入配置名称' }]}> <Input placeholder="如：OpenAI主账号" /> </Form.Item>
-        <Form.Item name="baseUrl" label={labelWithTip('BASE_URL', 'OpenAI API的基础URL，如 https://api.openai.com/v1')} rules={[{ required: true, message: '请输入BASE_URL' }]}> <Input placeholder="https://api.openai.com/v1" /> </Form.Item>
-        <Form.Item name="apiKey" label={labelWithTip('API_KEY', 'OpenAI或兼容API的密钥')} rules={[{ required: true, message: '请输入API_KEY' }]}> <Input.Password placeholder="sk-..." /> </Form.Item>
-        <Form.Item name="modelName" label={labelWithTip('模型名称', '如gpt-4、deepseek等，具体见API文档')} rules={[{ required: true, message: '请输入模型名称' }]}> <Input placeholder="gpt-4" /> </Form.Item>
-        <Form.Item
-          name="additionalParams"
-          label={labelWithTip('高级参数(JSON)', '如temperature、max_tokens等，需为合法JSON格式')}
-          rules={[{
-            validator: (_, value) => {
-              if (!value) return Promise.resolve();
-              try { JSON.parse(value); return Promise.resolve(); } catch { return Promise.reject('请输入有效的JSON格式'); }
-            }
-          }]}
-          valuePropName="value"
-          getValueFromEvent={v => v}
-        >
-          <JsonEditorField
-            value={form.getFieldValue('additionalParams')}
-            onChange={v => form.setFieldsValue({ additionalParams: v })}
-            placeholder='{"temperature": 0.1}'
-     
-          />
-        </Form.Item>
-      </>;
-    } else if (modalType === 'rag') {
-      return null;
-    }
-    return null;
-  };
 
   return (
     <div style={{ width: '100%', height: '100%', overflow: 'hidden' }}>

@@ -136,7 +136,7 @@ export const executeRAGRequest = async (
                 buffer = lines.pop() || ''; // 保留可能不完整的最后一行
                 
                 for (const line of lines) {
-                  if (line.trim() === '' || !line.startsWith('data: ')) continue;
+                  if (line.trim() === '' || !line.startsWith('data:')) continue;
                   
                   try {
                     // 提取JSON部分，去掉"data: "前缀

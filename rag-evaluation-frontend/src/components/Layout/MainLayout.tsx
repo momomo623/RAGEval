@@ -103,7 +103,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         <div className={styles.headerContent}>
           <div className={styles.logoAndNav}>
             <div className={styles.logo} onClick={() => navigate('/dashboard')}>
-              RAG评测系统
+              <img src="/logo.png" alt="Logo" className={styles.logoImage} />
+              <span className={styles.logoText}>RAGEval</span>
             </div>
             <Menu
               mode="horizontal"
@@ -173,7 +174,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         </div>
       </Content>
       <Footer className={styles.footer}>
-        RAG评测系统 ©{new Date().getFullYear()} 版权所有
+        RAGEval ©{new Date().getFullYear()} 版权所有
       </Footer>
     </Layout>
   );

@@ -292,6 +292,7 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
               </>
             ) : (
               <>
+                <Select.Option value="0">0分</Select.Option>
                 <Select.Option value="1">1分</Select.Option>
                 <Select.Option value="2">2分</Select.Option>
                 <Select.Option value="3">3分</Select.Option>
@@ -558,15 +559,27 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
           <Col span={6}>
             <Card className={styles.metricCard}>
               <Statistic
+                title="成功数"
+                value={testData?.total_questions - testData?.failed_questions}
+                valueStyle={{ color: '#3f8600' }}
+              />
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card className={styles.metricCard}>
+              <Statistic
                 title="成功率"
-                value={testData?.total_questions ? ((testData?.success_questions / testData?.total_questions) * 100).toFixed(1) : 0}
+                value={testData?.total_questions ? (((testData?.total_questions-testData?.failed_questions) / testData?.total_questions) * 100).toFixed(1) : 0}
                 suffix="%"
                 precision={1}
                 valueStyle={{ color: '#3f8600' }}
               />
             </Card>
           </Col>
-          <Col span={6}>
+       
+              
+          
+          {/* <Col span={6}>
             <Card className={styles.metricCard}>
               <Statistic
                 title="失败率"
@@ -576,7 +589,7 @@ export const AccuracyTestDetail: React.FC<AccuracyTestDetailProps> = ({
                 valueStyle={{ color: '#cf1322' }}
               />
             </Card>
-          </Col>
+          </Col> */}
         </Row>
 
         <Divider>评测维度详情</Divider>
