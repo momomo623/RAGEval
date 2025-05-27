@@ -80,7 +80,12 @@ npm install
 # 5. 启动前端服务
 npm run dev
 
-# 6. 访问应用
+# 6. 数据库
+手动安装需要自行准备PostgreSQL数据库。然后执行SQL文件进行初始化：docker/sql.sql
+后端服务默认：数据库账户密码：postgres/postgres、数据库名：rag_evaluation
+后端配置路径：rag-evaluation-backend/app/core/config.py
+
+# 7. 访问应用
 http://localhost:5173
 ```
 

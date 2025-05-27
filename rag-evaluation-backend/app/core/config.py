@@ -80,5 +80,3 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-# 查找类似这样的代码
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@db:5432/rag_evaluation")
