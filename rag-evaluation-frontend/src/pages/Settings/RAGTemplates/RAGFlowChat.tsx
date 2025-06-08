@@ -187,6 +187,8 @@ const RAGFlowChat: React.FC<RAGFlowChatProps> = ({
           />
         </Form.Item>
 
+
+
         {/* 高级配置面板 */}
         <Collapse style={{ marginTop: 16 }}>
           <Panel header="高级配置" key="advanced">

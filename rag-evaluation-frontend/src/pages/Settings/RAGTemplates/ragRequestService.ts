@@ -31,10 +31,60 @@ function extractFromPath(obj: any, path: string): any {
 }
 
 /**
+ * 简单的协议适配：如果URL没有协议，添加http://
+ */
+function ensureProtocol(url: string): string {
+  if (url.includes('://')) {
+    return url;
+  }
+  return `http://${url}`;
+}
+
+/**
+ * 智能请求：先尝试直接请求，HTTPS->HTTP失败时自动使用代理
+ */
+async function smartFetch(url: string, options: RequestInit): Promise<Response> {
+  try {
+    // 第一次尝试：直接请求
+    return await fetch(url, options);
+  } catch (error: any) {
+    // 检查是否是HTTPS->HTTP的混合内容错误
+    const isHttpsPage = window.location.protocol === 'https:';
+    const isHttpRequest = url.startsWith('http://');
+    const isMixedContentError = isHttpsPage && isHttpRequest && 
+      (error.message?.includes('Mixed Content') || 
+       error.message?.includes('ERR_SSL_PROTOCOL_ERROR') ||
+       error.message?.includes('ERR_FAILED'));
+    
+    if (isMixedContentError) {
+      console.log('直接请求失败，使用后端代理:', url);
+      // 第二次尝试：使用后端代理
+      return await fetch('/api/v1/rag/proxy', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          url: url,
+          method: options.method || 'POST',
+          headers: Object.fromEntries(new Headers(options.headers).entries()),
+          body: options.body ? JSON.parse(options.body as string) : null,
+          timeout: 60
+        })
+      });
+    }
+    
+    // 如果不是混合内容错误，直接抛出原错误
+    throw error;
+  }
+}
+
+/**
  * RAGFlowClient类 - 用于与RAGFlow API进行交互
  *
  * 该类封装了与RAGFlow API的通信逻辑，使用OpenAI SDK进行流式请求。
  * 主要用于处理RAGFlow类型的聊天请求，并提供流式响应接口。
+ * 支持协议自适应，解决HTTPS环境下的混合内容问题。
  */
 class RAGFlowClient {
   /** OpenAI客户端实例 */
@@ -48,9 +98,10 @@ class RAGFlowClient {
    * @param {string} address - RAGFlow服务器地址
    * @param {string} chatId - 聊天ID
    * @param {string} apiKey - API密钥
+   * @param {string} protocol - 强制使用的协议 (http/https)，不指定则自动适配
    */
   constructor(address: string, chatId: string, apiKey: string) {
-    this.baseURL = `http://${address}/api/v1/chats_openai/${chatId}`;
+    this.baseURL = `${ensureProtocol(address)}/api/v1/chats_openai/${chatId}`;
     this.client = new OpenAI({
       apiKey,
       baseURL: this.baseURL,
@@ -61,7 +112,7 @@ class RAGFlowClient {
   /**
    * 流式聊天完成请求
    *
-   * 使用OpenAI SDK发送流式请求，并通过异步生成器返回响应内容。
+   * 先尝试使用OpenAI SDK直接请求，失败时自动使用代理模式。
    *
    * @param {string} question - 用户问题
    * @yields {string} 响应内容片段
@@ -69,7 +120,7 @@ class RAGFlowClient {
    */
   async* streamChatCompletion(question: string) {
     try {
-      // 创建流式请求
+      // 第一次尝试：使用OpenAI SDK直接请求
       const stream = await this.client.chat.completions.create({
         model: 'model',
         messages: [{ role: 'user', content: question }],
@@ -84,7 +135,86 @@ class RAGFlowClient {
         }
       }
     } catch (err: any) {
-      throw new Error(err.message || '请求异常');
+      // 检查是否是HTTPS->HTTP的混合内容错误
+      const isHttpsPage = window.location.protocol === 'https:';
+      const isHttpRequest = this.baseURL.startsWith('http://');
+      const isMixedContentError = isHttpsPage && isHttpRequest && 
+        (err.message?.includes('Mixed Content') || 
+         err.message?.includes('ERR_SSL_PROTOCOL_ERROR') ||
+         err.message?.includes('ERR_FAILED'));
+
+      if (isMixedContentError) {
+        console.log('RAGFlow直接请求失败，使用代理模式');
+        yield* this.streamCompletionViaProxy(question);
+      } else {
+        throw new Error(err.message || '请求异常');
+      }
+    }
+  }
+
+  /**
+   * 通过代理进行流式聊天完成请求
+   */
+  private async* streamCompletionViaProxy(question: string) {
+    const requestBody = {
+      model: 'model',
+      messages: [{ role: 'user', content: question }],
+      stream: true,
+    };
+
+    const response = await fetch('/api/v1/rag/proxy', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url: this.baseURL,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.client.apiKey}`,
+          'Accept': 'text/event-stream'
+        },
+        body: requestBody,
+        timeout: 60
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`代理请求失败: ${response.status}`);
+    }
+
+    // 处理流式响应
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+
+    if (!reader) {
+      throw new Error('无法读取响应流');
+    }
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      const lines = chunk.split('\n');
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6);
+          if (data === '[DONE]') continue;
+          
+          try {
+            const parsed = JSON.parse(data);
+            const content = parsed.choices?.[0]?.delta?.content || '';
+            if (content) {
+              yield content;
+            }
+          } catch (e) {
+            // 忽略解析错误
+          }
+        }
+      }
     }
   }
 }
@@ -178,6 +308,7 @@ export class RAGRequestService {
    * 自定义RAG系统流式请求
    *
    * 处理自定义RAG系统的请求，支持SSE流式响应和普通JSON响应。
+   * 增强HTTPS环境下的混合内容处理能力。
    *
    * @param {RAGConfig} config - 自定义RAG配置
    * @param {string} question - 用户问题
@@ -189,6 +320,9 @@ export class RAGRequestService {
     if (!config.url) {
       throw new Error('自定义RAG配置缺少URL');
     }
+
+    // 确保URL包含协议
+    let requestUrl = ensureProtocol(config.url);
 
     // 准备请求头
     const headers = typeof config.requestHeaders === 'string'
@@ -207,89 +341,110 @@ export class RAGRequestService {
 
     // 记录请求信息
     console.log(`发送自定义RAG请求:`, {
-      url: config.url,
+      originalUrl: config.url,
+      adaptedUrl: requestUrl,
       headers: Object.keys(headers),
-      hasAuthHeader: headers.Authorization ? '是' : '否'
+      hasAuthHeader: headers.Authorization ? '是' : '否',
+      currentProtocol: window.location.protocol
     });
 
-    // 发送请求
-    const response = await fetch(config.url, {
-      method: 'POST',
-      headers,
-      body: requestBody,
-    });
+    try {
+      // 使用智能请求：先直接请求，失败时自动代理
+      const response = await smartFetch(requestUrl, {
+        method: 'POST',
+        headers,
+        body: requestBody,
+      });
 
-    // 处理错误响应
-    if (!response.ok) {
-      let errMsg = `HTTP错误: ${response.status}`;
-      try {
-        const errJson = await response.json();
-        errMsg = errJson.message || errJson.error || errMsg;
-      } catch {}
-      throw new Error(errMsg);
-    }
-
-    // 处理成功响应
-    const contentType = response.headers.get('content-type') || '';
-    if (contentType.includes('text/event-stream')) {
-      // SSE流式处理
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder('utf-8');
-      let buffer = '';
-
-      if (!reader) {
-        throw new Error('无法读取响应流');
+      // 处理错误响应
+      if (!response.ok) {
+        let errMsg = `HTTP错误: ${response.status}`;
+        try {
+          const errJson = await response.json();
+          errMsg = errJson.message || errJson.error || errMsg;
+        } catch {}
+        throw new Error(errMsg);
       }
 
-      // 循环读取流数据
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      // 处理成功响应
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('text/event-stream')) {
+        // SSE流式处理
+        yield* this.handleStreamResponse(response, config);
+      } else {
+        // 非流式响应，一次性返回
+        yield* this.handleNonStreamResponse(response, config);
+      }
+      
+    } catch (error: any) {
+      throw error;
+    }
+  }
 
-        // 解码并处理数据
-        buffer += decoder.decode(value, { stream: true });
-        let lines = buffer.split('\n');
-        buffer = lines.pop() || '';
+  /**
+   * 处理流式响应
+   */
+  private async* handleStreamResponse(response: Response, config: RAGConfig) {
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let buffer = '';
 
-        // 处理每一行SSE数据
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const jsonStr = line.replace('data: ', '').trim();
-            if (jsonStr && jsonStr !== '[DONE]') {
-              try {
-                // 解析JSON数据
-                const eventData = JSON.parse(jsonStr);
+    if (!reader) {
+      throw new Error('无法读取响应流');
+    }
 
-                // 根据事件字段和值提取内容
-                if (
-                  config.streamEventField &&
-                  config.streamEventValue &&
-                  eventData[config.streamEventField] === config.streamEventValue
-                ) {
-                  // 提取内容块
-                  const chunkText = extractFromPath(eventData, config.responsePath || '') || '';
-                  if (chunkText) yield chunkText;
-                } else if (!config.streamEventField) {
-                  // 如果没有指定事件字段，直接从响应路径提取
-                  const chunkText = extractFromPath(eventData, config.responsePath || '') || '';
-                  if (chunkText) yield chunkText;
-                }
-              } catch (e) {
-                // 忽略解析失败的行
+    // 循环读取流数据
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      // 解码并处理数据
+      buffer += decoder.decode(value, { stream: true });
+      let lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      // 处理每一行SSE数据
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const jsonStr = line.replace('data: ', '').trim();
+          if (jsonStr && jsonStr !== '[DONE]') {
+            try {
+              // 解析JSON数据
+              const eventData = JSON.parse(jsonStr);
+
+              // 根据事件字段和值提取内容
+              if (
+                config.streamEventField &&
+                config.streamEventValue &&
+                eventData[config.streamEventField] === config.streamEventValue
+              ) {
+                // 提取内容块
+                const chunkText = extractFromPath(eventData, config.responsePath || '') || '';
+                if (chunkText) yield chunkText;
+              } else if (!config.streamEventField) {
+                // 如果没有指定事件字段，直接从响应路径提取
+                const chunkText = extractFromPath(eventData, config.responsePath || '') || '';
+                if (chunkText) yield chunkText;
               }
+            } catch (e) {
+              // 忽略解析失败的行
             }
           }
         }
       }
+    }
+  }
+
+  /**
+   * 处理非流式响应
+   */
+  private async* handleNonStreamResponse(response: Response, config: RAGConfig) {
+    const data = await response.json();
+    const result = extractFromPath(data, config.responsePath || '');
+    if (result) {
+      yield result;
     } else {
-      // 非流式响应，一次性返回
-      const data = await response.json();
-      const result = extractFromPath(data, config.responsePath || '');
-      if (result) {
-        yield result;
-      } else {
-        throw new Error('响应数据格式无效');
-      }
+      throw new Error('响应数据格式无效');
     }
   }
 

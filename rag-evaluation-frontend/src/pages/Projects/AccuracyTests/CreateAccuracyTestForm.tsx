@@ -33,6 +33,8 @@ export const CreateAccuracyTestForm: React.FC<CreateAccuracyTestFormProps> = ({
   const [versions, setVersions] = useState<any[]>([]);
   const [versionLoading, setVersionLoading] = useState(false);
   
+
+  
   // 默认的自定义提示词模板
   const defaultCustomPromptTemplate = `你是一个专业的RAG系统评估专家。请根据问题、参考答案和RAG系统的回答，评估回答的质量。
 
@@ -179,7 +181,7 @@ evaluation_reason: |
       const response = await accuracyService.create(data);
       message.success('精度测试创建成功');
       onSuccess(response.id);
-    } catch (error) {
+    } catch (error: any) {
       console.error('创建精度测试失败:', error);
       message.error('创建精度测试失败: ' + (error.message || '未知错误'));
     } finally {
