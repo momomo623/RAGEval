@@ -298,39 +298,45 @@ export class RAGRequestService {
    *
    * 处理Dify Chatflow类型的请求，将其转换为自定义RAG请求。
    * 自动处理Dify的授权头，使用Bearer Token格式。
+   * 使用统一的配置格式，与CustomRAG保持一致。
    *
-   * @param {RAGConfig} config - Dify Chatflow配置
+   * @param {any} config - Dify Chatflow配置
    * @param {string} question - 用户问题
    * @yields {string} 响应内容片段
    */
-  private async* streamDifyChatflow(config: RAGConfig, question: string) {
-    // 组装请求体
-    const requestTemplate = {
-      "inputs": {},
-      "query": "{{question}}",
-      "response_mode": "streaming",
-      "conversation_id": "",
-      "user": "user-" + Date.now().toString()
-    };
-
-    // 准备请求头 - 使用Bearer Token格式
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json"
-    };
+  private async* streamDifyChatflow(config: any, question: string) {
+    // 解析请求头
+    let headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (config.requestHeaders) {
+      try {
+        const customHeaders = typeof config.requestHeaders === 'string'
+          ? JSON.parse(config.requestHeaders)
+          : config.requestHeaders;
+        Object.assign(headers, customHeaders);
+      } catch (e) {
+        console.warn('解析requestHeaders失败，使用默认值:', e);
+      }
+    }
 
     // 添加Authorization头
     if (config.apiKey) {
       headers["Authorization"] = `Bearer ${config.apiKey}`;
     }
 
-    // 组装自定义配置
+    // 组装自定义配置，使用统一格式
     const customConfig: any = {
       ...config,
-      requestTemplate: JSON.stringify(requestTemplate),
       requestHeaders: JSON.stringify(headers),
-      responsePath: "answer",
-      streamEventField: "event",
-      streamEventValue: "message"
+      requestTemplate: config.requestTemplate || JSON.stringify({
+        "inputs": {},
+        "query": "{{question}}",
+        "response_mode": "streaming",
+        "conversation_id": "",
+        "user": "user-" + Date.now().toString()
+      }),
+      responsePath: config.responsePath || "answer",
+      streamEventField: config.streamEventField || "event",
+      streamEventValue: config.streamEventValue || "message"
     };
 
     // 调用通用自定义RAG请求
@@ -342,49 +348,50 @@ export class RAGRequestService {
    *
    * 处理Dify Flow类型的请求，将其转换为自定义RAG请求。
    * 自动处理Dify的授权头，使用Bearer Token格式。
+   * 使用统一的配置格式，与CustomRAG保持一致。
    *
    * @param {any} config - Dify Flow配置
    * @param {string} question - 用户问题
    * @yields {string} 响应内容片段
    */
   private async* streamDifyFlow(config: any, question: string) {
-    // 组装inputs字段
-    let inputs = { query: "{{question}}" };
-    if (config.inputs) {
+    // 解析请求头
+    let headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (config.requestHeaders) {
       try {
-        inputs = typeof config.inputs === 'string'
-          ? JSON.parse(config.inputs)
-          : config.inputs;
+        const customHeaders = typeof config.requestHeaders === 'string'
+          ? JSON.parse(config.requestHeaders)
+          : config.requestHeaders;
+        Object.assign(headers, customHeaders);
       } catch (e) {
-        console.warn('解析inputs失败，使用默认值:', e);
+        console.warn('解析requestHeaders失败，使用默认值:', e);
       }
     }
-
-    // 组装请求体
-    const requestTemplate = {
-      "inputs": inputs,
-      "response_mode": "streaming",
-      "user": "user-" + Date.now().toString()
-    };
-
-    // 准备请求头 - 使用Bearer Token格式
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json"
-    };
 
     // 添加Authorization头
     if (config.apiKey) {
       headers["Authorization"] = `Bearer ${config.apiKey}`;
     }
 
-    // 组装自定义配置
+    // 如果没有requestTemplate，使用inputField自动生成
+    let requestTemplate = config.requestTemplate;
+    if (!requestTemplate || requestTemplate === '') {
+      const field = config.inputField || 'query';
+      requestTemplate = JSON.stringify({
+        "inputs": { [field]: "{{question}}" },
+        "response_mode": "streaming",
+        "user": "user-" + Date.now().toString()
+      });
+    }
+
+    // 组装自定义配置，使用统一格式
     const customConfig: any = {
       ...config,
-      requestTemplate: JSON.stringify(requestTemplate),
       requestHeaders: JSON.stringify(headers),
-      responsePath: "data.text",
-      streamEventField: "event",
-      streamEventValue: "text_chunk"
+      requestTemplate: requestTemplate,
+      responsePath: config.responsePath || "data.text",
+      streamEventField: config.streamEventField || "event",
+      streamEventValue: config.streamEventValue || "text_chunk"
     };
 
     // 调用通用自定义RAG请求
