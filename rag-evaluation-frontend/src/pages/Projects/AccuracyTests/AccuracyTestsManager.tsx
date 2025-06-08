@@ -50,8 +50,8 @@ export const AccuracyTestsManager: React.FC<AccuracyTestsManagerProps> = ({ proj
     // 使用ConfigManager检查RAG系统配置
     const checkRAGConfig = async () => {
       const configManager = ConfigManager.getInstance();
-      const configs = await configManager.getAllConfigs<RAGConfig>('rag');
-      setIsConfigured(configs.length > 0);
+      const models = await configManager.getAllConfigs<ModelConfig>('model');
+      setIsConfigured(models.length > 0);
     };
 
     checkRAGConfig();

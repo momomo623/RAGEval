@@ -2,13 +2,6 @@ import OpenAI from 'openai';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions/completions';
 import { ConfigManager, ModelConfig } from '@utils/configManager';
 
-export interface LLMRequestParams {
-  baseUrl: string;
-  apiKey: string;
-  modelName: string;
-  messages?: ChatCompletionMessageParam[];
-  additionalParams?: Record<string, any>;
-}
 
 // LLMClient 类，支持 openai 及硅基流动
 export class LLMClient {

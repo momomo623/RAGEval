@@ -251,7 +251,7 @@ export const CreateAccuracyTestForm: React.FC<CreateAccuracyTestFormProps> = ({
             <Select placeholder="请选择评分方法">
               <Option value="binary">二元评分（正确/错误）</Option>
               <Option value="three_scale">三分量表（0-2分）</Option>
-              <Option value="five_scale">五分量表（1-5分）</Option>
+              <Option value="five_scale">五分量表（0-4分）</Option>
             </Select>
           </Form.Item>
           
