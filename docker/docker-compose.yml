@@ -52,8 +52,8 @@ services:
       - caddy_config:/config
       - caddy_logs:/var/log/caddy
     ports:
-      - "801:80"
-      - "443:443"
+      - "80:80"        # HTTP端口
+      - "443:443"      # HTTPS端口
     depends_on:
       - backend
     environment:
