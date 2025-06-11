@@ -1,12 +1,17 @@
 # Caddyfile - RAG评估系统Web服务器配置
 # 
 # 使用说明：
-# 1. 默认配置支持localhost访问
-# 2. 如需自定义域名，请取消注释并修改下方域名配置
+# 1. 支持HTTP和HTTPS两种协议
+# 2. HTTP用于本地开发，HTTPS用于生产环境
 # 3. 生产环境建议使用自定义域名以启用HTTPS
 
-# 默认localhost配置（开发环境）
-localhost {
+# 全局选项 - 禁用自动HTTPS重定向
+{
+    auto_https off
+}
+
+# HTTP配置（本地开发环境）
+http://localhost {
     # API反向代理 - 匹配所有/api路径
     handle /api/* {
         reverse_proxy backend:8000
@@ -23,7 +28,31 @@ localhost {
     
     # 日志
     log {
-        output file /var/log/caddy/access.log
+        output file /var/log/caddy/http-access.log
+        format json
+    }
+}
+
+# HTTPS配置（生产环境）
+https://localhost {
+    # 使用自签名证书（开发环境）
+    tls internal
+    
+    # API反向代理
+    handle /api/* {
+        reverse_proxy backend:8000
+    }
+    
+    # 静态文件服务
+    handle {
+        root * /usr/share/caddy
+        file_server
+        try_files {path} /index.html
+    }
+    
+    # 日志
+    log {
+        output file /var/log/caddy/https-access.log
         format json
     }
 }
@@ -32,9 +61,8 @@ localhost {
 # 使用时请取消注释并替换为你的域名
 # your-domain.com {
 #     # 自动HTTPS（Let's Encrypt）
-#     # Caddy会自动处理证书获取和续期
 #     
-#     # API反向代理 - 匹配所有/api路径
+#     # API反向代理
 #     handle /api/* {
 #         reverse_proxy backend:8000
 #     }
@@ -43,21 +71,16 @@ localhost {
 #     handle {
 #         root * /usr/share/caddy
 #         file_server
-#         
-#         # SPA路由支持（React Router等）
 #         try_files {path} /index.html
 #     }
 #     
 #     # 安全头设置
 #     header {
-#         # 安全相关头部
 #         Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
 #         X-Content-Type-Options "nosniff"
 #         X-Frame-Options "DENY"
 #         X-XSS-Protection "1; mode=block"
 #         Referrer-Policy "strict-origin-when-cross-origin"
-#         
-#         # 移除服务器信息
 #         -Server
 #     }
 #     
@@ -66,7 +89,7 @@ localhost {
 #     
 #     # 日志
 #     log {
-#         output file /var/log/caddy/access.log
+#         output file /var/log/caddy/production-access.log
 #         format json
 #     }
 # } 
