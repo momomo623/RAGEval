@@ -25,8 +25,8 @@ class Settings(BaseSettings):
     
     # 数据库设置
     POSTGRES_SERVER: str = os.getenv("POSTGRES_SERVER", "localhost")  # 默认是localhost，Docker环境通过环境变量覆盖
-    POSTGRES_USER: str = "postgres"
-    POSTGRES_PASSWORD: str = "postgres"
+    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "postgres")
+    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "postgres")
     POSTGRES_DB: str = "rag_evaluation"
     DATABASE_URI: Optional[PostgresDsn] = None
 
