@@ -1,5 +1,5 @@
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 import uuid
 
@@ -45,18 +45,7 @@ class ProjectOut(ProjectBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
-
-        @classmethod
-        def get_validators(cls):
-            yield cls.validate_to_json
-
-        @classmethod
-        def validate_to_json(cls, value):
-            if isinstance(value, StringUUID):
-                return str(value)
-            return value
+    model_config = ConfigDict(from_attributes=True)
 
 class ProjectDetail(ProjectOut):
     datasets: List[Dict[str, Any]] = []

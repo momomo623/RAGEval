@@ -24,25 +24,41 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8天
     
     # 数据库设置
-    POSTGRES_SERVER: str = os.getenv("POSTGRES_SERVER", "localhost")  # 默认是localhost，Docker环境通过环境变量覆盖
+    # 优先读取 DATABASE_URL（常见命名），否则用 POSTGRES_* 组装
+    POSTGRES_SERVER: str = os.getenv("POSTGRES_SERVER", "localhost")
+    POSTGRES_PORT: int = int(os.getenv("POSTGRES_PORT", "5432"))
     POSTGRES_USER: str = os.getenv("POSTGRES_USER", "postgres")
     POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "postgres")
-    POSTGRES_DB: str = "rag_evaluation"
+    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "rag_evaluation")
+    # 兼容常见变量名 DATABASE_URL
+    DATABASE_URL: Optional[str] = os.getenv("DATABASE_URL")
     DATABASE_URI: Optional[PostgresDsn] = None
 
     @field_validator("DATABASE_URI", mode="before")
     @classmethod
     def assemble_db_connection(cls, v: Optional[str], info) -> Any:
-        if isinstance(v, str):
+        # 如果显式提供（或通过 DATABASE_URL 注入）则直接返回
+        if isinstance(v, str) and v:
             return v
-            
+
         values = info.data
+        # 优先使用 DATABASE_URL（如果设置）
+        database_url_env = values.get("DATABASE_URL")
+        if isinstance(database_url_env, str) and database_url_env:
+            return database_url_env
+
+        # 通过 POSTGRES_* 组装连接串
         db_name = values.get('POSTGRES_DB', '')
+        host = values.get("POSTGRES_SERVER")
+        port = values.get("POSTGRES_PORT")
+        # pydantic 的 PostgresDsn.build 需要 path 以 '/' 开头
         return PostgresDsn.build(
             scheme="postgresql",
             username=values.get("POSTGRES_USER"),
             password=values.get("POSTGRES_PASSWORD"),
-            host=values.get("POSTGRES_SERVER"),
+            host=f"{host}:{port}" if port else host,
+            # 注意：PostgresDsn.build 会自动为 path 添加前导 '/'
+            # 这里传入不带前导斜杠的数据库名，避免出现 '//rag_evaluation'
             path=f"{db_name}"
         )
     

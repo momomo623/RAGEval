@@ -2,7 +2,7 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 import uuid
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
 
 class UserBase(BaseModel):
     email: Optional[EmailStr] = None
@@ -28,8 +28,7 @@ class UserOut(UserBase):
     created_at: datetime
     updated_at: datetime
     
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -64,5 +63,4 @@ class ApiKeyOut(ApiKeyBase):
     created_at: datetime
     updated_at: datetime
     
-    class Config:
-        orm_mode = True 
+    model_config = ConfigDict(from_attributes=True)

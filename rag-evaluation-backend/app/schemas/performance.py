@@ -1,5 +1,5 @@
 from typing import Optional, List, Dict, Any, Union
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 import uuid
 
@@ -37,8 +37,7 @@ class PerformanceTestInDBBase(PerformanceTestBase):
     failed_questions: int
     summary_metrics: Dict[str, Any]
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class PerformanceTestOut(PerformanceTestInDBBase):
     pass

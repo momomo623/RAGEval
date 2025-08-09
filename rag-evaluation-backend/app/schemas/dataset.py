@@ -1,6 +1,6 @@
 from typing import Optional, List, Dict, Any
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from uuid import UUID
 
 # 基础数据集模型
@@ -31,34 +31,20 @@ class DatasetOut(DatasetBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
-        
-        # 添加模型验证器，确保UUID被正确转换为字符串
-        @classmethod
-        def get_validators(cls):
-            yield cls.validate_to_json
-
-        @classmethod
-        def validate_to_json(cls, value):
-            if isinstance(value, UUID):
-                return str(value)
-            return value
+    model_config = ConfigDict(from_attributes=True)
 
 # 数据集详情响应模型
 class DatasetDetail(DatasetOut):
     projects: List[Dict[str, str]] = []
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # 项目-数据集关联模型
 class ProjectDatasetLink(BaseModel):
     project_id: str
     dataset_id: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # 批量关联数据集请求
 class BatchLinkDatasets(BaseModel):

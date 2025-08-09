@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List, Dict, Any, Optional, Union
-from pydantic import BaseModel, Field, validator, constr
+from pydantic import BaseModel, Field, validator, constr, ConfigDict
 from uuid import UUID
 
 # 基础模型
@@ -16,8 +16,7 @@ class AccuracyTestBase(BaseModel):
     model_config_test: Optional[Dict[str, Any]] = None
     batch_settings: Optional[Dict[str, Any]] = None
     
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 # 创建请求
 class AccuracyTestCreate(AccuracyTestBase):
@@ -33,8 +32,7 @@ class AccuracyTestCreateResponse(AccuracyTestBase):
     created_at: datetime
     total_questions: int = 0
     
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 # 测试详情
 class AccuracyTestDetail(AccuracyTestCreateResponse):
@@ -45,8 +43,7 @@ class AccuracyTestDetail(AccuracyTestCreateResponse):
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 # 测试进度
 class AccuracyTestProgress(BaseModel):
@@ -57,8 +54,7 @@ class AccuracyTestProgress(BaseModel):
     failed: int
     status: str
     
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 # 评测项创建请求
 class AccuracyTestItemCreate(BaseModel):
@@ -67,8 +63,7 @@ class AccuracyTestItemCreate(BaseModel):
     rag_answer_id: UUID
     sequence_number: Optional[int] = None
     
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 # AI评测结果
 class AIEvaluationResult(BaseModel):
@@ -116,8 +111,7 @@ class AccuracyTestItemDetail(BaseModel):
     reference_answer: Optional[str] = None
     rag_answer_content: Optional[str] = None
     
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 # 人工评测任务创建
 class HumanAssignmentCreate(BaseModel):
@@ -142,8 +136,7 @@ class HumanAssignmentDetail(BaseModel):
     last_activity_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 # 开始测试请求
 class StartAccuracyTestRequest(BaseModel):
@@ -160,8 +153,7 @@ class GetTestItemsRequest(BaseModel):
 class InterruptTestRequest(BaseModel):
     reason: str = Field(..., description="中断原因")
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class AccuracyTest(BaseModel):
     id: UUID
@@ -188,5 +180,4 @@ class AccuracyTest(BaseModel):
     completed_at: Optional[datetime] = None
     created_by: Optional[UUID] = None
 
-    class Config:
-        from_attributes = True 
+    model_config = ConfigDict(from_attributes=True)

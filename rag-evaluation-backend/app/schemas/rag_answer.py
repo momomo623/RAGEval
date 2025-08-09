@@ -1,5 +1,5 @@
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 import uuid
 
@@ -13,10 +13,8 @@ class RagAnswerBase(BaseModel):
     character_count: Optional[int] = None
     version: Optional[str] = "v1"  # 默认版本为v1
 
-    class Config:
-        fields = {
-            "answer": "answer"
-        }
+    # v1 的 Config.fields 已移除，当前无需别名映射，保留原字段名即可
+    model_config = ConfigDict(from_attributes=True)
 
 class RagAnswerCreate(RagAnswerBase):
     raw_response: Optional[Dict[str, Any]] = None
@@ -38,8 +36,7 @@ class RagAnswerInDBBase(RagAnswerBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class RagAnswerOut(RagAnswerInDBBase):
     pass
@@ -94,5 +91,4 @@ class RAGAnswerWithQuestion(BaseModel):
     success: bool = False
     sequence_number: Optional[int] = None
     
-    class Config:
-        orm_mode = True 
+    model_config = ConfigDict(from_attributes=True)

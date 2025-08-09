@@ -1,5 +1,5 @@
 from typing import Optional, List, Dict, Any, Union
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 import uuid
 
@@ -39,8 +39,7 @@ class RagAnswerOut(BaseModel):
     characters_per_second: Optional[float] = None
     created_at: Optional[datetime] = None
     
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 # 然后修改 QuestionOut 模型
 class QuestionOut(QuestionBase):
@@ -50,8 +49,7 @@ class QuestionOut(QuestionBase):
     updated_at: datetime
     rag_answers: Optional[List[RagAnswerOut]] = []
     
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 # 批量创建问题请求
 class QuestionBatchCreate(BaseModel):
@@ -80,8 +78,7 @@ class BatchDeleteRequest(BaseModel):
     """批量删除问题的请求模型"""
     question_ids: List[str]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # 添加导入问题时包含RAG回答的模型
 class QuestionImportWithRagAnswer(QuestionBase):
